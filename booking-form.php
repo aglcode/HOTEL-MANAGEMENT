@@ -675,14 +675,6 @@ function checkStep2Completion() {
     const address = document.querySelector('input[name="address"]').value;
     const age = document.querySelector('input[name="age"]').value;
     const numPeople = document.querySelector('input[name="num_people"]').value;
-    
-    if (guestName && telephone && address && age >= 18 && numPeople >= 1) {
-        step2Complete = true;
-        enablePaymentInfoSection();
-    } else {
-        step2Complete = false;
-        disablePaymentSection();
-    }
 }
 
 // Enable payment information section
@@ -719,7 +711,7 @@ function selectPayment(method) {
         document.getElementById('cash_section').classList.remove('d-none');
         document.getElementById('payment_mode').value = 'Cash';
         
-        // Enable cash inputs
+        // Enable cash inputs 
         document.querySelectorAll('#cash_section input').forEach(input => {
             input.disabled = false;
         });
