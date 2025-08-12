@@ -1,0 +1,299 @@
+body {
+    display: flex;
+    background: #f0f2f5;
+    font-family: 'Poppins', sans-serif;
+    color: #1a1a1a;
+}
+/* Navigation Bar */
+.sidebar {
+    width: 280px;
+    height: 100vh;
+    background: linear-gradient(180deg, #1a237e, #0d47a1);
+    color: white;
+    position: fixed;
+    padding-top: 20px;
+    transition: all 0.3s ease-in-out;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+.sidebar .user-info {
+    text-align: center;
+    margin-bottom: 20px;
+}
+.sidebar .user-info i {
+    font-size: 60px;
+    animation: fadeIn 1s ease-in-out;
+}
+.sidebar a {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    padding: 15px 25px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.3s ease-in-out;
+    border-radius: 0 30px 30px 0;
+    margin: 5px 0;
+    font-weight: 500;
+}
+.sidebar a:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    padding-left: 35px;
+}
+
+.sidebar a.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+.content {
+    margin-left: 280px;
+    padding: 30px;
+    width: calc(100% - 280px);
+    transition: all 0.3s ease-in-out;
+    min-height: 100vh;
+    background: #f8f9fa;
+}
+.sidebar-toggle {
+    display: none;
+    position: fixed;
+    left: 20px;
+    top: 20px;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 1000;
+}
+.sidebar-toggle.open {
+    transform: rotate(90deg);
+}
+@media (max-width: 768px) {
+    .sidebar {
+        width: 200px;
+        position: fixed;
+        left: -200px;
+        transition: left 0.3s ease;
+    }
+    .sidebar.active {
+        left: 0;
+    }
+    .sidebar-toggle {
+        display: block;
+    }
+    .content {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* user management */
+.content {
+    margin-left: 260px;
+    padding: 20px;
+}
+.table-container {
+    margin-top: 20px;
+}
+.form-container {
+    margin-top: 20px;
+}
+
+ /* Enhanced Card Styling */
+ .room-card.card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    background-color: #ffffff;
+    overflow: hidden;
+}
+
+.card-header {
+    border-bottom: none;
+    padding: 1.25rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.card-header-available-rooms{
+    color: white;
+    font-size: 1.25rem;
+    font-weight: bold;
+    text-align: center;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    padding: 15px;
+}
+
+.list-group-item {
+    font-size: 1.1rem;
+    padding: 10px 20px;
+    border: none;
+    background-color: #f9f9f9;
+    border-bottom: 1px solid #ddd;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+
+.list-group-item:hover {
+    background-color: #ecf0f1;
+    cursor: pointer;
+}
+
+.list-group-item strong {
+    color: #2c3e50;
+}
+
+.card {
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.announcement-item {
+    transition: all 0.3s ease;
+    background-color: #fff;
+}
+
+.announcement-item:hover {
+    background-color: #f8f9fa;
+}
+
+.announcement-item:last-child {
+    border-bottom: none !important;
+}
+
+.btn-outline-danger {
+    opacity: 0.7;
+    transition: all 0.3s ease;
+}
+
+.announcement-item:hover .btn-outline-danger {
+    opacity: 1;
+}
+
+.form-control {
+    border: 1px solid #e0e0e0;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #1a237e;
+    box-shadow: 0 0 0 0.2rem rgba(26, 35, 126, 0.15);
+}
+
+.form-label {
+    font-weight: 500;
+    color: #444;
+    margin-bottom: 0.5rem;
+}
+
+/* Hover effects for each card */
+.card.total-rooms:hover {
+    background-color: #2ecc71; /* Green */
+    transform: translateY(-10px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.card.available-rooms:hover {
+    background-color: #f39c12; /* Yellow */
+    transform: translateY(-10px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.card.booked-rooms:hover {
+    background-color: #e74c3c; /* Red */
+    transform: translateY(-10px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.card.maintenance-rooms:hover {
+    background-color: #ea0202; /* Purple */
+    transform: translateY(-10px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.total-rooms {
+    background-color: green;
+    color: white;
+}
+
+.available-rooms {
+    background-color: yellow;
+    color: black;
+}
+
+.booked-rooms {
+    background-color: orange;
+    color: white;
+}
+
+.maintenance-rooms {
+    background-color: red;
+    color: white;
+}
+
+.clock-box {
+    padding: 10px 20px;
+    background-color: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+#currentDate {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+#currentTime {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #1a237e;
+}
+  
+  .offcanvas-body {
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+  
+  .card-hover {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.card-hover:hover {
+    transform: scale(1.02);
+}
+.calendar-date {
+    background-color: #ffc2c2;
+    border-radius: 5px;
+    padding: 5px;
+    margin: 2px;
+}
+
+.table th, .table td {
+text-align: center;
+vertical-align: middle;
+}
+
+.table td a {
+margin-right: 5px;
+}
+
+.btn {
+font-size: 0.9rem;
+padding: 5px 10px;
+}
