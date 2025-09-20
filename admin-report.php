@@ -123,7 +123,7 @@ $conn->close();
   <a href="admin-report.php"><i class="fa-solid fa-chart-line"></i> Reports</a>
   <a href="admin-supplies.php"><i class="fa-solid fa-boxes-stacked"></i> Supplies</a>
   <a href="admin-inventory.php" class="active"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
-  <a href="#" class="mt-auto text-danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+  <a href="admin-logout.php" class="mt-auto text-danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
     </div>
 
 <<div class="content p-4">

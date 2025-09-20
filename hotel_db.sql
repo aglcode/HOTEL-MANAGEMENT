@@ -63,6 +63,32 @@ INSERT INTO `bookings` (`id`, `guest_name`, `email`, `address`, `telephone`, `ag
 	(10, 'Maria', 'calopez@ccc.edu.ph', 'Calamba City, Laguna', '09123456789', 21, 1, '103', '12', '0', '12456542566', 'BK202508083EAAF8', 1100, 1100, 0, '2025-08-08 20:00:00', '2025-08-09 08:00:00', 'cancelled', '2025-08-08 11:14:56', 'The guest didn\'t go at the right time and date', '2025-08-12 17:07:23'),
 	(13, 'elvin', 'erreyes@ccc.edu.ph', 'halang', '09761090017', 51, 1, '101', '48', 'Cash', '', 'BK20250811F04207', 130, 120, 10, '2025-08-12 15:15:00', '2025-08-14 15:15:00', 'cancelled', '2025-08-11 07:17:35', 'Didn\'t go at the right time', '2025-08-12 17:19:59');
 
+
+-- Dumping structure for table hotel_db.rooms
+CREATE TABLE IF NOT EXISTS `rooms` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `room_number` int NOT NULL,
+  `room_type` enum('single','twin_room','standard_room','studio','suite','queen_room','executive_room','suites','accessible_room','hollywood_twin_room','king_room','studio_hotel_rooms','villa','double_hotel_rooms','honeymoon_suite','penthouse_suite','single_hotel_rooms','adjoining_room','presidential_suite','connecting_rooms','quad_room','deluxe_room','double_room','triple_room') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `status` enum('available','booked','maintenance') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'available',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `price_3hrs` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `price_6hrs` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `price_12hrs` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `price_24hrs` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `price_ot` decimal(10,2) NOT NULL DEFAULT '0.00',
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `room_number` (`room_number`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Dumping data for table hotel_db.rooms: ~2 rows (approximately)
+INSERT INTO `rooms` (`id`, `room_number`, `room_type`, `status`, `created_at`, `updated_at`, `price_3hrs`, `price_6hrs`, `price_12hrs`, `price_24hrs`, `price_ot`) VALUES
+	(1, 101, 'standard_room', 'available', '2025-04-26 16:34:08', '2025-08-11 07:44:12', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+	(2, 102, 'standard_room', 'available', '2025-04-26 17:37:56', '2025-08-08 11:34:02', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+	(10, 103, 'standard_room', 'available', '2025-04-28 16:01:31', '2025-08-08 05:46:13', 300.00, 750.00, 1100.00, 1500.00, 120.00),
+	(12, 104, 'standard_room', 'available', '2025-04-29 13:29:43', '2025-05-02 17:18:40', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+	(13, 106, 'twin_room', 'available', '2025-05-07 06:15:36', '2025-06-24 04:56:41', 400.00, 750.00, 1100.00, 1500.00, 120.00);
+
 -- Dumping structure for table hotel_db.checkins
 CREATE TABLE IF NOT EXISTS `checkins` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -150,6 +176,27 @@ CREATE TABLE IF NOT EXISTS `payments` (
 
 -- Dumping data for table hotel_db.payments: ~0 rows (approximately)
 
+
+-- Dumping structure for table hotel_db.users
+CREATE TABLE IF NOT EXISTS `users` (
+  `user_id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `username` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role` enum('Admin','Receptionist','Guest') NOT NULL,
+  `status` enum('pending','approved','denied') DEFAULT 'pending',
+  PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Dumping data for table hotel_db.users: ~4 rows (approximately)
+INSERT INTO `users` (`user_id`, `name`, `username`, `email`, `password`, `role`, `status`) VALUES
+	(1, 'Sung Jin-woo', 'jinwhoo', 'example@email.com', '$2y$10$SWb8Zhwunhl3t7HHsLst.O31OwvI1Tie5xsX.kVKPV0KnG5ok7JOm', 'Admin', 'approved'),
+	(2, 'Baki Hanma', 'bakii', 'example@email.com', '$2y$10$zKqannJ7cL97TAumEeByUukNozIwEb.AGsP//jD7Fmgo0CPyL2Q6K', 'Receptionist', 'approved'),
+	(3, 'Megumi Fushiguro', 'meg_umi', 'example@email.com', '$2y$10$YQ3y5JtTR65YitLygESF3.GuuqddiFkikr5byhF0/GSUINDZf1lwO', 'Receptionist', 'approved'),
+	(9, 'Angel', 'angels', 'example@email.com', '$2y$10$H6tYQO141eRMx/Mv559Ru.RMW6BP.Y3wgC3ayrKZnM0CqMXMuSKIe', 'Receptionist', 'approved');
+
+
 -- Dumping structure for table hotel_db.receptionist_profiles
 CREATE TABLE IF NOT EXISTS `receptionist_profiles` (
   `profile_id` int NOT NULL AUTO_INCREMENT,
@@ -173,31 +220,6 @@ CREATE TABLE IF NOT EXISTS `receptionist_profiles` (
 INSERT INTO `receptionist_profiles` (`profile_id`, `user_id`, `full_name`, `contact`, `dob`, `place_of_birth`, `gender`, `emergency_contact_name`, `emergency_contact`, `address`, `profile_picture`, `created_at`) VALUES
 	(1, 2, 'Baki Hanma', '09123456789', '2000-02-14', 'Kyoto, Japan', 'Male', 'Seijuro Hanma', '091212121212', 'Calamba City, Laguna', 'receptionist_2.jpg', '2025-06-16 03:05:05');
 
--- Dumping structure for table hotel_db.rooms
-CREATE TABLE IF NOT EXISTS `rooms` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `room_number` int NOT NULL,
-  `room_type` enum('single','twin_room','standard_room','studio','suite','queen_room','executive_room','suites','accessible_room','hollywood_twin_room','king_room','studio_hotel_rooms','villa','double_hotel_rooms','honeymoon_suite','penthouse_suite','single_hotel_rooms','adjoining_room','presidential_suite','connecting_rooms','quad_room','deluxe_room','double_room','triple_room') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `status` enum('available','booked','maintenance') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'available',
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `price_3hrs` decimal(10,2) NOT NULL DEFAULT '0.00',
-  `price_6hrs` decimal(10,2) NOT NULL DEFAULT '0.00',
-  `price_12hrs` decimal(10,2) NOT NULL DEFAULT '0.00',
-  `price_24hrs` decimal(10,2) NOT NULL DEFAULT '0.00',
-  `price_ot` decimal(10,2) NOT NULL DEFAULT '0.00',
-  PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE KEY `room_number` (`room_number`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Dumping data for table hotel_db.rooms: ~2 rows (approximately)
-INSERT INTO `rooms` (`id`, `room_number`, `room_type`, `status`, `created_at`, `updated_at`, `price_3hrs`, `price_6hrs`, `price_12hrs`, `price_24hrs`, `price_ot`) VALUES
-	(1, 101, 'standard_room', 'available', '2025-04-26 16:34:08', '2025-08-11 07:44:12', 400.00, 750.00, 1100.00, 1500.00, 120.00),
-	(2, 102, 'standard_room', 'available', '2025-04-26 17:37:56', '2025-08-08 11:34:02', 400.00, 750.00, 1100.00, 1500.00, 120.00),
-	(10, 103, 'standard_room', 'available', '2025-04-28 16:01:31', '2025-08-08 05:46:13', 300.00, 750.00, 1100.00, 1500.00, 120.00),
-	(12, 104, 'standard_room', 'available', '2025-04-29 13:29:43', '2025-05-02 17:18:40', 400.00, 750.00, 1100.00, 1500.00, 120.00),
-	(13, 106, 'twin_room', 'available', '2025-05-07 06:15:36', '2025-06-24 04:56:41', 400.00, 750.00, 1100.00, 1500.00, 120.00);
-
 -- Dumping structure for table hotel_db.staff
 CREATE TABLE IF NOT EXISTS `staff` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -214,6 +236,24 @@ CREATE TABLE IF NOT EXISTS `staff` (
 INSERT INTO `staff` (`id`, `name`, `age`, `sex`, `address`, `contact_number`, `position`) VALUES
 	(3, 'Sung Jin-woo', 20, 'Male', 'Calamba City, Laguna', '09912345678', 'Manager'),
 	(4, 'Baki Hanma', 23, 'Male', 'Calamba City, Laguna', '09912345678', 'Receptionist');
+
+  -- Dumping structure for table hotel_db.supplies
+CREATE TABLE IF NOT EXISTS `supplies` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `price` decimal(10,2) NOT NULL,
+  `quantity` int NOT NULL DEFAULT '1',
+  `category` enum('Cleaning','Maintenance','Food') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Dumping data for table hotel_db.supplies: ~2 rows (approximately)
+INSERT INTO `supplies` (`id`, `name`, `price`, `quantity`, `category`, `created_at`) VALUES
+	(1, 'Broom', 150.00, 20, 'Cleaning', '2025-07-09 14:07:48'),
+	(3, 'Toilet Papers', 100.00, 8, 'Cleaning', '2025-07-09 14:56:50'),
+	(5, 'Towels', 20.00, 30, 'Cleaning', '2025-08-04 03:51:34');
+
 
 -- Dumping structure for table hotel_db.stock_logs
 CREATE TABLE IF NOT EXISTS `stock_logs` (
@@ -234,41 +274,6 @@ INSERT INTO `stock_logs` (`id`, `supply_id`, `action`, `quantity`, `reason`, `cr
 	(1, 1, 'out', 2, '', '2025-07-16 05:45:03', 'in'),
 	(2, 1, 'in', 20, '', '2025-08-04 03:52:16', 'in');
 
--- Dumping structure for table hotel_db.supplies
-CREATE TABLE IF NOT EXISTS `supplies` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `price` decimal(10,2) NOT NULL,
-  `quantity` int NOT NULL DEFAULT '1',
-  `category` enum('Cleaning','Maintenance','Food') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Dumping data for table hotel_db.supplies: ~2 rows (approximately)
-INSERT INTO `supplies` (`id`, `name`, `price`, `quantity`, `category`, `created_at`) VALUES
-	(1, 'Broom', 150.00, 20, 'Cleaning', '2025-07-09 14:07:48'),
-	(3, 'Toilet Papers', 100.00, 8, 'Cleaning', '2025-07-09 14:56:50'),
-	(5, 'Towels', 20.00, 30, 'Cleaning', '2025-08-04 03:51:34');
-
--- Dumping structure for table hotel_db.users
-CREATE TABLE IF NOT EXISTS `users` (
-  `user_id` int NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) NOT NULL,
-  `username` varchar(255) NOT NULL,
-  `email` varchar(255) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `role` enum('Admin','Receptionist','Guest') NOT NULL,
-  `status` enum('pending','approved','denied') DEFAULT 'pending',
-  PRIMARY KEY (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Dumping data for table hotel_db.users: ~4 rows (approximately)
-INSERT INTO `users` (`user_id`, `name`, `username`, `email`, `password`, `role`, `status`) VALUES
-	(1, 'Sung Jin-woo', 'jinwhoo', 'example@email.com', '$2y$10$SWb8Zhwunhl3t7HHsLst.O31OwvI1Tie5xsX.kVKPV0KnG5ok7JOm', 'Admin', 'approved'),
-	(2, 'Baki Hanma', 'bakii', 'example@email.com', '$2y$10$zKqannJ7cL97TAumEeByUukNozIwEb.AGsP//jD7Fmgo0CPyL2Q6K', 'Receptionist', 'approved'),
-	(3, 'Megumi Fushiguro', 'meg_umi', 'example@email.com', '$2y$10$YQ3y5JtTR65YitLygESF3.GuuqddiFkikr5byhF0/GSUINDZf1lwO', 'Receptionist', 'approved'),
-	(9, 'Angel', 'angels', 'example@email.com', '$2y$10$H6tYQO141eRMx/Mv559Ru.RMW6BP.Y3wgC3ayrKZnM0CqMXMuSKIe', 'Receptionist', 'approved');
 
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;

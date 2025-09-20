@@ -58,7 +58,7 @@ if (isset($_POST['login'])) {
 
                 switch ($user['role']) {
                     case 'Admin':
-                        header("Location: admin-dash.php");
+                        header("Location: admin-dashboard.php");
                         break;
                     case 'Receptionist':
                         if ($user['profile_completed'] == 0) {
@@ -71,7 +71,7 @@ if (isset($_POST['login'])) {
                         header("Location: dashboard.php");
                         break;
                 }
-                
+                 
             }
         } else {
             $error_message = "Incorrect Password.";
