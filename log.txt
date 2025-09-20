@@ -24,3 +24,5 @@ Updated the INSERT INTO checkins statements accordingly.
 
 [ADMIN]
 * added logout session to admin panel 
+* report sidebar active style fixed
+* Data Tables implemented at 'Users List'

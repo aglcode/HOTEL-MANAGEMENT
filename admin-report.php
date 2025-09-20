@@ -120,9 +120,9 @@ $conn->close();
         <a href="admin-dashboard.php"><i class="fa-solid fa-gauge"></i> Dashboard</a>
   <a href="admin-user.php"><i class="fa-solid fa-users"></i> Users</a>
   <a href="admin-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
-  <a href="admin-report.php"><i class="fa-solid fa-chart-line"></i> Reports</a>
+  <a href="admin-report.php" class="active"><i class="fa-solid fa-chart-line"></i> Reports</a>
   <a href="admin-supplies.php"><i class="fa-solid fa-boxes-stacked"></i> Supplies</a>
-  <a href="admin-inventory.php" class="active"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
+  <a href="admin-inventory.php"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
   <a href="admin-logout.php" class="mt-auto text-danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
     </div>
 

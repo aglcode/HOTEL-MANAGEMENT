@@ -188,6 +188,7 @@ try {
             <h5 class="mb-1">Welcome,</h5>
             <p id="user-role" class="mb-0">Admin</p>
         </div>
+
         <a href="admin-dashboard.php" class="active"><i class="fa-solid fa-gauge"></i> Dashboard</a>
         <a href="admin-user.php"><i class="fa-solid fa-users"></i> Users</a>
         <a href="admin-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
