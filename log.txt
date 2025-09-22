@@ -27,3 +27,4 @@ Updated the INSERT INTO checkins statements accordingly.
 * report sidebar active style fixed
 * Data Tables implemented at 'Users List'
 * Made the calendar just a pop up slide in
+* Centered the contents in dashboards

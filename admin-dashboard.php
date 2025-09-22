@@ -134,7 +134,9 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
+    
     <style>
+        
         .stat-card {
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -178,7 +180,24 @@ try {
         .feedback-item.resolved {
             opacity: 0.7;
         }
+        
+        /* centering the dashboard content */
+        .sidebar {
+            width: 250px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+        }
+
+        .content {
+            margin-left: 265px;
+            max-width: 1400px;
+            margin-right: auto;
+        }
+        
     </style>
+
 </head>
 <body>
     <!-- Sidebar -->
@@ -198,17 +217,20 @@ try {
         <a href="admin-logout.php" class="mt-auto text-danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
     </div>
 
-    <div class="content p-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h2 class="fw-bold mb-0">Dashboard</h2>
-                <p class="text-muted mb-0">Welcome to Gitarra Apartelle Management System</p>
+<div class="content p-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-12">
+            <!-- Dashboard header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="fw-bold mb-0">Dashboard</h2>
+                    <p class="text-muted mb-0">Welcome to Gitarra Apartelle Management System</p>
+                </div>
+                <div class="clock-box text-end">
+                    <div id="currentDate" class="fw-semibold"></div>
+                    <div id="currentTime"></div>
+                </div>
             </div>
-            <div class="clock-box text-end">
-                <div id="currentDate" class="fw-semibold"></div>
-                <div id="currentTime"></div>
-            </div>
-        </div>
         
         <?php if (isset($_SESSION['success_msg'])): ?>
         <div class="alert alert-success alert-dismissible fade show" role="alert">

@@ -108,6 +108,21 @@ $conn->close();
         .summary-box.income {
             border-left-color: #198754;
         }
+
+                /* centering the dashboard content */
+        .sidebar {
+            width: 250px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+        }
+
+        .content {
+            margin-left: 265px;
+            max-width: 1400px;
+            margin-right: auto;
+        }
     </style>
 </head>
 <body>

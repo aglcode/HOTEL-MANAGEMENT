@@ -192,6 +192,21 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
   color: #dc2626; /* red-600 */
 }
 
+        /* centering the dashboard content */
+        .sidebar {
+            width: 250px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+        }
+
+        .content {
+            margin-left: 265px;
+            max-width: 1400px;
+            margin-right: auto;
+        }
+
 @media (max-width: 768px) {
     .table-responsive {
         display: block;
