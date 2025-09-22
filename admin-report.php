@@ -70,60 +70,138 @@ $conn->close();
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
 
-    <style>
-        body {
-            background-color: #f8f9fa;
-        }
+   <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
 
-        .content-area {
-            margin-left: 270px;
-            padding: 30px;
-        }
+    .content {
+      padding: 30px;
+    }
 
-        @media (max-width: 768px) {
-            .content-area {
-                margin-left: 0;
-                padding: 15px;
-            }
-        }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
 
-        .card {
-            box-shadow: 0 0 15px rgba(0,0,0,0.05);
-        }
+    .header h2 {
+      font-weight: bold;
+      margin: 0;
+    }
 
-        .card-header {
-            background-color: #007bff;
-            color: white;
-        }
+    .clock-box {
+      text-align: right;
+      color: #212529;
+    }
 
-        .summary-box {
-            margin-top: 10px;
-            padding: 10px 15px;
-            background-color: #f1f3f5;
-            border-left: 4px solid #0d6efd;
-            border-radius: 4px;
-            font-style: italic;
-        }
+    /* Stack cards vertically */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
 
-        .summary-box.income {
-            border-left-color: #198754;
-        }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      padding: 20px;
+    }
 
-                /* centering the dashboard content */
-        .sidebar {
-            width: 250px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100vh;
-        }
+    .card h5 {
+      display: flex;
+      align-items: center;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
 
-        .content {
-            margin-left: 265px;
-            max-width: 1400px;
-            margin-right: auto;
-        }
-    </style>
+    .card h5 i {
+      margin-right: 8px;
+      font-size: 1.2rem;
+    }
+
+    .card p.description {
+      color: #6c757d;
+      margin-bottom: 20px;
+    }
+
+    .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-top: 20px;
+    }
+
+    .summary-box {
+    display: flex;
+    align-items: center;
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .summary-icon {
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    margin-right: 12px;
+    color: #fff;
+    }
+
+    .summary-icon.blue {
+    background: #0d6efd; /* Blue */
+    }
+
+    .summary-icon.green {
+    background: #198754; /* Bootstrap green */
+    }
+    .summary-text {
+    flex: 1;
+    }
+
+    .summary-text span {
+    display: block;
+    font-size: 0.9rem;
+    color: #6c757d;
+    }
+
+    .summary-text strong {
+    font-size: 1.2rem;
+    color: #000;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #6c757d;
+      margin-top: 30px;
+    }
+
+            /* centering the dashboard content */
+    .sidebar {
+       width: 250px;
+       position: fixed;
+       top: 0;
+       left: 0;
+       height: 100vh;
+    }
+
+    .content {
+        margin-left: 265px;
+        max-width: 1400px;
+        margin-right: auto;
+    }
+  </style>
 </head>
 <body>
 
@@ -141,164 +219,161 @@ $conn->close();
   <a href="admin-logout.php" class="mt-auto text-danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
     </div>
 
-<<div class="content p-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold mb-0">Gitarra Apartelle - Reports </h2>
-    <div class="clock-box text-end text-dark">
-      <div id="currentDate" class="fw-semibold"></div>
-      <div id="currentTime" class="fs-5"></div>
+  <div class="content p-4">
+    <div class="header">
+      <h2>Gitarra Apartelle - Reports</h2>
+      <div class="clock-box">
+        <div id="currentDate" class="fw-semibold"></div>
+        <div id="currentTime" class="fs-5"></div>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <!-- Daily Check-ins -->
+      <div class="card">
+        <h5><i class="fas fa-chart-bar text-primary"></i> Daily Check-ins</h5>
+        <p class="description">
+          This graph shows the daily check-ins for the current week. It helps track the occupancy trends over the week.
+        </p>
+        <canvas id="checkinsChart" height="350"></canvas>
+        <div class="summary-grid" id="checkinsSummary"></div>
+      </div>
+
+      <!-- Daily Income -->
+      <div class="card">
+        <h5><i class="fas fa-dollar-sign text-success"></i> Daily Income</h5>
+        <p class="description">
+          This graph displays the daily income for the current week. It provides insights into the revenue generated each day.
+        </p>
+        <canvas id="incomeChart" height="350"></canvas>
+        <div class="summary-grid" id="incomeSummary"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Dashboard updates in real-time • Last updated: Just now
     </div>
   </div>
 
-    <!-- Weekly Check-ins Report -->
-    <div class="card mb-4">
-        <div class="card-header">
-            Weekly Check-ins Overview
+  <script src="https://kit.fontawesome.com/2d3e32b10b.js" crossorigin="anonymous"></script>
+
+  <script>
+    const checkinLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const checkinData = [12, 17, 14, 22, 28, 35, 21]; // Check-ins per day
+
+    const incomeLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const incomeData = [950, 1600, 1300, 2000, 2500, 3500, 1800]; // Income per day
+
+    function generateSummaryBoxes(data, type, isCurrency = false, color = "blue") {
+    const total = data.reduce((sum, val) => sum + val, 0);
+    const avg = data.length ? total / data.length : 0;
+    const max = Math.max(...data);
+    const min = Math.min(...data);
+
+    const format = isCurrency
+        ? (val) => `₱${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+        : (val) => val;
+
+    const icons = {
+        total: "fa-chart-line",
+        average: "fa-chart-bar",
+        highest: "fa-arrow-up",
+        lowest: "fa-arrow-down"
+    };
+
+    return `
+        <div class="summary-box">
+        <div class="summary-icon ${color}"><i class="fas ${icons.total}"></i></div>
+        <div class="summary-text">
+            <span>Total</span><strong>${format(total)}</strong>
         </div>
-        <div class="card-body">
-            <canvas id="checkinsChart" height="100"></canvas>
-            <div class="summary-box mt-3" id="checkinsSummary"></div>
         </div>
-    </div>
-
-    <!-- Weekly Income Report -->
-    <div class="card mb-4">
-        <div class="card-header">
-            Weekly Income Overview
+        <div class="summary-box">
+        <div class="summary-icon ${color}"><i class="fas ${icons.average}"></i></div>
+        <div class="summary-text">
+            <span>Average per day</span><strong>${format(avg.toFixed(2))}</strong>
         </div>
-        <div class="card-body">
-            <canvas id="incomeChart" height="100"></canvas>
-            <div class="summary-box income mt-3" id="incomeSummary"></div>
         </div>
-    </div>
-</div>
-
-<!-- Chart Scripts -->
-<script>
-    const checkinLabels = <?= json_encode($checkinDates); ?>;
-    const checkinData = <?= json_encode($dailyCheckins); ?>;
-    const incomeLabels = <?= json_encode($dates); ?>;
-    const incomeData = <?= json_encode($incomes); ?>;
-
-    // Helper function for summaries
-    function generateSummary(data, label, isCurrency = false) {
-        const total = data.reduce((sum, val) => sum + val, 0);
-        const avg = data.length ? total / data.length : 0;
-        const max = Math.max(...data);
-        const min = Math.min(...data);
-
-        const format = isCurrency
-            ? (val) => `₱${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-            : (val) => val;
-
-        return `
-            Total ${label}: <strong>${format(total)}</strong><br>
-            Average per day: <strong>${format(avg.toFixed(2))}</strong><br>
-            Highest ${label} in a day: <strong>${format(max)}</strong><br>
-            Lowest ${label} in a day: <strong>${format(min)}</strong>
-        `;
+        <div class="summary-box">
+        <div class="summary-icon ${color}"><i class="fas ${icons.highest}"></i></div>
+        <div class="summary-text">
+            <span>Highest in a day</span><strong>${format(max)}</strong>
+        </div>
+        </div>
+        <div class="summary-box">
+        <div class="summary-icon ${color}"><i class="fas ${icons.lowest}"></i></div>
+        <div class="summary-text">
+            <span>Lowest in a day</span><strong>${format(min)}</strong>
+        </div>
+        </div>
+    `;
     }
 
-    // Check-ins Chart
     const checkinsCtx = document.getElementById('checkinsChart').getContext('2d');
-    const checkinsChart = new Chart(checkinsCtx, {
-        type: 'line',
-        data: {
-            labels: checkinLabels,
-            datasets: [{
-                label: 'Daily Check-ins',
-                data: checkinData,
-                backgroundColor: 'rgba(13, 110, 253, 0.2)',
-                borderColor: 'rgba(13, 110, 253, 1)',
-                borderWidth: 2,
-                tension: 0.3
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: (context) => `${context.parsed.y} check-ins`
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: (val) => `${val} check-ins`
-                    }
-                }
+    new Chart(checkinsCtx, {
+      type: 'bar',
+      data: {
+        labels: checkinLabels,
+        datasets: [{
+          label: 'Daily Check-ins',
+          data: checkinData,
+          backgroundColor: 'rgba(13, 110, 253, 0.6)',
+          borderRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: (val) => `${val} check-ins`
             }
+          }
         }
+      }
     });
 
-    // Income Chart
+
     const incomeCtx = document.getElementById('incomeChart').getContext('2d');
-    const incomeChart = new Chart(incomeCtx, {
-        type: 'bar',
-        data: {
-            labels: incomeLabels,
-            datasets: [{
-                label: 'Daily Income (₱)',
-                data: incomeData,
-                backgroundColor: 'rgba(40, 167, 69, 0.6)',
-                borderColor: 'rgba(40, 167, 69, 1)',
-                borderWidth: 1,
-                borderRadius: 5
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: (context) => `₱${context.parsed.y.toLocaleString()}`
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: (val) => `₱${val.toLocaleString()}`
-                    }
-                }
+    new Chart(incomeCtx, {
+      type: 'bar',
+      data: {
+        labels: incomeLabels,
+        datasets: [{
+          label: 'Daily Income (₱)',
+          data: incomeData,
+          backgroundColor: 'rgba(40, 167, 69, 0.6)',
+          borderRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: (val) => `₱${val.toLocaleString()}`
             }
+          }
         }
+      }
     });
 
-    // Generate and insert summaries
-    document.getElementById('checkinsSummary').innerHTML = generateSummary(checkinData, 'check-ins');
-    document.getElementById('incomeSummary').innerHTML = generateSummary(incomeData, 'income', true);
-</script>
 
+    document.getElementById('checkinsSummary').innerHTML = generateSummaryBoxes(checkinData, 'check-ins', false, 'blue');
+    document.getElementById('incomeSummary').innerHTML   = generateSummaryBoxes(incomeData, 'income', true, 'green');
+
+
+
+    function updateClock() {
+      const now = new Date();
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById('currentDate').innerText = now.toLocaleDateString('en-PH', options);
+      document.getElementById('currentTime').innerText = now.toLocaleTimeString('en-PH');
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+  </script>
 </body>
 </html>
-<script>
-    // Adjust canvas size for larger graphs
-    document.getElementById('checkinsChart').style.height = '150px';
-    document.getElementById('incomeChart').style.height = '150px';
-
-    // Add descriptions for the graphs
-    const checkinsDescription = document.createElement('p');
-    checkinsDescription.classList.add('text-muted', 'mt-2');
-    checkinsDescription.textContent = 'This graph shows the daily check-ins for the current week. It helps track the occupancy trends over the week.';
-    document.querySelector('.card-body canvas#checkinsChart').after(checkinsDescription);
-
-    const incomeDescription = document.createElement('p');
-    incomeDescription.classList.add('text-muted', 'mt-2');
-    incomeDescription.textContent = 'This graph displays the daily income for the current week. It provides insights into the revenue generated each day.';
-    document.querySelector('.card-body canvas#incomeChart').after(incomeDescription);
-
-    // Real-time clock updater (optional, if used)
-function updateClock() {
-  const now = new Date();
-  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  document.getElementById('currentDate').innerText = now.toLocaleDateString('en-PH', options);
-  document.getElementById('currentTime').innerText = now.toLocaleTimeString('en-PH');
-}
-setInterval(updateClock, 1000);
-updateClock();
-</script>
