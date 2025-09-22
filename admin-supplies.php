@@ -79,9 +79,128 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
   <link href="style.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
+
+<style>
+    .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.table thead th {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.table th.sorting {
+    cursor: pointer;
+    position: relative;
+}
+
+.table th.sorting_asc::after,
+.table th.sorting_desc::after {
+    content: '';
+    position: absolute;
+    right: 0.5rem;
+    font-size: 0.7em;
+    color: #6c757d;
+}
+
+.table th.sorting_asc::after {
+    content: '↑';
+}
+
+.table th.sorting_desc::after {
+    content: '↓';
+}
+
+.table td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    font-size: 0.875rem;
+    color: #4a5568;
+}
+
+.table .badge {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    border: 1px solid;
+    transition: all 0.2s ease;
+}
+
+.bg-blue-100 { background-color: #ebf8ff; }
+.text-blue-800 { color: #2b6cb0; }
+.border-blue-200 { border-color: #bee3f8; }
+.bg-info-100 { background-color: #e6f7ff; }
+.text-info-800 { color: #2b6cb0; }
+.border-info-200 { border-color: #bee3f8; }
+.bg-gray-100 { background-color: #f7fafc; }
+.text-gray-800 { color: #2d3748; }
+.border-gray-200 { border-color: #edf2f7; }
+.bg-green-100 { background-color: #f0fff4; }
+.text-green-800 { color: #2f855a; }
+.border-green-200 { border-color: #c6f6d5; }
+.bg-amber-100 { background-color: #fffaf0; }
+.text-amber-800 { color: #975a16; }
+.border-amber-200 { border-color: #fed7aa; }
+.bg-yellow-100 { background-color: #fef9c3; }
+.text-yellow-800 { color: #854d0e; }
+.border-yellow-200 { border-color: #fef08a; }
+
+.table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+    transition: background-color 0.15s ease;
+}
+
+.card-footer,
+.bg-gray-50 {
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+.dataTables_wrapper .dataTables_paginate .pagination {
+    margin: 0;
+}
+
+.dataTables_wrapper .dataTables_info {
+    padding: 0.75rem;
+}
+
+.dataTables_wrapper .dataTables_paginate {
+    padding-right: 15px; 
+}
+
+.user-actions .action-btn {
+  color: #9b9da2ff;                
+  transition: color .15s ease;   
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.user-actions .action-btn.edit:hover {
+  color: #2563eb; /* blue-600 */
+}
+
+.user-actions .action-btn.delete:hover {
+  color: #dc2626; /* red-600 */
+}
+
+@media (max-width: 768px) {
+    .table-responsive {
+        display: block;
+        overflow-x: auto;
+    }
+}
+</style>
+
+
 <body>
 <div class="sidebar" id="sidebar">
   <div class="user-info mb-4">
@@ -187,74 +306,109 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
     </div>
   </div>
 
-  <!-- Supply Table -->
-  <div class="card">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-      <h5 class="mb-0">Supply Inventory</h5>
-      <span class="badge bg-primary"><?php echo $totalSupplies; ?> items</span>
-    </div>
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead class="table-light">
+ <!-- Supply Table -->
+<div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+  <div class="d-flex align-items-center">
+    <h5 class="mb-0 me-3">Supply Inventory</h5>
+    <span class="badge bg-primary"><?php echo $totalSupplies; ?> items</span>
+  </div>
+  <!-- Custom search box -->
+  <div class="input-group" style="width: 250px;">
+    <input type="text" id="supplySearch" class="form-control form-control-sm" placeholder="Search supplies...">
+    <span class="input-group-text"><i class="fas fa-search"></i></span>
+  </div>
+</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table id="supplyTable" class="table table-bordered table-hover">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Name</th>
+            <th>Price</th>
+            <th>Quantity</th>
+            <th>Total</th>
+            <th>Category</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (count($supplies) > 0): ?>
+            <?php foreach ($supplies as $s): ?>
             <tr>
-              <th class="ps-3">Name</th>
-              <th>Price</th>
-              <th>Quantity</th>
-              <th>Total</th>
-              <th>Category</th>
-              <th class="text-end pe-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (count($supplies) > 0): ?>
-              <?php foreach ($supplies as $s): ?>
-              <tr>
-                <td class="ps-3">
-                  <div class="d-flex align-items-center">
-                    <div class="avatar-sm bg-<?= ($s['category'] == 'Cleaning') ? 'info' : (($s['category'] == 'Maintenance') ? 'warning' : 'success') ?> rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
-                      <span class="text-white"><?= strtoupper(substr($s['name'], 0, 1)) ?></span>
-                    </div>
-                    <div>
-                      <?= htmlspecialchars($s['name']) ?>
-                    </div>
+              <td class="ps-3">
+                <div class="d-flex align-items-center">
+                  <!-- Avatar with custom category colors -->
+                  <div class="avatar-sm 
+                      <?php if ($s['category'] == 'Cleaning'): ?>
+                        bg-blue-100 text-blue-800 border-blue-200
+                      <?php elseif ($s['category'] == 'Maintenance'): ?>
+                        bg-amber-100 text-amber-800 border-amber-200
+                      <?php else: ?>
+                        bg-green-100 text-green-800 border-green-200
+                      <?php endif; ?>
+                      rounded-circle d-flex align-items-center justify-content-center me-2" 
+                      style="width: 32px; height: 32px; border:1px solid;">
+                    <span><?= strtoupper(substr($s['name'], 0, 1)) ?></span>
                   </div>
-                </td>
-                <td>₱<?= number_format($s['price'], 2) ?></td>
+                  <div><?= htmlspecialchars($s['name']) ?></div>
+                </div>
+              </td>
+              <td>₱<?= number_format($s['price'], 2) ?></td>
                 <td>
-                  <span class="badge bg-<?= ($s['quantity'] > 10) ? 'success' : (($s['quantity'] > 5) ? 'warning' : 'danger') ?> rounded-pill">
+                  <span class="badge rounded-pill 
+                    <?php if ($s['quantity'] > 10): ?>
+                      bg-green-100 text-green-800 border-green-200
+                    <?php elseif ($s['quantity'] > 5): ?>
+                      bg-yellow-100 text-yellow-800 border-yellow-200
+                    <?php else: ?>
+                      bg-amber-100 text-amber-800 border-amber-200
+                    <?php endif; ?>
+                  ">
                     <?= (int)$s['quantity'] ?>
                   </span>
                 </td>
-                <td>₱<?= number_format($s['price'] * $s['quantity'], 2) ?></td>
-                <td>
-                  <span class="badge bg-<?= ($s['category'] == 'Cleaning') ? 'info' : (($s['category'] == 'Maintenance') ? 'warning' : 'success') ?>">
-                    <?= htmlspecialchars($s['category']) ?>
-                  </span>
-                </td>
-                <td class="text-end pe-3">
-                  <button class="btn btn-outline-primary btn-sm me-1" onclick="populateEditForm(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>', <?= $s['price'] ?>, <?= $s['quantity'] ?>, '<?= $s['category'] ?>')">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <button class="btn btn-outline-danger btn-sm" onclick="confirmDelete(<?= $s['id'] ?>)">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </td>
-              </tr>
-              <?php endforeach; ?>
-            <?php else: ?>
-              <tr>
-                <td colspan="6" class="text-center py-4">
-                  <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
-                  <p class="mb-0">No supplies found</p>
-                </td>
-              </tr>
-            <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
+
+              <td>₱<?= number_format($s['price'] * $s['quantity'], 2) ?></td>
+              <td>
+                <!-- Category badge with same custom color sets -->
+                <span class="badge 
+                  <?php if ($s['category'] == 'Cleaning'): ?>
+                    bg-yellow-100 text-yellow-800 border-yellow-200
+                  <?php elseif ($s['category'] == 'Maintenance'): ?>
+                    bg-amber-100 text-amber-800 border-amber-200
+                  <?php else: ?>
+                    bg-green-100 text-green-800 border-green-200
+                  <?php endif; ?>
+                ">
+                  <?= htmlspecialchars($s['category']) ?>
+                </span>
+              </td>
+              <td class="text-center user-actions">
+                <span class="action-btn edit me-2" 
+                      onclick="populateEditForm(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>', <?= $s['price'] ?>, <?= $s['quantity'] ?>, '<?= $s['category'] ?>')">
+                  <i class="fas fa-edit"></i>
+                </span>
+                <span class="action-btn delete" 
+                      onclick="confirmDelete(<?= $s['id'] ?>)">
+                  <i class="fas fa-trash"></i>
+                </span>
+              </td>
+            </tr>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <tr>
+              <td colspan="6" class="text-center py-4">
+                <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                <p class="mb-0">No supplies found</p>
+              </td>
+            </tr>
+          <?php endif; ?>
+        </tbody>
+      </table>
     </div>
   </div>
+</div>
+
 
   <!-- Add/Edit Modal -->
   <div class="modal fade" id="addSupplyModal" tabindex="-1">
@@ -340,7 +494,12 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
   </div>
 </div>
 
-
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 <script>
 // Triggered when clicking the "Edit" button
 function populateEditForm(id, name, price, quantity, category) {
@@ -393,6 +552,37 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 updateClock();
+
+// Data Tables
+$(document).ready(function() {
+  var table = $('#supplyTable').DataTable({
+    paging: true,
+    lengthChange: true,
+    searching: true, // keep enabled so API works
+    ordering: true,
+    info: true,
+    autoWidth: false,
+    responsive: true,
+    pageLength: 5,
+    lengthMenu: [5, 10, 25, 50, 100],
+    dom: 't<"bottom"ip>', // remove default search bar from header
+    language: {
+      paginate: {
+        first: '<<',
+        previous: '<',
+        next: '>',
+        last: '>>'
+      }
+    }
+  });
+
+  // Bind custom search
+  $('#supplySearch').on('keyup', function() {
+    table.search(this.value).draw();
+  });
+});
+
+
 </script>
 
 </body>

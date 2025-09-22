@@ -98,10 +98,21 @@ try {
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+   <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
   <link href="style.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+
+    .table-top {
+     padding: 0 1rem; /* match card padding */
+    }
+    .dataTables_filter {
+      margin: 0; /* remove default margin */
+    }
+
     .calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
@@ -165,6 +176,153 @@ try {
       align-items: center;
       justify-content: center;
     }
+
+    /*  Data table  */
+        .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.table thead th {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.table th.sorting {
+    cursor: pointer;
+    position: relative;
+}
+
+.table th.sorting_asc::after,
+.table th.sorting_desc::after {
+    content: '';
+    position: absolute;
+    right: 0.5rem;
+    font-size: 0.7em;
+    color: #6c757d;
+}
+
+.table th.sorting_asc::after {
+    content: '↑';
+}
+
+.table th.sorting_desc::after {
+    content: '↓';
+}
+
+.table td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    font-size: 0.875rem;
+    color: #4a5568;
+}
+
+.table .badge {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    border: 1px solid;
+    transition: all 0.2s ease;
+}
+
+.bg-blue-100 { background-color: #ebf8ff; }
+.text-blue-800 { color: #2b6cb0; }
+.border-blue-200 { border-color: #bee3f8; }
+.bg-info-100 { background-color: #e6f7ff; }
+.text-info-800 { color: #2b6cb0; }
+.border-info-200 { border-color: #bee3f8; }
+.bg-gray-100 { background-color: #f7fafc; }
+.text-gray-800 { color: #2d3748; }
+.border-gray-200 { border-color: #edf2f7; }
+.bg-green-100 { background-color: #f0fff4; }
+.text-green-800 { color: #2f855a; }
+.border-green-200 { border-color: #c6f6d5; }
+.bg-amber-100 { background-color: #fffaf0; }
+.text-amber-800 { color: #975a16; }
+.border-amber-200 { border-color: #fed7aa; }
+.bg-yellow-100 { background-color: #fef9c3; }
+.text-yellow-800 { color: #854d0e; }
+.border-yellow-200 { border-color: #fef08a; }
+
+.table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+    transition: background-color 0.15s ease;
+}
+
+.card-footer,
+.bg-gray-50 {
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+.dataTables_wrapper .dataTables_paginate .pagination {
+    margin: 0;
+}
+
+.dataTables_wrapper .dataTables_info {
+    padding: 0.75rem;
+}
+
+.dataTables_wrapper .dataTables_paginate {
+    padding-right: 15px; 
+}
+
+.user-actions .action-btn {
+  color: #9b9da2ff;                
+  transition: color .15s ease;   
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.user-actions .action-btn.edit:hover {
+  color: #2563eb;
+}
+
+.user-actions .action-btn.delete:hover {
+  color: #dc2626; 
+}
+
+
+.dataTables_wrapper .row {
+  margin: 0 !important;
+}
+
+.dataTables_wrapper .col-sm-12,
+.dataTables_wrapper .col-md-6 {
+  padding: 0 !important;
+}
+
+  #customSearch input {
+    height: 31px;       
+    padding: 4px 10px;
+    font-size: 0.875rem;
+  }
+
+ .calendar-sidebar {
+  position: fixed;
+  top: 0;
+  right: -400px; 
+  width: 400px;
+  height: 100%;
+  background: #fff;
+  box-shadow: -2px 0 8px rgba(0,0,0,0.1); 
+  overflow-y: auto;
+  transition: right 0.3s ease;
+  z-index: 1050;
+}
+.calendar-sidebar.active {
+  right: 0;
+}
+
+
+@media (max-width: 768px) {
+    .table-responsive {
+        display: block;
+        overflow-x: auto;
+    }
+}
   </style>
 </head>
 <body>
@@ -254,141 +412,177 @@ try {
     </div>
   </div>
 
-  <!-- Inventory Table -->
-  <div class="card mb-4">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-      <h5 class="mb-0">Supply Inventory</h5>
-      <div>
-        <button type="button" class="btn btn-success btn-sm me-2" data-bs-toggle="modal" data-bs-target="#stockModal">
-          <i class="fas fa-exchange-alt me-2"></i>Stock In/Out
-        </button>
-        <a href="admin-supplies.php" class="btn btn-primary btn-sm">
-          <i class="fas fa-plus-circle me-2"></i>Manage Supplies
-        </a>
-      </div>
-    </div>
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead class="table-light">
-            <tr>
-              <th class="ps-3">Name</th>
-              <th>Category</th>
-              <th>Price</th>
-              <th>Quantity</th>
-              <th>Status</th>
-              <th>Total Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php if (count($supplies) > 0): ?>
-              <?php foreach ($supplies as $s): ?>
-              <tr>
-                <td class="ps-3">
-                  <div class="d-flex align-items-center">
-                    <div class="avatar-sm bg-<?= ($s['category'] == 'Cleaning') ? 'info' : (($s['category'] == 'Maintenance') ? 'warning' : 'success') ?> rounded-circle d-flex align-items-center justify-content-center me-2">
-                      <span class="text-white"><?= strtoupper(substr($s['name'], 0, 1)) ?></span>
-                    </div>
-                    <div>
-                      <?= htmlspecialchars($s['name']) ?>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span class="badge bg-<?= ($s['category'] == 'Cleaning') ? 'info' : (($s['category'] == 'Maintenance') ? 'warning' : 'success') ?>">
-                    <?= htmlspecialchars($s['category']) ?>
-                  </span>
-                </td>
-                <td>₱<?= number_format($s['price'], 2) ?></td>
-                <td><?= $s['quantity'] ?></td>
-                <td>
-                  <?php if ($s['quantity'] < 5): ?>
-                    <span class="badge bg-danger">Low Stock</span>
-                  <?php elseif ($s['quantity'] < 10): ?>
-                    <span class="badge bg-warning">Medium Stock</span>
-                  <?php else: ?>
-                    <span class="badge bg-success">Good Stock</span>
-                  <?php endif; ?>
-                </td>
-                <td>₱<?= number_format($s['price'] * $s['quantity'], 2) ?></td>
-              </tr>
-              <?php endforeach; ?>
-            <?php else: ?>
-              <tr>
-                <td colspan="6" class="text-center py-4">
-                  <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
-                  <p class="mb-0">No supplies found</p>
-                </td>
-              </tr>
-            <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
+<!-- Inventory Table Card -->
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center py-3">
+    <h5 class="mb-0">Supply Inventory</h5>
+    <div class="d-flex align-items-center gap-2">
+      <!-- Calendar Toggle -->
+      <button id="toggleCalendar" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-calendar-alt"></i>
+      </button>
+
+      <!-- Stock In/Out -->
+      <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#stockModal">
+        <i class="fas fa-exchange-alt me-2"></i>Stock In/Out
+      </button>
+
+      <!-- Manage Supplies -->
+      <a href="admin-supplies.php" class="btn btn-primary btn-sm">
+        <i class="fas fa-plus-circle me-2"></i>Manage Supplies
+      </a>
+
+      <!-- Search -->
+      <div id="customSearch" class="ms-2"></div>
     </div>
   </div>
 
-  <!-- Inventory Calendar -->
-  <div class="card">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-      <h5 class="mb-0">Inventory Calendar - <?php echo date('F Y'); ?></h5>
-      <div>
-        <span class="badge bg-success me-2"><i class="fas fa-arrow-up me-1"></i>Stock In</span>
-        <span class="badge bg-danger"><i class="fas fa-arrow-down me-1"></i>Stock Out</span>
-      </div>
-    </div>
-    <div class="card-body">
-      <div class="calendar-header">
-        <?php
-        $days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        foreach ($days as $day) {
-          echo "<div class='calendar-day-header'>$day</div>";
-        }
-        ?>
-      </div>
-      <div class="calendar">
-        <?php
-        $month = date('m');
-        $year = date('Y');
-        $firstDay = mktime(0, 0, 0, $month, 1, $year);
-        $daysInMonth = date('t', $firstDay);
-        $dayOfWeek = date('w', $firstDay);
-        $today = date('j');
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table id="inventoryTable" class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th class="ps-3">Name</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Quantity</th>
+            <th>Status</th>
+            <th>Total Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (count($supplies) > 0): ?>
+            <?php foreach ($supplies as $s): ?>
+            <tr>
+              <!-- Name + Avatar -->
+              <td class="ps-3">
+                <div class="d-flex align-items-center">
+                  <div class="avatar-sm 
+                    <?php if ($s['category'] == 'Cleaning'): ?>
+                      bg-yellow-100 text-yellow-800 border-yellow-200
+                    <?php elseif ($s['category'] == 'Maintenance'): ?>
+                      bg-amber-100 text-amber-800 border-amber-200
+                    <?php else: ?>
+                      bg-green-100 text-green-800 border-green-200
+                    <?php endif; ?>
+                    rounded-circle d-flex align-items-center justify-content-center me-2"
+                    style="width:32px; height:32px; border:1px solid;">
+                    <span><?= strtoupper(substr($s['name'], 0, 1)) ?></span>
+                  </div>
+                  <div><?= htmlspecialchars($s['name']) ?></div>
+                </div>
+              </td>
 
-        // Add empty cells for days before the first day of the month
-        for ($i = 0; $i < $dayOfWeek; $i++) {
+              <!-- Category -->
+              <td>
+                <span class="badge 
+                  <?php if ($s['category'] == 'Cleaning'): ?>
+                    bg-yellow-100 text-yellow-800 border-yellow-200
+                  <?php elseif ($s['category'] == 'Maintenance'): ?>
+                    bg-amber-100 text-amber-800 border-amber-200
+                  <?php else: ?>
+                    bg-green-100 text-green-800 border-green-200
+                  <?php endif; ?>
+                ">
+                  <?= htmlspecialchars($s['category']) ?>
+                </span>
+              </td>
+
+              <!-- Price -->
+              <td>₱<?= number_format($s['price'], 2) ?></td>
+
+              <!-- Quantity -->
+              <td><?= (int)$s['quantity'] ?></td>
+
+              <!-- Stock Status -->
+              <td>
+                <?php if ($s['quantity'] < 5): ?>
+                  <span class="badge bg-amber-100 text-amber-800 border-amber-200">Low Stock</span>
+                <?php elseif ($s['quantity'] < 10): ?>
+                  <span class="badge bg-yellow-100 text-yellow-800 border-yellow-200">Medium Stock</span>
+                <?php else: ?>
+                  <span class="badge bg-green-100 text-green-800 border-green-200">Good Stock</span>
+                <?php endif; ?>
+              </td>
+
+              <!-- Total Value -->
+              <td>₱<?= number_format($s['price'] * $s['quantity'], 2) ?></td>
+            </tr>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <tr>
+              <td colspan="6" class="text-center py-4">
+                <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                <p class="mb-0">No supplies found</p>
+              </td>
+            </tr>
+          <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+ <!-- Calendar Sidebar -->
+<div id="calendarSidebar" class="calendar-sidebar">
+  <div class="calendar-header-bar d-flex justify-content-between align-items-center p-3 border-bottom">
+    <h5 class="mb-0">Inventory Calendar - <?php echo date('F Y'); ?></h5>
+    <button id="closeCalendar" class="btn btn-sm btn-light">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+  <div class="p-3">
+    <div class="calendar-header">
+      <?php
+      $days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      foreach ($days as $day) {
+        echo "<div class='calendar-day-header'>$day</div>";
+      }
+      ?>
+    </div>
+    <div class="calendar">
+      <?php
+      $month = date('m');
+      $year = date('Y');
+      $firstDay = mktime(0, 0, 0, $month, 1, $year);
+      $daysInMonth = date('t', $firstDay);
+      $dayOfWeek = date('w', $firstDay);
+      $today = date('j');
+
+      // Add empty cells for days before the first day
+      for ($i = 0; $i < $dayOfWeek; $i++) {
+        echo "<div class='calendar-day inactive'></div>";
+      }
+
+      // Days of month
+      for ($day = 1; $day <= $daysInMonth; $day++) {
+        $date = date('Y-m-d', mktime(0, 0, 0, $month, $day, $year));
+        $isToday = ($day == $today);
+        $class = $isToday ? 'calendar-day today' : 'calendar-day';
+
+        echo "<div class='$class'>";
+        echo "<div class='calendar-day-number'>$day</div>";
+
+        if (isset($calendar_data[$date])) {
+          foreach ($calendar_data[$date] as $event) {
+            $eventClass = $event['action_type'] == 'in' ? 'calendar-event stock-in' : 'calendar-event stock-out';
+            $actionIcon = $event['action_type'] == 'in' ? '<i class="fas fa-arrow-up"></i>' : '<i class="fas fa-arrow-down"></i>';
+            echo "<div class='$eventClass' title='{$event['supply_name']}: {$event['quantity']} {$event['action_type']} - {$event['reason']}'>$actionIcon {$event['supply_name']}</div>";
+          }
+        }
+
+        echo "</div>";
+      }
+
+      // Empty cells after last day
+      $remainingCells = 7 - (($dayOfWeek + $daysInMonth) % 7);
+      if ($remainingCells < 7) {
+        for ($i = 0; $i < $remainingCells; $i++) {
           echo "<div class='calendar-day inactive'></div>";
         }
-
-        // Add cells for each day of the month
-        for ($day = 1; $day <= $daysInMonth; $day++) {
-          $date = date('Y-m-d', mktime(0, 0, 0, $month, $day, $year));
-          $isToday = ($day == $today);
-          $class = $isToday ? 'calendar-day today' : 'calendar-day';
-          
-          echo "<div class='$class'>";
-          echo "<div class='calendar-day-number'>$day</div>";
-          
-          // Add events for this day
-          if (isset($calendar_data[$date])) {
-            foreach ($calendar_data[$date] as $event) {
-              $eventClass = $event['action_type'] == 'in' ? 'calendar-event stock-in' : 'calendar-event stock-out';
-              $actionIcon = $event['action_type'] == 'in' ? '<i class="fas fa-arrow-up"></i>' : '<i class="fas fa-arrow-down"></i>';
-              echo "<div class='$eventClass' title='{$event['supply_name']}: {$event['quantity']} {$event['action_type']} - {$event['reason']}'>$actionIcon {$event['supply_name']}</div>";
-            }
-          }
-          
-          echo "</div>";
-        }
-
-        // Add empty cells for days after the last day of the month
-        $remainingCells = 7 - (($dayOfWeek + $daysInMonth) % 7);
-        if ($remainingCells < 7) {
-          for ($i = 0; $i < $remainingCells; $i++) {
-            echo "<div class='calendar-day inactive'></div>";
-          }
-        }
-        ?>
-      </div>
+      }
+      ?>
     </div>
   </div>
 </div>
@@ -449,7 +643,23 @@ try {
   </div>
 </div>
 
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
 <script>
+
+    document.getElementById("toggleCalendar").addEventListener("click", function () {
+    document.getElementById("calendarSidebar").classList.add("active");
+  });
+
+  document.getElementById("closeCalendar").addEventListener("click", function () {
+    document.getElementById("calendarSidebar").classList.remove("active");
+  });
+
 // Update clock
 function updateClock() {
   const now = new Date();
@@ -459,4 +669,34 @@ function updateClock() {
 
 setInterval(updateClock, 1000);
 updateClock();
+
+$('#inventoryTable').DataTable({
+  paging: true,
+  searching: true,
+  ordering: true,
+  info: true,
+  autoWidth: false,
+  responsive: true,
+  pageLength: 5,
+  lengthMenu: [5, 10, 25, 50, 100],
+  dom: 't<"d-flex justify-content-between align-items-center mt-3"ip>', 
+  language: {
+    paginate: {
+      first: '<<',
+      previous: '<',
+      next: '>',
+      last: '>>'
+    }
+  },
+  initComplete: function () {
+    var searchInput = $('<input type="search" class="form-control form-control-sm" placeholder="Search inventory...">');
+    searchInput.on('keyup', function () {
+      $('#inventoryTable').DataTable().search(this.value).draw();
+    });
+    $('#customSearch').append(searchInput);
+  }
+});
+
+
+
 </script>

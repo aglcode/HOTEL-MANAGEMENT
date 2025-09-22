@@ -26,3 +26,4 @@ Updated the INSERT INTO checkins statements accordingly.
 * added logout session to admin panel 
 * report sidebar active style fixed
 * Data Tables implemented at 'Users List'
+* Made the calendar just a pop up slide in

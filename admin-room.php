@@ -115,8 +115,124 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
 </head>
+
+<style>
+    .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.table thead th {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.table th.sorting {
+    cursor: pointer;
+    position: relative;
+}
+
+.table th.sorting_asc::after,
+.table th.sorting_desc::after {
+    content: '';
+    position: absolute;
+    right: 0.5rem;
+    font-size: 0.7em;
+    color: #6c757d;
+}
+
+.table th.sorting_asc::after {
+    content: '↑';
+}
+
+.table th.sorting_desc::after {
+    content: '↓';
+}
+
+.table td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    font-size: 0.875rem;
+    color: #4a5568;
+}
+
+.table .badge {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    border: 1px solid;
+    transition: all 0.2s ease;
+}
+
+.bg-blue-100 { background-color: #ebf8ff; }
+.text-blue-800 { color: #2b6cb0; }
+.border-blue-200 { border-color: #bee3f8; }
+.bg-info-100 { background-color: #e6f7ff; }
+.text-info-800 { color: #2b6cb0; }
+.border-info-200 { border-color: #bee3f8; }
+.bg-gray-100 { background-color: #f7fafc; }
+.text-gray-800 { color: #2d3748; }
+.border-gray-200 { border-color: #edf2f7; }
+.bg-green-100 { background-color: #f0fff4; }
+.text-green-800 { color: #2f855a; }
+.border-green-200 { border-color: #c6f6d5; }
+.bg-amber-100 { background-color: #fffaf0; }
+.text-amber-800 { color: #975a16; }
+.border-amber-200 { border-color: #fed7aa; }
+
+.table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+    transition: background-color 0.15s ease;
+}
+
+.card-footer,
+.bg-gray-50 {
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+.dataTables_wrapper .dataTables_paginate .pagination {
+    margin: 0;
+}
+
+.dataTables_wrapper .dataTables_info {
+    padding: 0.75rem;
+}
+
+.dataTables_wrapper .dataTables_paginate {
+    padding-right: 15px; 
+}
+
+.user-actions .action-btn {
+  color: #9b9da2ff;                
+  transition: color .15s ease;   
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.user-actions .action-btn.edit:hover {
+  color: #2563eb; /* blue-600 */
+}
+
+.user-actions .action-btn.delete:hover {
+  color: #dc2626; /* red-600 */
+}
+
+@media (max-width: 768px) {
+    .table-responsive {
+        display: block;
+        overflow-x: auto;
+    }
+}
+</style>
+
+
 <body>
     <div class="sidebar" id="sidebar">
         <div class="user-info mb-4">
@@ -291,45 +407,93 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
         </form>
     </div>
 
-    <!-- Room Table -->
-    <div class="table-container" id="roomList">
-        <h3>Room List</h3>
-        <table class="table table-bordered table-striped">
-            <thead>
-                <tr>
-                    <th>Room Number</th>
-                    <th>Room Type</th>
-                    <th>Status</th>
-                    <th>3hrs</th>
-                    <th>6hrs</th>
-                    <th>12hrs</th>
-                    <th>24hrs</th>
-                    <th>OT</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php while ($room = $result->fetch_assoc()): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($room['room_number']) ?></td>
-                        <td><?= htmlspecialchars($room['room_type']) ?></td>
-                        <td><?= ucfirst($room['status']) ?></td>
-                        <td><?= number_format($room['price_3hrs'], 2) ?></td>
-                        <td><?= number_format($room['price_6hrs'], 2) ?></td>
-                        <td><?= number_format($room['price_12hrs'], 2) ?></td>
-                        <td><?= number_format($room['price_24hrs'], 2) ?></td>
-                        <td><?= number_format($room['price_ot'], 2) ?></td>
-                        <td>
-                            <a href="admin-room.php?action=edit&room_id=<?= $room['id'] ?>" class="btn btn-primary btn-sm">Edit</a>
-                            <a href="admin-room.php?action=delete&room_id=<?= $room['id'] ?>" class="btn btn-danger btn-sm">Delete</a>
-                        </td>
-                    </tr>
-                <?php endwhile; ?>
-            </tbody>
-        </table>
-
-        
+<!-- Room Table -->
+<div class="card">
+  <div class="card-header bg-light d-flex justify-content-between align-items-center p-3">
+    <div>
+      <h2 class="h5 mb-0 text-gray-900">Room List</h2>
+      <p class="text-sm text-gray-600 mt-1"><?php echo $result->num_rows; ?> total rooms</p>
     </div>
+    <div class="d-flex align-items-center gap-2">
+      <!-- Show Rooms -->
+      <div id="customRoomLengthMenu"></div>
+
+      <!-- Search -->
+      <div class="position-relative">
+        <input type="text" class="form-control ps-4" id="roomSearchInput" placeholder="Search rooms..." style="width: 200px;">
+        <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-gray-400"></i>
+      </div>
+
+      <!-- Filter by status -->
+      <select class="form-select" id="roomFilterSelect" style="width: 120px;">
+        <option value="">Filter</option>
+        <option value="available">Available</option>
+        <option value="occupied">Occupied</option>
+        <option value="maintenance">Maintenance</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table id="roomTable" class="table table-hover align-middle mb-0" style="width:100%;">
+        <thead class="bg-gray-50 border-bottom border-gray-200">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">Room Number</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">Room Type</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">Status</th>
+            <th class="px-4 py-3 sorting">3hrs</th>
+            <th class="px-4 py-3 sorting">6hrs</th>
+            <th class="px-4 py-3 sorting">12hrs</th>
+            <th class="px-4 py-3 sorting">24hrs</th>
+            <th class="px-4 py-3 sorting">OT</th>
+            <th class="px-4 py-3 text-center sorting">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php while ($room = $result->fetch_assoc()): ?>
+            <tr>
+              <td class="px-4 py-3 text-sm text-gray-900"><?= htmlspecialchars($room['room_number']) ?></td>
+              <td class="px-4 py-3 text-sm text-gray-900"><?= htmlspecialchars($room['room_type']) ?></td>
+              <td class="px-4 py-3 text-sm">
+                <span class="badge 
+                  bg-<?= ($room['status'] == 'available') ? 'green-100' : (($room['status'] == 'occupied') ? 'amber-100' : 'gray-100') ?> 
+                  text-<?= ($room['status'] == 'available') ? 'green-800' : (($room['status'] == 'occupied') ? 'amber-800' : 'gray-800') ?> 
+                  border-<?= ($room['status'] == 'available') ? 'green-200' : (($room['status'] == 'occupied') ? 'amber-200' : 'gray-200') ?> 
+                  rounded-pill px-2.5 py-0.5 text-xs font-medium">
+                  <?= ucfirst($room['status']) ?>
+                </span>
+              </td>
+              <td class="px-4 py-3 text-sm"><?= number_format($room['price_3hrs'], 2) ?></td>
+              <td class="px-4 py-3 text-sm"><?= number_format($room['price_6hrs'], 2) ?></td>
+              <td class="px-4 py-3 text-sm"><?= number_format($room['price_12hrs'], 2) ?></td>
+              <td class="px-4 py-3 text-sm"><?= number_format($room['price_24hrs'], 2) ?></td>
+              <td class="px-4 py-3 text-sm"><?= number_format($room['price_ot'], 2) ?></td>
+              <td class="px-4 py-3 text-center">
+                <div class="d-flex gap-2 justify-content-center user-actions">
+                  <a href="admin-room.php?action=edit&room_id=<?= $room['id'] ?>" class="p-1 action-btn edit" title="Edit">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <a href="admin-room.php?action=delete&room_id=<?= $room['id'] ?>" class="p-1 action-btn delete" title="Delete">
+                    <i class="fas fa-trash"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+          <?php endwhile; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
     <script>
         function togglePriceFields() {
             const roomType = document.querySelector('[name="room_type"]').value;
@@ -357,5 +521,76 @@ function updateClock() {
 }
 setInterval(updateClock, 1000);
 updateClock();
+
+
+// Data table
+$(document).ready(function() {
+  var roomTable = $('#roomTable').DataTable({
+    paging: true,
+    lengthChange: true,
+    searching: true,
+    ordering: true,
+    info: true,
+    autoWidth: false,
+    responsive: true,
+    pageLength: 5,
+    lengthMenu: [5, 10, 25, 50, 100],
+    dom: '<"d-none"l>rt' +
+         '<"row mt-3"<"col-sm-5"i><"col-sm-7"p>>',
+    language: {
+      emptyTable: "<i class='fas fa-bed fa-3x text-muted mb-3'></i><p class='mb-0'>No rooms found</p>",
+      info: "Showing _START_ to _END_ of _TOTAL_ rooms",
+      infoEmpty: "No entries available",
+      infoFiltered: "(filtered from _MAX_ total rooms)",
+      lengthMenu: "Show _MENU_ rooms",
+      paginate: {
+        first:    "«",
+        last:     "»",
+        next:     "›",
+        previous: "‹"
+      }
+    }
+  });
+
+  // Move dropdown
+  roomTable.on('init', function () {
+    var lengthSelect = $('#roomTable_length select')
+      .addClass('form-select')
+      .css('width','80px');
+
+    $('#customRoomLengthMenu').html(
+      '<label class="d-flex align-items-center gap-2 mb-0">' +
+        '<span>Show</span>' +
+        lengthSelect.prop('outerHTML') +
+        '<span>rooms</span>' +
+      '</label>'
+    );
+
+    $('#roomTable_length').hide();
+  });
+
+  // Custom search
+  $('#roomSearchInput').on('keyup', function() {
+    roomTable.search(this.value).draw();
+  });
+
+  // Filter select (Status column is index 2)
+  $('#roomFilterSelect').on('change', function() {
+    roomTable.column(2).search(this.value).draw();
+  });
+
+  // Sorting icons
+  roomTable.on('order.dt', function() {
+    $('th.sorting', roomTable.table().header()).removeClass('sorting_asc sorting_desc');
+    roomTable.columns().every(function(index) {
+      var order = roomTable.order()[0];
+      if (order[0] === index) {
+        $('th:eq(' + index + ')', roomTable.table().header())
+          .addClass(order[1] === 'asc' ? 'sorting_asc' : 'sorting_desc');
+      }
+    });
+  });
+});
+
     </script>
 </div>
