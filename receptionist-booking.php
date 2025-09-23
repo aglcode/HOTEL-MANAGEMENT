@@ -261,9 +261,9 @@ $total_pages = ceil($total_records / $limit);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Booking Management - Gitarra Apartelle</title>
+    <title>Gitarra Apartelle - Room Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
     <style>
@@ -380,44 +380,49 @@ $total_pages = ceil($total_records / $limit);
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
         }
         
-        /* Print Styles */
-        @media print {
-            .sidebar, .search-filter-container, .no-print {
-                display: none !important;
-            }
-            
-            .content {
-                margin-left: 0 !important;
-                width: 100% !important;
-            }
-            
-            .card {
-                box-shadow: none !important;
-                border: 1px solid #ddd !important;
-            }
-            
-            body {
-                background-color: white !important;
-            }
-        }
+    .sidebar {
+      width: 250px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+    }
+    .content { margin-left: 265px; padding: 20px; }
+    .card { border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    table th { background: #f8f9fa; }
+    table td, table th { padding: 12px; }
     </style>
 </head>
 <body>
     <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
-        <div class="user-info">
-            <a href="receptionist-profile.php" class="text-white text-decoration-none d-flex flex-column align-items-center">
-                <i class="fa-solid fa-user-circle" style="font-size: 60px;"></i>
-                <p class="mt-2 mb-0">Receptionist</p>
-            </a>
-        </div>
-        <a href="receptionist-dash.php"><i class="fa-solid fa-tachometer-alt"></i> Dashboard</a>
-        <a href="receptionist-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
-        <a href="receptionist-guest.php"><i class="fa-solid fa-users"></i> Guest</a>
-        <a href="receptionist-booking.php" class="active"><i class="fa-solid fa-calendar-check"></i> Booking</a>
-        <a href="receptionist-payment.php"><i class="fa-solid fa-money-check-alt"></i> Payment</a>
-        <a href="signin.php"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
-    </div>
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="user-info mb-4 text-center">
+    <i class="fa-solid fa-user-circle mb-2" style="font-size: 60px;"></i>
+    <h5 class="mb-1">Welcome,</h5>
+    <p id="user-role" class="mb-0">Receptionist</p>
+  </div>
+
+  <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-gauge"></i> Dashboard
+  </a>
+  <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-bed"></i> Rooms
+  </a>
+  <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-users"></i> Guest
+  </a>
+  <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-calendar-check"></i> Booking
+  </a>
+  <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-money-check"></i> Payment
+  </a>
+  <a href="signin.php" class="text-danger">
+    <i class="fa-solid fa-right-from-bracket"></i> Logout
+  </a>
+</div>
+
 
     <!-- Content -->
     <div class="content">
