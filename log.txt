@@ -1,30 +1,10 @@
-/* ------------------------------------------------------------------------- */
-
-/* MAJOR CHANGES FOR MARIA DB 8.0 - 5.7 */
-/* COLLATE=utf8mb4_0900_ai_ci; changed to COLLATE=utf8mb4_general_ci; */
-/* DISABLED FOREIGN KEYS ON IMPORT 
-
-Added SET FOREIGN_KEY_CHECKS=0; at the top and SET FOREIGN_KEY_CHECKS=1; at the bottom → ensures the import won’t stop midway.
-
-Updated checkins table:
-
-Changed room_number → room_id. (checkins & room)
-
-Foreign key now references rooms.id (cleaner + reliable).
-
-Updated the INSERT INTO checkins statements accordingly.
-*/
-
-/* ------------------------------------------------------------------------- */
-
-
- 
 
 ============================== UPDATES ========================================
 
 [ADMIN]
 * added logout session to admin panel 
 * report sidebar active style fixed
-* Data Tables implemented at 'Users List'
+* Data Tables implemented
 * Made the calendar just a pop up slide in
 * Centered the contents in dashboards
+* CHANGED the weekly report - monthly (walang ma pull up na weekly data) - THIS IS PARTIAL

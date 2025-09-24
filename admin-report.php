@@ -8,7 +8,22 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Weekly Income Data
+// Initializse muna yung arrays
+$dates = [];
+$incomes = [];
+$checkinDates = [];
+$dailyCheckins = [];
+
+// run query safe
+function fetchData($conn, $query) {
+  $result = $conn->query($query);
+  if(!$result) {
+    die("Query failed: " . $conn->error);
+  }
+  return $result;
+}
+
+// Income for a month
 $payment_query = "
     SELECT 
         DATE(check_in_date) AS date,
@@ -16,22 +31,40 @@ $payment_query = "
     FROM 
         checkins
     WHERE 
-        check_in_date >= CURDATE() - INTERVAL WEEKDAY(CURDATE()) DAY
+        check_in_date >= NOW() - INTERVAL 30 DAY
     GROUP BY 
         DATE(check_in_date)
     ORDER BY 
         DATE(check_in_date)
 ";
 
-$payment_result = $conn->query($payment_query);
-$dates = [];
-$incomes = [];
+$payment_result = fetchData($conn, $payment_query);
+
 while ($row = $payment_result->fetch_assoc()) {
     $dates[] = date('D, M j', strtotime($row['date']));
     $incomes[] = (float)$row['daily_income'];
 }
 
-// Weekly Check-ins Data
+// pag walang rows to fetch go for all DATA (income)
+if (empty($dates)) {
+  $fallback_payment_query = "
+  SELECT 
+     DATE(check_in_date) AS date,
+     SUM(amount_paid) AS daily_income
+  FROM checkins
+  GROUP BY DATE(check_in_date)
+  ORDER BY DATE(check_in_date)
+  ";
+
+  $payment_result = fetchData($conn, $fallback_payment_query);
+
+  while ($row = $payment_result->fetch_assoc()) {
+      $dates[]   = date('D, M j', strtotime($row['date']));
+      $incomes[] = (float)$row['daily_income'];
+  }
+}
+
+// MONTHLY CHECKINS DATA
 $checkin_query = "
     SELECT 
         DATE(check_in_date) AS date,
@@ -39,19 +72,36 @@ $checkin_query = "
     FROM 
         checkins
     WHERE 
-        check_in_date >= CURDATE() - INTERVAL WEEKDAY(CURDATE()) DAY
+        check_in_date >= NOW() - INTERVAL 30 DAY
     GROUP BY 
         DATE(check_in_date)
     ORDER BY 
         DATE(check_in_date)
 ";
 
-$checkin_result = $conn->query($checkin_query);
-$checkinDates = [];
-$dailyCheckins = [];
+$checkin_result = fetchData($conn, $checkin_query);
+
 while ($row = $checkin_result->fetch_assoc()) {
-    $checkinDates[] = date('D, M j', strtotime($row['date']));
-    $dailyCheckins[] = (int)$row['daily_checkins'];
+    $checkinDates[]   = date('D, M j', strtotime($row['date']));
+    $dailyCheckins[]  = (int)$row['daily_checkins'];
+}
+
+// pag walang rows to fetch go for all DATA (checkins)
+if (empty($checkinDates)) {
+    $fallback_checkin_query = "
+        SELECT 
+            DATE(check_in_date) AS date,
+            COUNT(*) AS daily_checkins
+        FROM checkins
+        GROUP BY DATE(check_in_date)
+        ORDER BY DATE(check_in_date)
+    ";
+    $checkin_result = fetchData($conn, $fallback_checkin_query);
+
+    while ($row = $checkin_result->fetch_assoc()) {
+        $checkinDates[]  = date('D, M j', strtotime($row['date']));
+        $dailyCheckins[] = (int)$row['daily_checkins'];
+    }
 }
 
 $conn->close();
@@ -258,11 +308,11 @@ $conn->close();
   <script src="https://kit.fontawesome.com/2d3e32b10b.js" crossorigin="anonymous"></script>
 
   <script>
-    const checkinLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const checkinData = [12, 17, 14, 22, 28, 35, 21]; // Check-ins per day
+    const checkinLabels = <?php echo json_encode($checkinDates); ?>;
+    const checkinData = <?php echo json_encode($dailyCheckins); ?>;
 
-    const incomeLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const incomeData = [950, 1600, 1300, 2000, 2500, 3500, 1800]; // Income per day
+    const incomeLabels  = <?php echo json_encode($dates); ?>;
+    const incomeData = <?php echo json_encode($incomes); ?>;
 
     function generateSummaryBoxes(data, type, isCurrency = false, color = "blue") {
     const total = data.reduce((sum, val) => sum + val, 0);
