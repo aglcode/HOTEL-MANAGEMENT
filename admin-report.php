@@ -41,7 +41,7 @@ $payment_query = "
 $payment_result = fetchData($conn, $payment_query);
 
 while ($row = $payment_result->fetch_assoc()) {
-    $dates[] = date('D, M j', strtotime($row['date']));
+    $dates[] = $row['date']; 
     $incomes[] = (float)$row['daily_income'];
 }
 
@@ -59,7 +59,7 @@ if (empty($dates)) {
   $payment_result = fetchData($conn, $fallback_payment_query);
 
   while ($row = $payment_result->fetch_assoc()) {
-      $dates[]   = date('D, M j', strtotime($row['date']));
+      $dates[]   = $row['date'];
       $incomes[] = (float)$row['daily_income'];
   }
 }
@@ -82,7 +82,7 @@ $checkin_query = "
 $checkin_result = fetchData($conn, $checkin_query);
 
 while ($row = $checkin_result->fetch_assoc()) {
-    $checkinDates[]   = date('D, M j', strtotime($row['date']));
+    $checkinDates[] = $row['date'];
     $dailyCheckins[]  = (int)$row['daily_checkins'];
 }
 
@@ -99,7 +99,7 @@ if (empty($checkinDates)) {
     $checkin_result = fetchData($conn, $fallback_checkin_query);
 
     while ($row = $checkin_result->fetch_assoc()) {
-        $checkinDates[]  = date('D, M j', strtotime($row['date']));
+        $checkinDates[] = $row['date'];
         $dailyCheckins[] = (int)$row['daily_checkins'];
     }
 }
@@ -280,22 +280,35 @@ $conn->close();
 
     <div class="dashboard-grid">
       <!-- Daily Check-ins -->
-      <div class="card">
+    <div class="card">
+      <div class="d-flex justify-content-between align-items-center mb-2">
         <h5><i class="fas fa-chart-bar text-primary"></i> Daily Check-ins</h5>
+        <button class="btn btn-sm btn-outline-danger" onclick="exportCheckinsPDF()">
+          <i class="fas fa-file-pdf"></i> Export PDF
+        </button>
+      </div>
+      <div id="checkinsCard">
         <p class="description">
           This graph shows the daily check-ins for the current week. It helps track the occupancy trends over the week.
         </p>
-        <canvas id="checkinsChart" height="350"></canvas>
+        <canvas id="checkinsChart" height="100"></canvas>
         <div class="summary-grid" id="checkinsSummary"></div>
       </div>
+    </div>
 
       <!-- Daily Income -->
-      <div class="card">
+    <div class="card">
+      <div class="d-flex justify-content-between align-items-center mb-2">
         <h5><i class="fas fa-dollar-sign text-success"></i> Daily Income</h5>
+        <button class="btn btn-sm btn-outline-danger" onclick="exportIncomePDF()">
+          <i class="fas fa-file-pdf"></i> Export PDF
+        </button>
+      </div>
+      <div id="incomeCard">
         <p class="description">
           This graph displays the daily income for the current week. It provides insights into the revenue generated each day.
         </p>
-        <canvas id="incomeChart" height="350"></canvas>
+        <canvas id="incomeChart" height="100"></canvas>
         <div class="summary-grid" id="incomeSummary"></div>
       </div>
     </div>
@@ -304,6 +317,9 @@ $conn->close();
       Dashboard updates in real-time • Last updated: Just now
     </div>
   </div>
+   
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
 
   <script src="https://kit.fontawesome.com/2d3e32b10b.js" crossorigin="anonymous"></script>
 
@@ -415,6 +431,189 @@ $conn->close();
     document.getElementById('incomeSummary').innerHTML   = generateSummaryBoxes(incomeData, 'income', true, 'green');
 
 
+    // export pdf
+ function exportCheckinsPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // Header
+  const exportDate = new Date().toLocaleDateString("en-PH", { 
+    year: 'numeric', month: 'long', day: 'numeric' 
+  });
+  doc.setFontSize(10);
+  doc.text(`Date exported: ${exportDate}`, 14, 12);
+
+  // Report Title
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("Gitarra Apartelle - Reports", 105, 32, { align: "center" });
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "normal");
+  doc.text("Daily Check-ins Report", 105, 42, { align: "center" });
+
+  // Line under title
+  doc.setDrawColor(150);
+  doc.line(14, 46, 196, 46);
+
+  // Group by month
+  const grouped = {};
+  checkinLabels.forEach((label, i) => {
+    const dateObj = new Date(label);
+    const month = dateObj.toLocaleString("en-PH", { month: "long", year: "numeric" });
+    const fullDate = dateObj.toLocaleDateString("en-PH", { 
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+    });
+    if (!grouped[month]) grouped[month] = [];
+    grouped[month].push([fullDate, checkinData[i]]);
+  });
+
+  let startY = 54;
+  Object.keys(grouped).forEach(month => {
+    // Month Title
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(month, 14, startY);
+    startY += 6;
+
+    // Table with better styles
+    doc.autoTable({
+      head: [['Date', 'Number of Check-ins']],
+      body: grouped[month],
+      startY: startY,
+      theme: 'grid',
+      styles: { halign: 'center', cellPadding: 3 },
+      headStyles: { fillColor: [0, 102, 204], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
+    });
+
+    // Monthly Summary
+    const values = grouped[month].map(row => row[1]);
+    const total = values.reduce((a, b) => a + b, 0);
+    const avg = (total / values.length).toFixed(2);
+    const highest = Math.max(...values);
+    const lowest = Math.min(...values);
+
+    startY = doc.lastAutoTable.finalY + 8;
+
+    // Summary Box
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, startY, 182, 18, "F"); // background box
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Total: ${total}`, 18, startY + 6);
+    doc.text(`Average: ${avg}`, 110, startY + 6);
+    doc.text(`Highest: ${highest}`, 18, startY + 12);
+    doc.text(`Lowest: ${lowest}`, 110, startY + 12);
+
+    startY += 26; // extra space before next month
+  });
+
+  doc.save("Daily_Checkins_Report.pdf");
+}
+
+// export pdf (Daily Income)
+function exportIncomePDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // Peso formatter
+  const formatPeso = (value) =>
+    "PHP " + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+  // Header
+  const exportDate = new Date().toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  doc.setFontSize(10);
+  doc.text(`Date exported: ${exportDate}`, 14, 12);
+
+  // Report Title
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("Gitarra Apartelle - Reports", 105, 36, { align: "center" });
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "normal");
+  doc.text("Daily Income Report", 105, 46, { align: "center" });
+
+  // Line under title
+  doc.setDrawColor(150);
+  doc.line(14, 50, 196, 50);
+
+  // Group by month
+  const grouped = {};
+  incomeLabels.forEach((label, i) => {
+    const dateObj = new Date(label);
+    const month = dateObj.toLocaleString("en-PH", {
+      month: "long",
+      year: "numeric",
+    });
+    const fullDate = dateObj.toLocaleDateString("en-PH", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    if (!grouped[month]) grouped[month] = [];
+    grouped[month].push([fullDate, incomeData[i]]);
+  });
+
+  let startY = 58;
+  Object.keys(grouped).forEach((month, index) => {
+    if (index > 0) {
+      // Add a new page for the next month
+      doc.addPage();
+      startY = 20;
+    }
+
+    // Month Title
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(month, 14, startY);
+    startY += 6;
+
+    // Table with better styles
+    doc.autoTable({
+      head: [["Date", "Income (PHP)"]],
+      body: grouped[month].map((row) => [row[0], formatPeso(row[1])]),
+      startY: startY,
+      theme: "grid",
+      styles: { halign: "center", cellPadding: 3 },
+      headStyles: {
+        fillColor: [25, 135, 84],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+    });
+
+    // Monthly Summary
+    const values = grouped[month].map((row) => row[1]);
+    const total = values.reduce((a, b) => a + b, 0);
+    const avg = total / values.length;
+    const highest = Math.max(...values);
+    const lowest = Math.min(...values);
+
+    startY = doc.lastAutoTable.finalY + 8;
+
+    // Summary Box
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, startY, 182, 18, "F"); // background box
+
+    doc.setFontSize(11);
+    doc.setFont("times", "bold");
+    doc.text(`Total: ${formatPeso(total)}`, 18, startY + 6);
+    doc.text(`Average: ${formatPeso(avg)}`, 110, startY + 6);
+    doc.text(`Highest: ${formatPeso(highest)}`, 18, startY + 12);
+    doc.text(`Lowest: ${formatPeso(lowest)}`, 110, startY + 12);
+  });
+
+  doc.save("Daily_Income_Report.pdf");
+}
+
+
 
     function updateClock() {
       const now = new Date();
@@ -424,6 +623,7 @@ $conn->close();
     }
     setInterval(updateClock, 1000);
     updateClock();
+    
   </script>
 </body>
 </html>
