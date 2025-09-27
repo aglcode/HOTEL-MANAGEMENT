@@ -283,9 +283,14 @@ $conn->close();
     <div class="card">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h5><i class="fas fa-chart-bar text-primary"></i> Daily Check-ins</h5>
+      <div class="d-flex gap-2">
         <button class="btn btn-sm btn-outline-danger" onclick="exportCheckinsPDF()">
           <i class="fas fa-file-pdf"></i> Export PDF
         </button>
+        <button class="btn btn-sm btn-outline-success" onclick="exportCheckinsCSV()">
+          <i class="fas fa-file-csv"></i> Export CSV
+        </button>
+      </div>
       </div>
       <div id="checkinsCard">
         <p class="description">
@@ -300,9 +305,14 @@ $conn->close();
     <div class="card">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h5><i class="fas fa-dollar-sign text-success"></i> Daily Income</h5>
+      <div class="d-flex gap-2">
         <button class="btn btn-sm btn-outline-danger" onclick="exportIncomePDF()">
           <i class="fas fa-file-pdf"></i> Export PDF
         </button>
+        <button class="btn btn-sm btn-outline-success" onclick="exportIncomeCSV()">
+          <i class="fas fa-file-csv"></i> Export CSV
+        </button>
+      </div>
       </div>
       <div id="incomeCard">
         <p class="description">
@@ -612,6 +622,80 @@ function exportIncomePDF() {
 
   doc.save("Daily_Income_Report.pdf");
 }
+
+// export CSV
+// export csv (Daily Check-ins)
+function exportCheckinsCSV() {
+  let csvContent = "data:text/csv;charset=utf-8,";
+
+  // Header row
+  csvContent += "Month,Date,Number of Check-ins\n";
+
+  // Group by month
+  const grouped = {};
+  checkinLabels.forEach((label, i) => {
+    const dateObj = new Date(label);
+    const month = dateObj.toLocaleString("en-PH", { month: "long", year: "numeric" });
+    const fullDate = dateObj.toLocaleDateString("en-PH", { 
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+    });
+    if (!grouped[month]) grouped[month] = [];
+    grouped[month].push([fullDate, checkinData[i]]);
+  });
+
+  // Add rows
+  Object.keys(grouped).forEach(month => {
+    grouped[month].forEach(row => {
+      csvContent += `${month},"${row[0]}",${row[1]}\n`;
+    });
+  });
+
+  // Trigger download
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "Daily_Checkins_Report.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// export csv (Daily Income)
+function exportIncomeCSV() {
+  let csvContent = "data:text/csv;charset=utf-8,";
+
+  // Header row
+  csvContent += "Month,Date,Income (PHP)\n";
+
+  // Group by month
+  const grouped = {};
+  incomeLabels.forEach((label, i) => {
+    const dateObj = new Date(label);
+    const month = dateObj.toLocaleString("en-PH", { month: "long", year: "numeric" });
+    const fullDate = dateObj.toLocaleDateString("en-PH", { 
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+    });
+    if (!grouped[month]) grouped[month] = [];
+    grouped[month].push([fullDate, incomeData[i]]);
+  });
+
+  // Add rows
+  Object.keys(grouped).forEach(month => {
+    grouped[month].forEach(row => {
+      csvContent += `${month},"${row[0]}","PHP ${Number(row[1]).toLocaleString(undefined, { minimumFractionDigits: 2 })}"\n`;
+    });
+  });
+
+  // Trigger download
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "Daily_Income_Report.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 
 
 
