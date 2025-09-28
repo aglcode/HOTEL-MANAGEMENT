@@ -301,191 +301,134 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
-<style>
-  /* ===== Table Styling ===== */
-  .table {
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-  }
-
-  .table thead th {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
-    padding: 0.75rem 1rem;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 600;
-    color: #495057;
-  }
-
-  .table th.sorting {
-    cursor: pointer;
-    position: relative;
-  }
-  .table th.sorting_asc::after,
-  .table th.sorting_desc::after {
-    content: '';
-    position: absolute;
-    right: 0.5rem;
-    font-size: 0.7em;
-    color: #6c757d;
-  }
-  .table th.sorting_asc::after { content: '↑'; }
-  .table th.sorting_desc::after { content: '↓'; }
-
-  .table td {
-    padding: 0.75rem 1rem;
-    vertical-align: middle;
-    font-size: 0.875rem;
-    color: #4a5568;
-    border-color: #f0f0f0;
-  }
-
-  .table-hover tbody tr:hover {
-    background-color: #f8f9fa;
-    transition: background-color 0.15s ease;
-  }
-
-  .table-responsive {
-    border-radius: 10px;
-    overflow: hidden;
-  }
-
-  /* ===== Status Badges ===== */
-  .badge {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    border: 1px solid;
-    transition: all 0.2s ease;
-  }
-  .badge-status {
-    padding: 0.5rem 0.75rem;
-    border-radius: 50px;
-    font-weight: 500;
-    font-size: 0.75rem;
-  }
-
-  /* Color Utilities (from inventory) */
-  .bg-blue-100 { background-color: #ebf8ff; }
-  .text-blue-800 { color: #2b6cb0; }
-  .border-blue-200 { border-color: #bee3f8; }
-  .bg-gray-100 { background-color: #f7fafc; }
-  .text-gray-800 { color: #2d3748; }
-  .border-gray-200 { border-color: #edf2f7; }
-  .bg-green-100 { background-color: #f0fff4; }
-  .text-green-800 { color: #2f855a; }
-  .border-green-200 { border-color: #c6f6d5; }
-  .bg-yellow-100 { background-color: #fef9c3; }
-  .text-yellow-800 { color: #854d0e; }
-  .border-yellow-200 { border-color: #fef08a; }
-
-  /* ===== Search & Filter ===== */
-  .search-filter-container {
-    background-color: #fff;
-    border-radius: 10px;
-    padding: 1rem;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-  }
-
-  #customSearch input {
-    height: 31px;
-    padding: 4px 10px;
-    font-size: 0.875rem;
-  }
-
-  /* ===== Cards ===== */
-  .card {
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    border: none;
-  }
-
-  .card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
-  }
-
-  .card-footer,
-  .bg-gray-50 {
-    background-color: #f8f9fa;
-    border-top: 1px solid #e9ecef;
-  }
-
-  /* ===== Guest Card ===== */
-  .guest-card {
-    border-radius: 10px;
-    transition: all 0.3s ease;
-    border: none;
-    overflow: hidden;
-  }
-  .guest-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-  }
-  .guest-card .card-body { padding: 1.5rem; }
-  .guest-info { display: flex; align-items: center; margin-bottom: 1rem; }
-  .guest-avatar {
-    width: 60px; height: 60px;
-    background-color: #e9ecef;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    margin-right: 1rem;
-    font-size: 1.5rem;
-    color: #6c757d;
-  }
-  .guest-details h5 { margin-bottom: 0.25rem; font-weight: 600; }
-  .guest-details p { margin-bottom: 0; color: #6c757d; font-size: 0.9rem; }
-
-  /* ===== Stat Cards ===== */
-  .stat-card {
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    transition: transform 0.3s ease;
-  }
-  .stat-card:hover { transform: translateY(-5px); }
-  .stat-icon {
-    width: 60px; height: 60px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 50%; font-size: 24px;
-  }
-
-  /* ===== Sidebar ===== */
-  .sidebar {
-    width: 250px;
-    position: fixed;
-    top: 0; left: 0;
-    height: 100vh;
-  }
-  .content {
-    margin-left: 265px;
-    max-width: 1400px;
-    margin-right: auto;
-    padding: 20px;
-  }
-
-  /* ===== DataTables Fix ===== */
-  .dataTables_wrapper .row { margin: 0 !important; }
-  .dataTables_wrapper .col-sm-12,
-  .dataTables_wrapper .col-md-6 { padding: 0 !important; }
-  .dataTables_wrapper .dataTables_paginate .pagination { margin: 0; }
-  .dataTables_wrapper .dataTables_info { padding: 0.75rem; }
-  .dataTables_wrapper .dataTables_paginate { padding-right: 15px; }
-
-  /* ===== Responsive ===== */
-  @media (max-width: 768px) {
+  <style>
+    /* Enhanced Table Styling */
+    .table {
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .table th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      letter-spacing: 0.5px;
+      color: #495057;
+      border-bottom: 2px solid #dee2e6;
+    }
+    
+    .table td {
+      vertical-align: middle;
+      padding: 0.75rem 1rem;
+      border-color: #f0f0f0;
+    }
+    
+    .table tbody tr:hover {
+      background-color: rgba(0, 123, 255, 0.03);
+    }
+    
     .table-responsive {
-      display: block;
-      overflow-x: auto;
+      border-radius: 10px;
+      overflow: hidden;
     }
-    .content {
-      margin-left: 0;
+    
+    /* Status Badge Styling */
+    .badge-status {
+      padding: 0.5rem 0.75rem;
+      border-radius: 50px;
+      font-weight: 500;
+      font-size: 0.75rem;
+    }
+    
+    /* Search and Filter Controls */
+    .search-filter-container {
+      background-color: #fff;
+      border-radius: 10px;
       padding: 1rem;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     }
-  }
-</style>
-
+    
+    /* Guest Card Styling */
+    .guest-card {
+      transition: all 0.3s ease;
+      border: none;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    
+    .guest-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .guest-card .card-body {
+      padding: 1.5rem;
+    }
+    
+    .guest-info {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .guest-avatar {
+      width: 60px;
+      height: 60px;
+      background-color: #e9ecef;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 1rem;
+      font-size: 1.5rem;
+      color: #6c757d;
+    }
+    
+    .guest-details h5 {
+      margin-bottom: 0.25rem;
+      font-weight: 600;
+    }
+    
+    .guest-details p {
+      margin-bottom: 0;
+      color: #6c757d;
+      font-size: 0.9rem;
+    }
+    
+    .stat-card {
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
+    }
+    
+    .stat-card:hover {
+      transform: translateY(-5px);
+    }
+    
+    .stat-icon {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 24px;
+    }
+    
+    .sidebar {
+      width: 250px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+    }
+    .content { margin-left: 265px; padding: 20px; }
+    .card { border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    table th { background: #f8f9fa; }
+    table td, table th { padding: 12px; }
+  </style>
 </head>
 <body>
 

@@ -47,6 +47,16 @@ $allRoomsQuery = "
 ";
 $resultRooms = $conn->query($allRoomsQuery);
 
+$roomOrders = [];
+$orderResult = $conn->query("
+    SELECT room_number, item, status, created_at 
+    FROM orders 
+    ORDER BY created_at DESC
+");
+while ($order = $orderResult->fetch_assoc()) {
+    $roomOrders[$order['room_number']][] = $order;
+}
+
 // Actions: Extend or Checkout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     $room_number = (int)$_POST['room_number'];
@@ -114,167 +124,126 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
     <style>
-<style>
-.card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
-}
-
-.table thead th {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
-    padding: 0.75rem;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-}
-
-.table td {
-    padding: 0.75rem;
-    vertical-align: middle;
-    font-size: 0.875rem;
-    color: #4a5568;
-}
-
-.table-hover tbody tr:hover {
-    background-color: #f8f9fa;
-    transition: background-color 0.15s ease;
-}
-
-.card-footer,
-.bg-gray-50 {
-    background-color: #f8f9fa;
-    border-top: 1px solid #e9ecef;
-}
-
-/* Badges */
-.badge {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    border: 1px solid;
-    transition: all 0.2s ease;
-}
-.bg-green-100 { background-color: #f0fff4; }
-.text-green-800 { color: #2f855a; }
-.border-green-200 { border-color: #c6f6d5; }
-.bg-yellow-100 { background-color: #fef9c3; }
-.text-yellow-800 { color: #854d0e; }
-.border-yellow-200 { border-color: #fef08a; }
-.bg-amber-100 { background-color: #fffaf0; }
-.text-amber-800 { color: #975a16; }
-.border-amber-200 { border-color: #fed7aa; }
-.bg-gray-100 { background-color: #f7fafc; }
-.text-gray-800 { color: #2d3748; }
-.border-gray-200 { border-color: #edf2f7; }
-
-/* Action buttons */
-.user-actions .action-btn {
-  color: #9b9da2ff;                
-  transition: color .15s ease;   
-  text-decoration: none;
-  cursor: pointer;
-}
-.user-actions .action-btn.edit:hover {
-  color: #2563eb; /* blue */
-}
-.user-actions .action-btn.delete:hover {
-  color: #dc2626; /* red */
-}
-
-/* Sidebar & content */
-.sidebar {
-    width: 250px;
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-}
-.content {
-    margin-left: 265px;
-    max-width: 1400px;
-    margin-right: auto;
-    padding: 20px;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .table-responsive {
-        display: block;
-        overflow-x: auto;
+        .stat-card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 24px;
+        }
+        
+        .room-card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .room-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .room-card .card-header {
+            font-weight: 600;
+            padding: 12px 15px;
+        }
+        
+        .room-card.available .card-header {
+            background-color: rgba(25, 135, 84, 0.1);
+            color: #198754;
+        }
+        
+        .room-card.booked .card-header {
+            background-color: rgba(255, 193, 7, 0.1);
+            color: #ffc107;
+        }
+        
+        .room-card.maintenance .card-header {
+            background-color: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+        }
+        
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .status-available {
+            background-color: rgba(25, 135, 84, 0.1);
+            color: #198754;
+        }
+        
+        .status-booked {
+            background-color: rgba(255, 193, 7, 0.1);
+            color: #ffc107;
+        }
+        
+        .status-maintenance {
+            background-color: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+        }
+        
+        .countdown-timer {
+            font-weight: 600;
+        }
+        
+        .table-responsive {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .table th {
+            font-weight: 600;
+        }
+        
+    .sidebar {
+      width: 250px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
     }
+    .content { margin-left: 265px; padding: 20px; }
+    .card { border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    table th { background: #f8f9fa; }
+    table td, table th { padding: 12px; }
+
+    .toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #dc3545; /* red */
+    color: white;
+    padding: 12px 20px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s, transform 0.4s;
+    transform: translateY(-20px);
+    z-index: 9999;
+}
+.toast.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
 }
 
-/* Card base */
-.room-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  cursor: pointer;
-}
-.room-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-}
-
-/* Header */
-.room-card .card-header {
-  font-weight: 600;
-  padding: 12px 15px;
-  border-bottom: 1px solid #e9ecef;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #f9fafb;
-  border-top-left-radius: 0.75rem;
-  border-top-right-radius: 0.75rem;
-}
-
-/* Status colors */
-.status-badge {
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
-  border-radius: 9999px;
-  border: 1px solid;
-  font-weight: 500;
-}
-.status-available {
-  background-color: #f0fff4;
-  color: #2f855a;
-  border-color: #c6f6d5;
-}
-.status-booked {
-  background-color: #fef9c3;
-  color: #854d0e;
-  border-color: #fef08a;
-}
-.status-maintenance {
-  background-color: #fffaf0;
-  color: #975a16;
-  border-color: #fed7aa;
-}
-
-/* Room info rows */
-.room-info {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-  font-size: 0.875rem;
-}
-.room-info span:first-child {
-  color: #6b7280; /* muted */
-}
-.countdown-timer {
-  font-weight: 600;
-  color: #2563eb; /* blue */
-}
-
-/* Buttons inside cards */
-.room-card .btn {
-  font-size: 0.75rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 9999px;
-}
-</style>
+    </style>
 </head>
 <body>
 <!-- Sidebar -->
@@ -398,153 +367,141 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         </div>
     </div>
 
-<!-- Room List -->
-<div class="card mb-4">
-  <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-    <h5 class="mb-0">Room Status</h5>
-    <i class="fas fa-bed"></i>
-  </div>
-  <div class="card-body">
-    <div class="row">
-      <?php while ($room = $resultRooms->fetch_assoc()): ?>
-        <div class="col-md-4 mb-3">
-          <div class="card room-card <?= $room['status'] ?>" onclick="cardClicked(event, <?= $room['room_number']; ?>)">
-            <div class="card-header">
-              <span>Room #<?= htmlspecialchars($room['room_number']); ?></span>
-              <span class="status-badge status-<?= $room['status'] ?>"><?= ucfirst($room['status']) ?></span>
-            </div>
-            <div class="card-body">
-              <div class="room-info">
-                <span><i class="fas fa-tag me-2"></i>Type:</span>
-                <span class="fw-semibold"><?= ucfirst($room['room_type']) ?></span>
-              </div>
-
-              <?php if ($room['status'] === 'booked' && !empty($room['check_out_date'])): ?>
-                <div class="room-info">
-                  <span><i class="fas fa-clock me-2"></i>Time Left:</span>
-                  <span class="countdown-timer" data-room="<?= $room['room_number']; ?>" data-checkout="<?= $room['check_out_date']; ?>">Loading...</span>
-                </div>
-                <div class="d-flex justify-content-between mt-3">
-                  <form method="POST" action="receptionist-room.php" class="d-inline extend-form">
-                    <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
-                    <button type="submit" name="extend" class="btn btn-warning">
-                      <i class="fas fa-clock me-1"></i> Extend
-                    </button>
-                  </form>
-                  <form method="POST" action="receptionist-room.php" class="d-inline checkout-form">
-                    <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
-                    <button type="submit" name="checkout" class="btn btn-danger">
-                      <i class="fas fa-sign-out-alt me-1"></i> Check Out
-                    </button>
-                  </form>
-                </div>
-              <?php elseif ($room['status'] === 'available'): ?>
-                <div class="d-flex justify-content-center mt-3">
-                  <a href="check-in.php?room_number=<?= $room['room_number']; ?>" class="btn btn-success">
-                    <i class="fas fa-sign-in-alt me-1"></i> Check In
-                  </a>
-                </div>
-              <?php endif; ?>
-            </div>
-          </div>
+    <!-- Room List -->
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Room Status</h5>
+            <i class="fas fa-bed"></i>
         </div>
-      <?php endwhile; ?>
-    </div>
-  </div>
-</div>
+        <div class="card-body">
+            <div class="row">
+                <?php while ($room = $resultRooms->fetch_assoc()): ?>
+                    <div class="col-md-4 mb-3">
+                        <div class="card room-card <?= $room['status'] ?>"
+                            onclick="cardClicked(event, <?= $room['room_number']; ?>, '<?= $room['status'] ?>')">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Room #<?= htmlspecialchars($room['room_number']); ?></span>
+                                <span class="status-badge status-<?= $room['status'] ?>"><?= ucfirst($room['status']) ?></span>
+                            </div>
 
+                                <?php if (!empty($roomOrders[$room['room_number']])): ?>
+                                    <div class="mb-3">
+                                        <h6 class="fw-bold">Orders</h6>
+                                        <ul class="list-unstyled mb-0">
+                                            <?php foreach ($roomOrders[$room['room_number']] as $ord): ?>
+                                                <li>
+                                                    ✅ <?= htmlspecialchars($ord['item']) ?> 
+                                                    <small class="text-muted">(<?= date("H:i", strtotime($ord['created_at'])) ?>)</small>
+                                                </li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </div>
+                                <?php endif; ?>
+
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span class="text-muted"><i class="fas fa-tag me-2"></i>Type:</span>
+                                    <span class="fw-semibold"><?= ucfirst($room['room_type']) ?></span>
+                                </div>
+                                
+                                <?php if ($room['status'] === 'booked' && !empty($room['check_out_date'])): ?>
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <span class="text-muted"><i class="fas fa-clock me-2"></i>Time Left:</span>
+                                        <span class="countdown-timer" data-room="<?= $room['room_number']; ?>" data-checkout="<?= $room['check_out_date']; ?>">Loading...</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mt-3">
+                                        <form method="POST" action="receptionist-room.php" class="d-inline extend-form">
+                                            <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
+                                            <button type="submit" name="extend" class="btn btn-sm btn-warning">
+                                                <i class="fas fa-clock me-1"></i> Extend
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="receptionist-room.php" class="d-inline checkout-form">
+                                            <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
+                                            <button type="submit" name="checkout" class="btn btn-sm btn-danger">
+                                                <i class="fas fa-sign-out-alt me-1"></i> Check Out
+                                            </button>
+                                        </form>
+                                    </div>
+                                <?php elseif ($room['status'] === 'available'): ?>
+                                    <div class="d-flex justify-content-center mt-3">
+                                        <a href="check-in.php?room_number=<?= $room['room_number']; ?>" class="btn btn-sm btn-success">
+                                            <i class="fas fa-sign-in-alt me-1"></i> Check In
+                                        </a>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endwhile; ?>
+            </div>
+        </div>
+    </div>
 
     <!-- Booking Summary Table -->
-<div class="card mb-4">
-  <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-    <div class="d-flex align-items-center">
-      <h5 class="mb-0 me-3">Booking Summary</h5>
-      <span class="badge bg-primary">
-        <?= $summary_result->num_rows ?? 0; ?> bookings
-      </span>
-    </div>
-    <!-- Custom search box -->
-    <div class="input-group" style="width: 250px;">
-      <input type="text" id="bookingSearch" class="form-control form-control-sm" placeholder="Search bookings...">
-      <span class="input-group-text"><i class="fas fa-search"></i></span>
-    </div>
-  </div>
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Booking Summary</h5>
+            <i class="fas fa-calendar-check"></i>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Guest Name</th>
+                            <th>Check-In</th>
+                            <th>Check-Out</th>
+                            <th>Room #</th>
+                            <th>Duration</th>
+                            <th>Guests</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                            $summary_result = $conn->query("SELECT guest_name, start_date, end_date, room_number, duration, num_people FROM bookings ORDER BY start_date DESC");
+                            if ($summary_result->num_rows > 0):
+                                while ($booking = $summary_result->fetch_assoc()):
+                        ?>
+                        <tr>
+                            <td class="align-middle"><?= htmlspecialchars($booking['guest_name']) ?></td>
+                            <td class="align-middle"><?= date("M d, Y h:i A", strtotime($booking['start_date'])) ?></td>
+                            <td class="align-middle"><?= date("M d, Y h:i A", strtotime($booking['end_date'])) ?></td>
+                            <td class="align-middle"><?= $booking['room_number'] ?></td>
+                            <td class="align-middle"><?= $booking['duration'] ?> hrs</td>
+                            <td class="align-middle"><?= $booking['num_people'] ?></td>
+                            <td class="align-middle">
+                                <?php
+                                    $room_check = $conn->prepare("SELECT status FROM rooms WHERE room_number = ?");
+                                    $room_check->bind_param("i", $booking['room_number']);
+                                    $room_check->execute();
+                                    $room_result = $room_check->get_result();
+                                    $room = $room_result->fetch_assoc();
+                                    $room_check->close();
 
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table id="bookingTable" class="table table-bordered table-hover">
-        <thead class="table-light">
-          <tr>
-            <th>Guest Name</th>
-            <th>Check-In</th>
-            <th>Check-Out</th>
-            <th>Room #</th>
-            <th>Duration</th>
-            <th>Guests</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php
-            $summary_result = $conn->query("SELECT guest_name, start_date, end_date, room_number, duration, num_people FROM bookings ORDER BY start_date DESC");
-            if ($summary_result->num_rows > 0):
-              while ($booking = $summary_result->fetch_assoc()):
-          ?>
-          <tr>
-            <td><?= htmlspecialchars($booking['guest_name']) ?></td>
-            <td><?= date("M d, Y h:i A", strtotime($booking['start_date'])) ?></td>
-            <td><?= date("M d, Y h:i A", strtotime($booking['end_date'])) ?></td>
-            <td>
-              <span class="badge bg-gray-100 text-gray-800 border-gray-200">
-                <?= $booking['room_number'] ?>
-              </span>
-            </td>
-            <td>
-              <span class="badge bg-yellow-100 text-yellow-800 border-yellow-200">
-                <?= $booking['duration'] ?> hrs
-              </span>
-            </td>
-            <td>
-              <span class="badge bg-green-100 text-green-800 border-green-200">
-                <?= $booking['num_people'] ?>
-              </span>
-            </td>
-            <td class="text-center user-actions">
-              <?php
-                $room_check = $conn->prepare("SELECT status FROM rooms WHERE room_number = ?");
-                $room_check->bind_param("i", $booking['room_number']);
-                $room_check->execute();
-                $room_result = $room_check->get_result();
-                $room = $room_result->fetch_assoc();
-                $room_check->close();
-
-                if ($room && $room['status'] === 'available'):
-                  $guest = urlencode($booking['guest_name']);
-                  $checkin = urlencode($booking['start_date']);
-                  $checkout = urlencode($booking['end_date']);
-                  $num_people = (int)$booking['num_people'];
-              ?>
-              <span class="action-btn edit" 
-                    onclick="window.location.href='check-in.php?room_number=<?= $booking['room_number']; ?>&guest_name=<?= $guest; ?>&checkin=<?= $checkin; ?>&checkout=<?= $checkout; ?>&num_people=<?= $num_people; ?>'">
-                <i class="fas fa-sign-in-alt"></i>
-              </span>
-              <?php else: ?>
-              <span class="badge bg-amber-100 text-amber-800 border-amber-200">Unavailable</span>
-              <?php endif; ?>
-            </td>
-          </tr>
-          <?php endwhile; else: ?>
-          <tr>
-            <td colspan="7" class="text-center py-4">
-              <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-              <p class="mb-0">No bookings found</p>
-            </td>
-          </tr>
-          <?php endif; ?>
-        </tbody>
-      </table>
+                                    if ($room && $room['status'] === 'available'):
+                                        $guest = urlencode($booking['guest_name']);
+                                        $checkin = urlencode($booking['start_date']);
+                                        $checkout = urlencode($booking['end_date']);
+                                        $num_people = (int)$booking['num_people'];
+                                ?>
+                                <a href="check-in.php?room_number=<?= $booking['room_number']; ?>&guest_name=<?= $guest; ?>&checkin=<?= $checkin; ?>&checkout=<?= $checkout; ?>&num_people=<?= $num_people; ?>" class="btn btn-sm btn-success">
+                                    <i class="fas fa-sign-in-alt me-1"></i> Check In
+                                </a>
+                                <?php else: ?>
+                                <span class="badge bg-secondary">Room Unavailable</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endwhile; else: ?>
+                            <tr><td colspan="7" class="text-center py-4 text-muted">No bookings found.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
 <script>
@@ -586,7 +543,7 @@ document.querySelectorAll('.countdown-timer').forEach(function (timer) {
 document.querySelectorAll('.extend-form').forEach(form => {
     form.addEventListener('submit', function(e) {
         if (!confirm('Do you want to extend this stay by 1 hour?')) {
-            e.preventDefault();  // Prevent form submission if "Cancel"
+            e.preventDefault();
         }
     });
 });
@@ -595,19 +552,30 @@ document.querySelectorAll('.extend-form').forEach(form => {
 document.querySelectorAll('.checkout-form').forEach(form => {
     form.addEventListener('submit', function(e) {
         if (!confirm('Do you really want to check out this guest?')) {
-            e.preventDefault();  // Prevent form submission if "Cancel"
+            e.preventDefault();
         }
     });
 });
 
-
-function cardClicked(event, roomNumber) {
-    // Prevent the click if the user clicked a button inside the card
+// Handle card click
+function cardClicked(event, roomNumber, status) {
+    // Prevent the click if user clicked a button inside the card
     if (event.target.tagName.toLowerCase() === 'button' || event.target.closest('form')) {
         return;
     }
 
-    // Otherwise, redirect to check-in.php
+    if (status === 'booked') {
+        // Show toast instead of redirect
+        let toast = document.getElementById('roomToast');
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 4000);
+        event.preventDefault();
+        return false;
+    }
+
+    // If available, continue to check-in
     window.location.href = `check-in.php?room_number=${roomNumber}`;
 }
 
@@ -624,6 +592,7 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock(); // run once immediately
 </script>
+
 
 
 </body>

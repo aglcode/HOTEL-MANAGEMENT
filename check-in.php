@@ -33,7 +33,55 @@ $room = $result->fetch_assoc();
 $stmt->close();
 
 if (!$room && $_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo "Room not found or not available.";
+    echo "
+    <style>
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #dc3545; /* red danger */
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s, transform 0.4s;
+            transform: translateY(-20px);
+            z-index: 9999;
+        }
+        .toast.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .btn-toast {
+            margin: 20px;
+            padding: 10px 16px;
+            border: none;
+            background: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn-toast:hover {
+            background: #0056b3;
+        }
+    </style>
+
+    <button id='toastBtn' class='btn-toast'>Show Warning</button>
+    <div id='toast' class='toast'>Room not found or not available.</div>
+
+    <script>
+        document.getElementById('toastBtn').addEventListener('click', function() {
+            let toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 4000); // auto-hide after 4s
+        });
+    </script>
+    ";
     exit();
 }
 
