@@ -552,7 +552,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <!-- Pricing Section -->
       <div class="col-12">
         <h6 class="fw-bold mt-3">
-          <i class="fas fa-dollar-sign me-2 text-success"></i>Pricing Information
+          <i class="fas fa-peso-sign me-2 text-success"></i>Pricing Information
         </h6>
       </div>
 
@@ -809,8 +809,6 @@ document.addEventListener("DOMContentLoaded", () => {
   </div>
 </div>
 
-
-
 <!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;"> <!-- Reduced width -->
@@ -849,7 +847,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     </div>
   </div>
-</div>
+</div> 
 
 
 

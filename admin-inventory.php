@@ -208,6 +208,22 @@ try {
       background-color: rgba(220, 53, 69, 0.1);
       border-left: 3px solid #dc3545;
     }
+
+    .calendar-sidebar {
+    position: fixed;
+    top: 0;
+    right: -400px; 
+    width: 400px;
+    height: 100%;
+    background: #fff;
+    box-shadow: -2px 0 8px rgba(0,0,0,0.1); 
+    overflow-y: auto;
+    transition: right 0.3s ease;
+    z-index: 1050;
+  }
+  .calendar-sidebar.active {
+    right: 0;
+  }
     .avatar-sm {
       width: 32px;
       height: 32px;
@@ -335,23 +351,8 @@ try {
     font-size: 0.875rem;
   }
 
- .calendar-sidebar {
-  position: fixed;
-  top: 0;
-  right: -400px; 
-  width: 400px;
-  height: 100%;
-  background: #fff;
-  box-shadow: -2px 0 8px rgba(0,0,0,0.1); 
-  overflow-y: auto;
-  transition: right 0.3s ease;
-  z-index: 1050;
-}
-.calendar-sidebar.active {
-  right: 0;
-}
 
-        /* centering the dashboard content */
+    /* centering the dashboard content */
         .sidebar {
             width: 250px;
             position: fixed;

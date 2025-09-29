@@ -11,4 +11,18 @@
 * ADD NEW ROOM - changed UI
 * UI for card stats
 * Add validation for the add new room
-* ROOM update finished - added modals for deletion and edit 
+* ROOM update finished - added modals for deletion and edit
+* ROOMS FINISHED --------------------------------------------------------------
+* USERS - fixed the auto-scroll when opening a modals
+* Added validation on email and password on 'Add new user'
+* Modified the success messages into toast alert on 'USERS'
+* Added error toast alert messages on 'USERS'
+* Changed the pause icon to 'undo' for reverting the user to pending status
+* USERS FINISHED --------------------------------------------------------------
+   - pending // the email must be existing
+* REPORTS FINISHED ------------------------------------------------------------
+* MODIFIED delete confirmation modals
+* MODIFIED edit modals
+* Edited form, modals, and supply filters on 'Supplies'
+* SUPPLIES FINISHED -----------------------------------------------------------
+   - pending // validation for price (must have decimal value? threshold for price?)

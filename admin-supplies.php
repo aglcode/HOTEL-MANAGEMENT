@@ -14,8 +14,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'edit' && $id) {
         $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ? WHERE id = ?");
         $stmt->bind_param("sdisi", $name, $price, $quantity, $category, $id);
-        $stmt->execute();
-    } elseif ($action === 'add') {
+        if ($stmt->execute()) {
+            header("Location: admin-supplies.php?success=edited");
+        } else {
+            header("Location: admin-supplies.php?error=unknown");
+        }
+        exit();
+    } 
+    elseif ($action === 'add') {
         $stmt = $conn->prepare("SELECT id, quantity FROM supplies WHERE LOWER(name) = LOWER(?) AND category = ?");
         $stmt->bind_param("ss", $name, $category);
         $stmt->execute();
@@ -25,20 +31,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newQty = $row['quantity'] + $quantity;
             $stmt = $conn->prepare("UPDATE supplies SET quantity = ?, price = ? WHERE id = ?");
             $stmt->bind_param("idi", $newQty, $price, $row['id']);
-            $stmt->execute();
+            if ($stmt->execute()) {
+                header("Location: admin-supplies.php?success=edited");
+            } else {
+                header("Location: admin-supplies.php?error=unknown");
+            }
         } else {
             $stmt = $conn->prepare("INSERT INTO supplies (name, price, quantity, category) VALUES (?, ?, ?, ?)");
             $stmt->bind_param("sdis", $name, $price, $quantity, $category);
-            $stmt->execute();
+            if ($stmt->execute()) {
+                header("Location: admin-supplies.php?success=added");
+            } else {
+                header("Location: admin-supplies.php?error=unknown");
+            }
         }
-    } elseif ($action === 'delete' && $id) {
+        exit();
+    }
+    elseif ($action === 'delete' && $id) {
         $stmt = $conn->prepare("DELETE FROM supplies WHERE id = ?");
         $stmt->bind_param("i", $id);
-        $stmt->execute();
+        if ($stmt->execute()) {
+            header("Location: admin-supplies.php?success=deleted");
+        } else {
+            $errorCode = $conn->errno;
+            if ($errorCode == 1451) { // foreign key violation
+                header("Location: admin-supplies.php?error=foreign_key_violation");
+            } else {
+                header("Location: admin-supplies.php?error=unknown");
+            }
+        }
+        exit();
     }
-
-    header("Location: admin-supplies.php");
-    exit();
 }
 
 $search = $_GET['search'] ?? '';
@@ -123,6 +146,10 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
     font-size: 12px;
     color: #888;
 }
+
+  .same-height {
+    height: 48px; /* match input/select height */
+  }
 
 
 .table thead th {
@@ -324,39 +351,114 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
 </div>
 
 
-  <!-- Filter and Add Supply Section -->
-  <div class="card mb-4">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-      <h5 class="mb-0">Supply Filters</h5>
-      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSupplyModal">
-        <i class="fas fa-plus-circle me-2"></i>Add Supply
-      </button>
+<!-- Filter and Add Supply Section -->
+<div class="card mb-4 border-0 shadow-sm rounded-3">
+  <!-- Header with Title + Add Button -->
+  <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-0">
+    <div class="d-flex align-items-center">
+      <div class="bg-light p-2 rounded-3 me-2">
+        <i class="fas fa-filter text-primary"></i>
+      </div>
+      <h5 class="mb-0 fw-bold">Supply Filters</h5>
     </div>
-    <div class="card-body">
-      <form class="row g-3" method="GET">
-        <div class="col-md-6">
-          <div class="input-group">
-            <span class="input-group-text"><i class="fas fa-search"></i></span>
-            <input type="text" name="search" class="form-control" placeholder="Search supplies..." value="<?= htmlspecialchars($search) ?>">
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="input-group">
-            <span class="input-group-text"><i class="fas fa-filter"></i></span>
-            <select name="category" class="form-select">
-              <option value="">All Categories</option>
-              <option value="Cleaning" <?= $category === 'Cleaning' ? 'selected' : '' ?>>Cleaning</option>
-              <option value="Maintenance" <?= $category === 'Maintenance' ? 'selected' : '' ?>>Maintenance</option>
-              <option value="Food" <?= $category === 'Food' ? 'selected' : '' ?>>Food</option>
-            </select>
-          </div>
-        </div>
-        <div class="col-md-2">
-          <button class="btn btn-primary w-100"><i class="fas fa-filter me-2"></i>Filter</button>
-        </div>
-      </form>
-    </div>
+    <button class="btn btn-primary d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#addSupplyModal">
+      <i class="fas fa-plus me-2"></i> Add Supply
+    </button>
   </div>
+
+  <!-- Body with Filters -->
+  <div class="card-body">
+    <form class="row g-3 align-items-end" method="GET">
+      <!-- Search -->
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Search Supplies</label>
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+          <input type="text" name="search" class="form-control border-start-0 same-height"
+                 placeholder="Search supplies..." value="<?= htmlspecialchars($search) ?>">
+        </div>
+      </div>
+
+      <!-- Category -->
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Category</label>
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="fas fa-tags"></i></span>
+          <select name="category" class="form-select border-start-0 same-height">
+            <option value="">All Categories</option>
+            <option value="Cleaning" <?= $category === 'Cleaning' ? 'selected' : '' ?>>Cleaning</option>
+            <option value="Maintenance" <?= $category === 'Maintenance' ? 'selected' : '' ?>>Maintenance</option>
+            <option value="Food" <?= $category === 'Food' ? 'selected' : '' ?>>Food</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Filter Button -->
+      <div class="col-md-2">
+        <label class="form-label fw-semibold invisible">Filter</label>
+        <button class="btn btn-outline-primary w-100 same-height d-flex align-items-center justify-content-center">
+          <i class="fas fa-filter me-2"></i> Filter
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+
+
+  <!--- Success Messages ---->
+ <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+  <?php if (isset($_GET['success'])): ?>
+    <div id="serverToastSuccess" class="toast align-items-center text-bg-success border-0" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-check-circle me-2"></i>
+          <?php
+            if ($_GET['success'] == 'added') echo "Supply added successfully!";
+            if ($_GET['success'] == 'edited') echo "Supply edited successfully!";
+            if ($_GET['success'] == 'deleted') echo "Supply deleted successfully!";
+          ?>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+
+    <!--- Error Message ---->
+  <?php if (isset($_GET['error'])): ?>
+    <div id="serverToastError" class="toast align-items-center text-bg-danger border-0" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          <?php
+            if ($_GET['error'] == 'foreign_key_violation') {
+              echo "Cannot delete this supply because it has related records.";
+            } else {
+              echo "Failed to process the request. Please try again.";
+            }
+          ?>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const serverToastSuccess = document.getElementById("serverToastSuccess");
+  const serverToastError = document.getElementById("serverToastError");
+
+  if (serverToastSuccess) {
+    new bootstrap.Toast(serverToastSuccess, { delay: 4000 }).show();
+  }
+  if (serverToastError) {
+    new bootstrap.Toast(serverToastError, { delay: 4000 }).show();
+  }
+});
+</script>
+
 
  <!-- Supply Table -->
 <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
@@ -462,86 +564,125 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
 </div>
 
 
-  <!-- Add/Edit Modal -->
-  <div class="modal fade" id="addSupplyModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <form id="supplyForm" method="POST">
-          <input type="hidden" name="action" id="supplyAction" value="add">
-          <input type="hidden" name="id" id="supplyId">
-          <div class="modal-header bg-primary text-white">
-            <h5 class="modal-title" id="addSupplyModalLabel">Add Supply</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+ <!-- Add/Edit Modal -->
+<div class="modal fade" id="addSupplyModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-3">
+      <form id="supplyForm" method="POST">
+        <input type="hidden" name="action" id="supplyAction" value="add">
+        <input type="hidden" name="id" id="supplyId">
+
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <div class="d-flex align-items-center">
+            <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-2">
+              <i class="fas fa-cube text-primary fa-lg"></i>
+            </div>
+            <h5 class="modal-title fw-bold mb-0" id="addSupplyModalLabel">Add New Supply</h5>
           </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <label class="form-label">Name</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="fas fa-box"></i></span>
-                <input type="text" class="form-control" id="supplyName" name="name" required>
-              </div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Price</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="fas fa-peso-sign"></i></span>
-                <input type="number" class="form-control" id="supplyPrice" name="price" step="0.01" required>
-              </div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Quantity</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="fas fa-sort-numeric-up"></i></span>
-                <input type="number" class="form-control" id="supplyQuantity" name="quantity" min="1" required>
-              </div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Category</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="fas fa-tags"></i></span>
-                <select class="form-select" id="supplyCategory" name="category" required>
-                  <option value="Cleaning">Cleaning</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Food">Food</option>
-                </select>
-              </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body">
+          <!-- Name -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Supply Name</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="fas fa-box"></i></span>
+              <input type="text" class="form-control border-start-0" id="supplyName" name="name" placeholder="Enter supply name" required>
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="submit" class="btn btn-primary">
-              <i class="fas fa-save me-2"></i>Save
-            </button>
+
+          <!-- Price -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Price</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white">₱</span>
+              <input type="number" class="form-control border-start-0" id="supplyPrice" name="price" step="0.01" placeholder="00" required>
+                  <div class="invalid-feedback">
+                  Invalid input
+                </div>
+            </div>
           </div>
-        </form>
-      </div>
+
+          <!-- Quantity -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Quantity</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="fas fa-hashtag"></i></span>
+              <input type="number" class="form-control border-start-0" id="supplyQuantity" name="quantity" min="1" placeholder="Enter quantity" required>
+            </div>
+          </div>
+
+          <!-- Category -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Category</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="fas fa-tags"></i></span>
+              <select class="form-select border-start-0" id="supplyCategory" name="category" required>
+                <option value="" disabled selected>Select a category</option>
+                <option value="Cleaning">Cleaning</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Food">Food</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" id="supplySubmitBtn" class="btn btn-primary px-4 fw-semibold">Add Supply</button>
+        </div>
+
+      </form>
     </div>
   </div>
+</div>
+
   
   <!-- Delete Confirmation Modal -->
-  <div class="modal fade" id="deleteModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header bg-danger text-white">
-          <h5 class="modal-title">Confirm Deletion</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body text-center">
-          <i class="fas fa-exclamation-triangle text-warning fa-4x mb-3"></i>
-          <p class="fs-5">Are you sure you want to delete this supply?</p>
-          <p class="text-muted">This action cannot be undone.</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <form id="deleteForm" method="POST" style="display:inline">
-            <input type="hidden" name="action" value="delete">
-            <input type="hidden" name="id" id="deleteSupplyId">
-            <button type="submit" class="btn btn-danger">
-              <i class="fas fa-trash me-2"></i>Delete
-            </button>
-          </form>
-        </div>
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+    <div class="modal-content border-0 shadow-lg">
+      
+      <!-- Header -->
+      <div class="modal-header border-0 pb-2">
+        <h5 class="modal-title fw-bold text-danger" id="deleteModalLabel">
+          <i class="fas fa-exclamation-triangle me-2"></i>Confirm Deletion
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
+      <hr class="my-0">
+
+      <!-- Body -->
+      <div class="modal-body text-center">
+        <div class="mb-3">
+          <div class="rounded-circle bg-danger bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
+            <i class="fas fa-trash text-danger fa-2x"></i>
+          </div>
+        </div>
+        <h5 class="fw-bold mb-2">Delete supply?</h5>
+        <p class="text-muted mb-0">
+          Are you sure you want to delete this supply?<br>
+          This action cannot be undone and all associated data will be permanently removed.
+        </p>
+      </div>
+      <hr class="my-0">
+
+      <!-- Footer -->
+      <div class="modal-footer border-0 justify-content-center">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <form id="deleteForm" method="POST" style="display:inline">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="id" id="deleteSupplyId">
+          <button type="submit" class="btn btn-danger">
+            <i class="fas fa-trash me-1"></i> Delete
+          </button>
+        </form>
+      </div>
+
     </div>
   </div>
 </div>
@@ -563,9 +704,22 @@ function populateEditForm(id, name, price, quantity, category) {
   document.getElementById('supplyAction').value = 'edit';
   document.getElementById('addSupplyModalLabel').innerText = 'Edit Supply';
 
+  // Change button text
+  document.getElementById('supplySubmitBtn').innerText = 'Save Changes';
+
   // Show the modal
   const modal = new bootstrap.Modal(document.getElementById('addSupplyModal'));
   modal.show();
+}
+
+// Triggered when clicking the "Add" button
+function resetAddForm() {
+  document.getElementById('supplyForm').reset();
+  document.getElementById('supplyAction').value = 'add';
+  document.getElementById('addSupplyModalLabel').innerText = 'Add New Supply';
+
+  // Reset button text
+  document.getElementById('supplySubmitBtn').innerText = 'Add Supply';
 }
 
 // Triggered when clicking the "Delete" button
@@ -581,18 +735,61 @@ document.getElementById('addSupplyModal').addEventListener('hidden.bs.modal', fu
   document.getElementById('supplyAction').value = 'add';
   document.getElementById('addSupplyModalLabel').innerText = 'Add Supply';
   document.getElementById('supplyId').value = '';
+
+  // Reset button text
+  document.getElementById('supplySubmitBtn').innerText = 'Add Supply';
 });
 
-// Handle form submission via AJAX
-document.getElementById('supplyForm').addEventListener('submit', function (e) {
-  e.preventDefault();
+// price validation
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("supplyForm");
+  const priceInput = document.getElementById("supplyPrice");
 
-  const form = new FormData(this);
+  // Function to validate price
+  function validatePrice(showToast = false) {
+    const value = priceInput.value.trim();
+    const number = parseFloat(value);
 
-  fetch("admin-supplies.php", {
-    method: "POST",
-    body: form
-  }).then(() => location.reload()); // Reload to reflect changes
+    // Rules:
+    // 1. Must be a number
+    // 2. Must be greater than 0
+    // 3. Must be a whole number (no decimals)
+    const isInvalid =
+      isNaN(number) || number <= 0 || !/^\d+$/.test(value);
+
+    priceInput.classList.toggle("is-invalid", isInvalid);
+
+    if (isInvalid && showToast) {
+      const errorToastEl = document.createElement("div");
+      errorToastEl.className = "toast align-items-center text-bg-danger border-0";
+      errorToastEl.role = "alert";
+      errorToastEl.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Price must be a whole number greater than 0.
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      `;
+      document.querySelector(".toast-container").appendChild(errorToastEl);
+      new bootstrap.Toast(errorToastEl, { delay: 4000 }).show();
+    }
+
+    return !isInvalid;
+  }
+
+  // Validate in real-time
+  priceInput.addEventListener("input", () => validatePrice(false));
+  priceInput.addEventListener("blur", () => validatePrice(false));
+
+  // Validate on submit
+  form.addEventListener("submit", function(event) {
+    if (!validatePrice(true)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
 });
 
 // Real-time clock updater

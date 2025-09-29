@@ -340,79 +340,184 @@ $result = $conn->query($query);
     </div>
 </div>
 
-        <!-- Success messages -->
-        <?php if (isset($_GET['success'])): ?>
-            <div class="alert alert-success alert-dismissible fade show">
-                <?php
-                    if ($_GET['success'] == 'added') echo "<i class='fas fa-check-circle me-2'></i>User added successfully!";
-                    if ($_GET['success'] == 'edited') echo "<i class='fas fa-check-circle me-2'></i>User edited successfully!";
-                    if ($_GET['success'] == 'deleted') echo "<i class='fas fa-check-circle me-2'></i>User deleted successfully!";
-                    if ($_GET['success'] == 'status_updated') echo "<i class='fas fa-check-circle me-2'></i>User status updated successfully!";
-                ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        
+<!-- Add User Form -->
+<div class="row mb-4">
+  <div class="col-md-12">
+    <div class="card">
+      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Add New User</h5>
+        <i class="fas fa-user-plus"></i>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="admin-user.php" class="row g-3" id="addUserForm">
+          <div class="col-md-6">
+            <label for="name" class="form-label">Full Name</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-user"></i></span>
+              <input type="text" name="name" class="form-control" placeholder="Enter full name" required>
             </div>
-        <?php endif; ?>
+          </div>
 
-        <!-- Add User Form -->
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Add New User</h5>
-                        <i class="fas fa-user-plus"></i>
-                    </div>
-                    <div class="card-body">
-                        <form method="POST" action="admin-user.php" class="row g-3">
-                            <div class="col-md-6">
-                                <label for="name" class="form-label">Full Name</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-user"></i></span>
-                                    <input type="text" name="name" class="form-control" placeholder="Enter full name" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="username" class="form-label">Username</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-at"></i></span>
-                                    <input type="text" name="username" class="form-control" placeholder="Enter username" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="email" class="form-label">Email</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                                    <input type="email" name="email" class="form-control" placeholder="Enter email address" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="password" class="form-label">Password</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                                    <input type="password" name="password" class="form-control" placeholder="Enter password" required>
-                                </div>
-                            </div>
-                            <div class="col-md-12">
-                                <label for="role" class="form-label">Role</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
-                                    <select name="role" class="form-select" required>
-                                        <option value="" selected disabled>Select a role</option>
-                                        <option value="Admin">Admin</option>
-                                        <option value="Receptionist">Receptionist</option>
-                                        <option value="Guest">Guest</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-12 mt-4">
-                                <button type="submit" name="add_user" class="btn btn-primary">
-                                    <i class="fas fa-user-plus me-2"></i>Add User
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+          <div class="col-md-6">
+            <label for="username" class="form-label">Username</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-user"></i></span>
+              <input type="text" name="username" class="form-control" placeholder="Enter username" required>
             </div>
+          </div>
+
+          <div class="col-md-6">
+            <label for="email" class="form-label">Email</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+              <input type="email" name="email" id="email" class="form-control" placeholder="Enter email address" required>
+              <div class="invalid-feedback">Email must contain '@'.</div>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <label for="password" class="form-label">Password</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-lock"></i></span>
+              <input type="password" name="password" id="password" class="form-control" placeholder="Enter password" required>
+              <div class="invalid-feedback">Password must be at least 8 characters and include a special character.</div>
+            </div>
+          </div>
+
+          <div class="col-md-12">
+            <label for="role" class="form-label">Role</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
+              <select name="role" class="form-select" required>
+                <option value="" selected disabled>Select a role</option>
+                <option value="Admin">Admin</option>
+                <option value="Receptionist">Receptionist</option>
+                <option value="Guest">Guest</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="col-12 mt-4">
+            <button type="submit" name="add_user" class="btn btn-primary">
+              <i class="fas fa-user-plus me-2"></i>Add User
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Error message -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+  <div id="validationToast" class="toast align-items-center text-bg-danger border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body">
+        <i class="fas fa-exclamation-triangle me-2"></i> Please correct the highlighted errors.
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Success messages -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+  <?php if (isset($_GET['success'])): ?>
+    <div id="userToastSuccess" class="toast align-items-center text-bg-success border-0" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-check-circle me-2"></i>
+          <?php
+            if ($_GET['success'] == 'added') echo "User added successfully!";
+            if ($_GET['success'] == 'edited') echo "User edited successfully!";
+            if ($_GET['success'] == 'deleted') echo "User deleted successfully!";
+            if ($_GET['success'] == 'status_updated') echo "User status updated successfully!";
+          ?>
         </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+
+  <?php if (isset($_GET['error']) && $_GET['error'] == 'foreign_key_violation'): ?>
+    <div id="userToastError" class="toast align-items-center text-bg-danger border-0" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          Cannot delete this user because it has related records.
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+
+  <!-- Client-side validation toast -->
+  <div id="validationToastError" class="toast align-items-center text-bg-danger border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="validationErrorMsg">
+        <i class="fas fa-exclamation-triangle me-2"></i> Validation error
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const userToastSuccess = document.getElementById("userToastSuccess");
+  const userToastError = document.getElementById("userToastError");
+
+  if (userToastSuccess) new bootstrap.Toast(userToastSuccess, { delay: 4000 }).show();
+  if (userToastError) new bootstrap.Toast(userToastError, { delay: 4000 }).show();
+
+  // ====== New Add User Validation ======
+  function validateEmail(input) {
+    const value = input.value.trim();
+    if (!value.includes("@")) {
+      input.classList.add("is-invalid");
+      input.classList.remove("is-valid");
+    } else {
+      input.classList.remove("is-invalid");
+      input.classList.add("is-valid");
+    }
+  }
+
+  function validatePassword(input) {
+    const value = input.value;
+    const valid = value.length >= 8 && /[!@#$%^&*(),.?":{}|<>]/.test(value);
+    if (!valid) {
+      input.classList.add("is-invalid");
+      input.classList.remove("is-valid");
+    } else {
+      input.classList.remove("is-invalid");
+      input.classList.add("is-valid");
+    }
+  }
+
+  const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+
+  emailInput.addEventListener("input", () => validateEmail(emailInput));
+  passwordInput.addEventListener("input", () => validatePassword(passwordInput));
+
+  document.getElementById("addUserForm").addEventListener("submit", function(event) {
+    validateEmail(emailInput);
+    validatePassword(passwordInput);
+
+    if (emailInput.classList.contains("is-invalid") || passwordInput.classList.contains("is-invalid")) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // show toast error
+      const validationToast = document.getElementById("validationToast");
+      new bootstrap.Toast(validationToast, { delay: 4000 }).show();
+    }
+  });
+});
+</script>
+
+
 
 
         <!-- User List -->
@@ -496,25 +601,25 @@ $result = $conn->query($query);
                                     <?= htmlspecialchars($user['role']) ?>
                                 </span>
                             </td>
-                                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                 <span class="badge bg-<?= ($user['status'] == 'approved') ? 'green-100' : 'amber-100' ?> text-<?= ($user['status'] == 'approved') ? 'green-800' : 'amber-800' ?> border-<?= ($user['status'] == 'approved') ? 'green-200' : 'amber-200' ?> rounded-pill px-2.5 py-0.5 text-xs font-medium">
                                     <?= ucfirst($user['status']) ?>
                                 </span>
                                 <?php if ($user['role'] != 'Admin'): ?>
                                     <a href="admin-user.php?action=update_status&user_id=<?= $user['user_id'] ?>&status=<?= ($user['status'] == 'approved') ? 'pending' : 'approved' ?>" class="btn btn-sm btn-outline-<?= ($user['status'] == 'approved') ? 'warning' : 'success' ?> ms-1">
-                                        <i class="fas fa-<?= ($user['status'] == 'approved') ? 'pause' : 'check' ?>"></i>
+                                        <i class="fas fa-<?= ($user['status'] == 'approved') ? 'undo' : 'check' ?>"></i>
                                     </a>
                                 <?php endif; ?>
                             </td>
                         <td class="px-4 py-3 text-center align-middle">
                         <div class="d-flex gap-2 justify-content-center user-actions">
-                            <a href="#"
+                            <a href="javascript:void(0)"
                             onclick="editUser(<?= $user['user_id'] ?>, '<?= htmlspecialchars($user['name']) ?>', '<?= htmlspecialchars($user['username']) ?>', '<?= htmlspecialchars($user['email']) ?>', '<?= htmlspecialchars($user['role']) ?>')"
                             class="p-1 action-btn edit" title="Edit">
                             <i class="fas fa-edit"></i>
                             </a>
 
-                            <a href="#"
+                            <a href="javascript:void(0)"
                             onclick="confirmDelete(<?= $user['user_id'] ?>)"
                             class="p-1 action-btn delete" title="Delete">
                             <i class="fas fa-trash"></i>
@@ -613,6 +718,7 @@ $result = $conn->query($query);
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                             <input type="email" name="email" id="edit_email" class="form-control" required>
+                            <div class="invalid-feedback">Email must contain '@'.</div>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -620,6 +726,7 @@ $result = $conn->query($query);
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-lock"></i></span>
                             <input type="password" name="password" id="edit_password" class="form-control" placeholder="Enter new password">
+                            <div class="invalid-feedback">Password must be at least 8 characters and include a special character.</div>
                         </div>
                     </div>
                     <div class="col-md-12">
@@ -682,10 +789,60 @@ $result = $conn->query($query);
             editModal.show();
         }
 
+        // edit user modal validation
+        const editEmailInput = document.getElementById("edit_email");
+        const editPasswordInput = document.getElementById("edit_password");
+
+        function validateEditEmail(input) {
+        const value = input.value.trim();
+        if (!value.includes("@")) {
+            input.classList.add("is-invalid");
+            input.classList.remove("is-valid");
+        } else {
+            input.classList.remove("is-invalid");
+            input.classList.add("is-valid");
+        }
+        }
+
+        function validateEditPassword(input) {
+        const value = input.value;
+        if (value === "") {
+            // empty password is allowed (keep current)
+            input.classList.remove("is-invalid", "is-valid");
+            return;
+        }
+        const valid = value.length >= 8 && /[!@#$%^&*(),.?":{}|<>]/.test(value);
+        if (!valid) {
+            input.classList.add("is-invalid");
+            input.classList.remove("is-valid");
+        } else {
+            input.classList.remove("is-invalid");
+            input.classList.add("is-valid");
+        }
+        }
+
+        // Live validation
+        editEmailInput.addEventListener("input", () => validateEditEmail(editEmailInput));
+        editPasswordInput.addEventListener("input", () => validateEditPassword(editPasswordInput));
+
+        // On submit
+        document.getElementById("editUserForm").addEventListener("submit", function(event) {
+        validateEditEmail(editEmailInput);
+        validateEditPassword(editPasswordInput);
+
+        if (editEmailInput.classList.contains("is-invalid") || editPasswordInput.classList.contains("is-invalid")) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const validationToast = document.getElementById("validationToast");
+            new bootstrap.Toast(validationToast, { delay: 4000 }).show();
+        }
+        });
+
 
         // Data Tables
-    $(document).ready(function() {
-    var table = $('#userTable').DataTable({
+        $(document).ready(function() {
+        var table = $('#userTable').DataTable({
         paging: true,
         lengthChange: true,
         searching: true,
