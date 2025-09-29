@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_booking'])) {
     $address      = $_POST['address'];
     $telephone    = $_POST['telephone'];
     $age          = (int)$_POST['age'];
-    $num_people   = (int)$_POST['num_people'];
+    $num_people   = isset($_POST['num_people']) ? (int)$_POST['num_people'] : 1; // Default to 1 if not provided
     $room_number  = $_POST['room_number'];
     $duration     = $_POST['duration'];
     $payment_mode = $_POST['payment_mode'];
@@ -113,13 +113,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_booking'])) {
             // Calculate change
             $change = $amount_paid - $total_price;
 
-            // Conflict check
-            $conflict_stmt = $conn->prepare("SELECT * FROM bookings WHERE room_number = ? AND (
-                (? BETWEEN start_date AND end_date) OR
-                (? BETWEEN start_date AND end_date) OR
-                (start_date BETWEEN ? AND ?)
-            )");
-            $conflict_stmt->bind_param("sssss", $room_number, $start_date, $end_date, $start_date, $end_date);
+            // Conflict check (fix: check for overlap only with non-cancelled bookings)
+            $conflict_stmt = $conn->prepare("
+                SELECT 1 FROM bookings 
+                WHERE room_number = ? 
+                  AND status NOT IN ('cancelled', 'completed') 
+                  AND (
+                    (? < end_date AND ? > start_date)
+                  )
+                LIMIT 1
+            ");
+            $conflict_stmt->bind_param("sss", $room_number, $start_date, $end_date);
             $conflict_stmt->execute();
             $conflict_result = $conflict_stmt->get_result();
 
@@ -156,6 +160,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_booking'])) {
             }
         }
     }
+}
+
+// Define a placeholder for sendBookingEmail function
+function sendBookingEmail($email, $guest_name, $booking_token, $bookingDetails) {
+    // Placeholder implementation
+    // You can replace this with actual email-sending logic
+    error_log("Sending booking email to $email for $guest_name with token $booking_token");
 }
 
 // Filter and pagination
@@ -610,19 +621,26 @@ $total_pages = ceil($total_records / $limit);
                                     $now = new DateTime();
                                     $start = new DateTime($row['start_date']);
                                     $end = new DateTime($row['end_date']);
-                                    
+
+                                    // --- FIX: Use booking status field first, then fallback to time logic ---
                                     if ($row['status'] === 'cancelled') {
                                         $status_class = "bg-danger";
                                         $status_text = "Cancelled";
+                                    } elseif ($row['status'] === 'completed') {
+                                        $status_class = "bg-secondary";
+                                        $status_text = "Completed";
                                     } elseif ($now < $start) {
                                         $status_class = "bg-info";
                                         $status_text = "Upcoming";
                                     } elseif ($now >= $start && $now <= $end) {
                                         $status_class = "bg-success";
                                         $status_text = "Active";
-                                    } else {
+                                    } elseif ($now > $end) {
                                         $status_class = "bg-secondary";
                                         $status_text = "Completed";
+                                    } else {
+                                        $status_class = "bg-secondary";
+                                        $status_text = ucfirst($row['status']);
                                     }
                             ?>
                             <tr>
@@ -769,7 +787,187 @@ $total_pages = ceil($total_records / $limit);
         </div>
     </div>
 
-    <?php include 'booking-form.php'; ?>
+    <!-- Booking Modal -->
+<div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="bookingModalLabel">
+                    <i class="fas fa-calendar-plus me-2"></i>Reserve Your Room
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" onsubmit="return validateBookingForm();">
+                <div class="modal-body">
+                    <div class="container">
+                        <div class="row">
+                            <!-- Guest Information -->
+                            <div class="col-md-6 mb-4">
+                                <div class="card shadow-sm">
+                                    <div class="card-header bg-primary text-white">
+                                        <h6 class="mb-0"><i class="fas fa-user me-2"></i>Guest Information</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="guestName" class="form-label">Full Name *</label>
+                                            <input type="text" name="guest_name" id="guestName" class="form-control" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="email" class="form-label">Email Address *</label>
+                                            <input type="email" name="email" id="email" class="form-control" required>
+                                            <small class="text-muted">We'll send your booking confirmation to this email</small>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="telephone" class="form-label">Phone Number *</label>
+                                            <input type="text" name="telephone" id="telephone" class="form-control" required pattern="\d{10,11}">
+                                            <small class="text-muted">Enter a valid 10-11 digit phone number</small>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="address" class="form-label">Complete Address *</label>
+                                            <input type="text" name="address" id="address" class="form-control" required>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="age" class="form-label">Age *</label>
+                                                <input type="number" name="age" id="age" class="form-control" required>
+                                                <small class="text-muted">Must be 18 or older</small>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="numPeople" class="form-label">Number of Guests *</label>
+                                                <input type="number" name="num_people" id="numPeople" class="form-control" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Booking Details -->
+                            <div class="col-md-6 mb-4">
+                                <div class="card shadow-sm">
+                                    <div class="card-header bg-primary text-white">
+                                        <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Booking Details</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="roomNumber" class="form-label">Select Room *</label>
+                                            <select name="room_number" id="roomNumber" class="form-select" required>
+                                                <option value="">Choose your preferred room</option>
+                                                <?php
+                                                $room_query = "SELECT room_number, room_type FROM rooms WHERE status = 'available'";
+                                                $room_result = $conn->query($room_query);
+                                                while ($room = $room_result->fetch_assoc()) {
+                                                    echo "<option value='{$room['room_number']}'>Room {$room['room_number']} ({$room['room_type']})</option>";
+                                                }
+                                                ?>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="duration" class="form-label">Stay Duration *</label>
+                                            <select name="duration" id="duration" class="form-select" required>
+                                                <option value="3">3 Hours</option>
+                                                <option value="6">6 Hours</option>
+                                                <option value="12">12 Hours</option>
+                                                <option value="24">24 Hours</option>
+                                                <option value="48">48 Hours</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="startDate" class="form-label">Check-in Date & Time *</label>
+                                            <input type="datetime-local" name="start_date" id="startDate" class="form-control" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="endDate" class="form-label">Estimated Check-out *</label>
+                                            <input type="text" id="endDate" class="form-control bg-light" readonly>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="totalPrice" class="form-label">Total Price</label>
+                                            <input type="text" id="totalPrice" class="form-control bg-light" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Information -->
+                        <div class="card shadow-sm mb-4" style="border-radius: 16px; border: 1px solid #a18cd1; background: linear-gradient(90deg, #a18cd1 0%, #fbc2eb 100%);">
+                            <div class="card-header text-white" style="background: transparent; border-bottom: none;">
+                                <h6 class="mb-0" style="font-weight:600;">
+                                    <i class="fas fa-credit-card me-2"></i>Payment Information
+                                </h6>
+                            </div>
+                            <div class="card-body bg-white rounded-bottom" style="border-radius: 0 0 16px 16px;">
+                                <div class="row align-items-end">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="paymentMode" class="form-label">Payment Method *</label>
+                                        <select name="payment_mode" id="paymentMode" class="form-select" required onchange="togglePaymentFields();">
+                                            <option value="">Select payment method</option>
+                                            <option value="Cash">&#x1F4B5; Cash Payment</option>
+                                            <option value="GCash">&#x1F4F1; GCash</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="amountPaid" class="form-label">Amount to Pay *</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-gradient" style="background: linear-gradient(90deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
+                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" min="0" step="0.01" required oninput="calculateChange();">
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- GCash Section -->
+                                <div id="gcashSection" class="row mt-3" style="display: none;">
+                                    <div class="col-md-8">
+                                        <div style="background: #e9f3ff; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+                                            <div style="background: #b6dbff; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                                                <strong><i class="fas fa-info-circle me-2"></i>GCash Payment Instructions:</strong>
+                                                <ol class="mb-0 mt-2" style="padding-left: 18px; color: #1a237e;">
+                                                    <li>Send your payment to the GCash number provided</li>
+                                                    <li>Take a screenshot of the transaction</li>
+                                                    <li>Enter the 13-digit reference number below</li>
+                                                </ol>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label for="referenceNumber" class="form-label">GCash Reference Number *</label>
+                                                <input type="text" name="reference_number" id="referenceNumber" class="form-control" placeholder="Enter 13-digit reference number" maxlength="13" pattern="\d{13}">
+                                                <small class="text-muted">This can be found in your GCash transaction receipt</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 d-flex align-items-stretch">
+                                        <div style="background: linear-gradient(135deg, #e0e7ff 0%, #fbc2eb 100%); border-radius: 12px; padding: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                            <div style="color: #0063F7; font-weight: bold; font-size: 1.2rem; margin-bottom: 8px;">
+                                                <i class="fab fa-google-pay"></i> G<span style="color:#0063F7;">Pay</span>
+                                            </div>
+                                            <div style="font-size: 1rem; color: #333;">GCash Number:</div>
+                                            <div style="font-size: 1.5rem; font-weight: bold; color: #4f46e5; margin-bottom: 6px;">09123456789</div>
+                                            <div style="font-size: 1rem; color: #333;">Account Name:</div>
+                                            <div style="font-weight: 500; color: #4f46e5;">Gitarra Apartelle</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- End GCash Section -->
+                                <div class="row" id="cashSection" style="display: none;">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="changeAmount" class="form-label">Change</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-gradient" style="background: linear-gradient(90deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
+                                            <input type="text" id="changeAmount" class="form-control" readonly value="0.00">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary w-100" style="background: linear-gradient(90deg, #a18cd1 0%, #fbc2eb 100%); border: none; font-weight:600;">
+                        <i class="fas fa-calendar-check me-2"></i>Confirm Booking & Reserve Now
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
     <!-- Cancel Booking Modal -->
     <div class="modal fade" id="cancelBookingModal" tabindex="-1" aria-labelledby="cancelBookingModalLabel" aria-hidden="true">
@@ -915,26 +1113,37 @@ $total_pages = ceil($total_records / $limit);
         // Calculate change
         function calculateChange() {
             const totalPrice = parseFloat(document.getElementById('totalPrice').value) || 0;
-            const amountPaid = parseFloat(document.querySelector('input[name="amount_paid"]').value) || 0;
-            const change = amountPaid - totalPrice;
-            
+            const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
+            const paymentMode = document.getElementById('paymentMode').value;
+            let change = 0;
+            if (paymentMode === 'Cash') {
+                change = amountPaid - totalPrice;
+            }
             document.getElementById('changeAmount').value = change >= 0 ? change.toFixed(2) : '0.00';
         }
         
         // Toggle payment fields
         function togglePaymentFields() {
-            const paymentMode = document.querySelector('select[name="payment_mode"]').value;
+            const paymentMode = document.getElementById('paymentMode').value;
             const gcashSection = document.getElementById('gcashSection');
-            const referenceInput = document.querySelector('input[name="reference_number"]');
-            
+            const cashSection = document.getElementById('cashSection');
+            const referenceInput = document.getElementById('referenceNumber');
             if (paymentMode === 'GCash') {
-                gcashSection.style.display = 'block';
+                gcashSection.style.display = 'flex';
+                cashSection.style.display = 'none';
                 referenceInput.required = true;
+            } else if (paymentMode === 'Cash') {
+                gcashSection.style.display = 'none';
+                cashSection.style.display = 'flex';
+                referenceInput.required = false;
+                referenceInput.value = '';
             } else {
                 gcashSection.style.display = 'none';
+                cashSection.style.display = 'none';
                 referenceInput.required = false;
                 referenceInput.value = '';
             }
+            calculateChange();
         }
         
         // Form validation

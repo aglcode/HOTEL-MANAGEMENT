@@ -440,68 +440,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
 
     <!-- Booking Summary Table -->
     <div class="card mb-4">
-        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Booking Summary</h5>
-            <i class="fas fa-calendar-check"></i>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Guest Name</th>
-                            <th>Check-In</th>
-                            <th>Check-Out</th>
-                            <th>Room #</th>
-                            <th>Duration</th>
-                            <th>Guests</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                            $summary_result = $conn->query("SELECT guest_name, start_date, end_date, room_number, duration, num_people FROM bookings ORDER BY start_date DESC");
-                            if ($summary_result->num_rows > 0):
-                                while ($booking = $summary_result->fetch_assoc()):
-                        ?>
-                        <tr>
-                            <td class="align-middle"><?= htmlspecialchars($booking['guest_name']) ?></td>
-                            <td class="align-middle"><?= date("M d, Y h:i A", strtotime($booking['start_date'])) ?></td>
-                            <td class="align-middle"><?= date("M d, Y h:i A", strtotime($booking['end_date'])) ?></td>
-                            <td class="align-middle"><?= $booking['room_number'] ?></td>
-                            <td class="align-middle"><?= $booking['duration'] ?> hrs</td>
-                            <td class="align-middle"><?= $booking['num_people'] ?></td>
-                            <td class="align-middle">
-                                <?php
-                                    $room_check = $conn->prepare("SELECT status FROM rooms WHERE room_number = ?");
-                                    $room_check->bind_param("i", $booking['room_number']);
-                                    $room_check->execute();
-                                    $room_result = $room_check->get_result();
-                                    $room = $room_result->fetch_assoc();
-                                    $room_check->close();
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Booking Summary</h5>
+        <i class="fas fa-calendar-check"></i>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Guest Name</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Room #</th>
+                        <th>Duration</th>
+                        <th>Guests</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                        $summary_result = $conn->query("SELECT guest_name, start_date, end_date, room_number, duration, num_people FROM bookings ORDER BY start_date DESC");
+                        if ($summary_result->num_rows > 0):
+                            while ($booking = $summary_result->fetch_assoc()):
+                                $room_number = (int)$booking['room_number'];
+                                $booking_start = $booking['start_date'];
+                                $booking_end = $booking['end_date'];
+                                $guest_name = $booking['guest_name'];
+                                $already_checked_in = false;
+                                $now = new DateTime();
 
-                                    if ($room && $room['status'] === 'available'):
-                                        $guest = urlencode($booking['guest_name']);
-                                        $checkin = urlencode($booking['start_date']);
-                                        $checkout = urlencode($booking['end_date']);
-                                        $num_people = (int)$booking['num_people'];
-                                ?>
-                                <a href="check-in.php?room_number=<?= $booking['room_number']; ?>&guest_name=<?= $guest; ?>&checkin=<?= $checkin; ?>&checkout=<?= $checkout; ?>&num_people=<?= $num_people; ?>" class="btn btn-sm btn-success">
-                                    <i class="fas fa-sign-in-alt me-1"></i> Check In
-                                </a>
-                                <?php else: ?>
+                                $booking_end_dt = new DateTime($booking_end);
+                                $booking_finished = $now >= $booking_end_dt;
+
+                                // Improved: Only consider check-ins that overlap with the booking and are not checked out before booking end
+                                $stmt = $conn->prepare("SELECT id FROM checkins WHERE room_number = ? AND guest_name = ? AND check_in_date <= ? AND check_out_date >= ? LIMIT 1");
+                                $stmt->bind_param("isss", $room_number, $guest_name, $booking_end, $booking_start);
+                                $stmt->execute();
+                                $stmt->store_result();
+                                if ($stmt->num_rows > 0) {
+                                    $already_checked_in = true;
+                                }
+                                $stmt->close();
+                    ?>
+                    <tr>
+                        <td class="align-middle"><?= htmlspecialchars($booking['guest_name']) ?></td>
+                        <td class="align-middle"><?= date("M d, Y h:i A", strtotime($booking['start_date'])) ?></td>
+                        <td class="align-middle"><?= date("M d, Y h:i A", strtotime($booking['end_date'])) ?></td>
+                        <td class="align-middle"><?= $booking['room_number'] ?></td>
+                        <td class="align-middle"><?= $booking['duration'] ?> hrs</td>
+                        <td class="align-middle"><?= $booking['num_people'] ?></td>
+                        <td class="align-middle">
+                            <?php
+                                $room_check = $conn->prepare("SELECT status FROM rooms WHERE room_number = ?");
+                                $room_check->bind_param("i", $booking['room_number']);
+                                $room_check->execute();
+                                $room_result = $room_check->get_result();
+                                $room = $room_result->fetch_assoc();
+                                $room_check->close();
+
+                                if ($room && $room['status'] === 'available' && !$already_checked_in && !$booking_finished):
+                                    $guest = urlencode($booking['guest_name']);
+                                    $checkin = urlencode($booking['start_date']);
+                                    $checkout = urlencode($booking['end_date']);
+                                    $num_people = (int)$booking['num_people'];
+                            ?>
+                            <a href="check-in.php?room_number=<?= $booking['room_number']; ?>&guest_name=<?= $guest; ?>&checkin=<?= $checkin; ?>&checkout=<?= $checkout; ?>&num_people=<?= $num_people; ?>" class="btn btn-sm btn-success">
+                                <i class="fas fa-sign-in-alt me-1"></i> Check In
+                            </a>
+                            <?php elseif ($already_checked_in): ?>
+                                <span class="badge bg-secondary">Checked Out</span>
+                            <?php elseif ($booking_finished): ?>
+                                <span class="badge bg-secondary">Completed</span>
+                            <?php else: ?>
                                 <span class="badge bg-secondary">Room Unavailable</span>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                        <?php endwhile; else: ?>
-                            <tr><td colspan="7" class="text-center py-4 text-muted">No bookings found.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endwhile; else: ?>
+                        <tr><td colspan="7" class="text-center py-4 text-muted">No bookings found.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         </div>
     </div>
+</div>
 </div>
 
 <script>
@@ -592,10 +615,17 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock(); // run once immediately
 </script>
-
-
-
 </body>
 </html>
 
-<?php $conn->close(); ?>
+<?php
+// Only close the connection if it's still open and is an object
+if (isset($conn) && $conn instanceof mysqli) {
+    if (@$conn->ping()) {
+        $conn->close();
+    }
+}
+?>
+?>
+}
+?>

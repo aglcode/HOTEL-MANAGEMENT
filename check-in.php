@@ -85,6 +85,29 @@ if (!$room && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
+// Check if there is a completed/checked-out booking for this room
+$bookingStatus = null;
+$bookingQuery = "SELECT status FROM bookings WHERE room_number = ? AND end_date <= NOW() ORDER BY end_date DESC LIMIT 1";
+$stmtBooking = $conn->prepare($bookingQuery);
+$stmtBooking->bind_param("i", $room_number);
+$stmtBooking->execute();
+$stmtBooking->bind_result($bookingStatus);
+$stmtBooking->fetch();
+$stmtBooking->close();
+
+if ($bookingStatus === 'completed' || $bookingStatus === 'checked_out') {
+    echo "
+    <div style='max-width:600px;margin:60px auto;padding:40px 30px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;'>
+        <i class='fas fa-check-circle fa-3x text-success mb-3'></i>
+        <h2 class='mb-2'>Check-In Unavailable</h2>
+        <p class='mb-3'>This room's booking has already been <strong>checked out</strong> or <strong>completed</strong>.<br>
+        Please select another room or booking.</p>
+        <a href='receptionist-room.php' class='btn btn-primary mt-2'><i class='fas fa-arrow-left me-2'></i>Back to Rooms</a>
+    </div>
+    ";
+    exit();
+}
+
 // Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $guest_name = htmlspecialchars(trim($_POST['guest_name']));
@@ -93,9 +116,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $room_type = htmlspecialchars(trim($_POST['room_type']));
     $stay_duration = (int)($_POST['stay_duration']);
     $amount_paid = isset($_POST['amount_paid']) && is_numeric($_POST['amount_paid']) 
-    ? (float)$_POST['amount_paid'] 
-    : 0.00;
-    $change = (float)($_POST['change'] ?? 0);
+        ? (float)$_POST['amount_paid'] 
+        : 0.00;
+    $change = max(0, $amount_paid - $total_price);
     $payment_mode = htmlspecialchars(trim($_POST['payment_mode']));
     $gcash_reference = htmlspecialchars(trim($_POST['gcash_ref_id'] ?? ''));
     $user_id = $_SESSION['user_id'];
@@ -463,7 +486,7 @@ $conn->close();
             3: <?php echo (float)$room['price_3hrs']; ?>,
             6: <?php echo (float)$room['price_6hrs']; ?>,
             12: <?php echo (float)$room['price_12hrs']; ?>,
-            24: <?php echo (float)$room['price_24hrs']; ?>
+            24: <?php echo (float)$room['price_24hrs']; ?>,
         };
 
 
