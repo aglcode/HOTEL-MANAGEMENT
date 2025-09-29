@@ -86,10 +86,44 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
 </head>
 
 <style>
-    .card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+.stat-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease;
+    background: #fff;
 }
+
+.stat-card:hover {
+    transform: translateY(-4px);
+}
+
+.stat-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+    margin: 0;
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 18px;
+}
+
+.stat-change {
+    font-size: 13px;
+    margin-top: 6px;
+}
+
+.stat-change span {
+    font-size: 12px;
+    color: #888;
+}
+
 
 .table thead th {
     background-color: #f8f9fa;
@@ -244,48 +278,51 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
     </div>
   </div>
 
-  <!-- Supply Statistics Cards -->
-  <div class="row mb-4">
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-body d-flex align-items-center">
-          <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-            <i class="fas fa-boxes-stacked text-white fs-3"></i>
-          </div>
-          <div>
-            <h6 class="text-muted mb-1">Total Supplies</h6>
-            <h2 class="mb-0"><?php echo $totalSupplies; ?></h2>
-          </div>
+<!-- Supply Statistics Cards -->
+<div class="row mb-4">
+    <!-- Total Supplies -->
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Total Supplies</p>
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="fas fa-boxes-stacked"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?php echo $totalSupplies; ?></h3>
+            <p class="stat-change text-success">+6% <span>from last month</span></p>
         </div>
-      </div>
     </div>
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-body d-flex align-items-center">
-          <div class="rounded-circle bg-success d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-            <i class="fas fa-peso-sign text-white fs-3"></i>
-          </div>
-          <div>
-            <h6 class="text-muted mb-1">Total Cost</h6>
-            <h2 class="mb-0">₱<?php echo number_format($totalCost, 2); ?></h2>
-          </div>
+
+    <!-- Total Cost -->
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Total Cost</p>
+                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                    <i class="fas fa-peso-sign"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1">₱<?php echo number_format($totalCost, 2); ?></h3>
+            <p class="stat-change text-danger">-3% <span>from last month</span></p>
         </div>
-      </div>
     </div>
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-body d-flex align-items-center">
-          <div class="rounded-circle bg-info d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-            <i class="fas fa-tags text-white fs-3"></i>
-          </div>
-          <div>
-            <h6 class="text-muted mb-1">Categories</h6>
-            <h2 class="mb-0">3</h2>
-          </div>
+
+    <!-- Categories -->
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Categories</p>
+                <div class="stat-icon bg-info bg-opacity-10 text-info">
+                    <i class="fas fa-tags"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1">3</h3>
+            <p class="stat-change text-success">+2% <span>from last month</span></p>
         </div>
-      </div>
     </div>
-  </div>
+</div>
+
 
   <!-- Filter and Add Supply Section -->
   <div class="card mb-4">

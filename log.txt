@@ -8,3 +8,7 @@
 * Made the calendar just a pop up slide in
 * Centered the contents in dashboards
 * CHANGED the weekly report - monthly (walang ma pull up na weekly data) - THIS IS PARTIAL
+* ADD NEW ROOM - changed UI
+* UI for card stats
+* Add validation for the add new room
+* ROOM update finished - added modals for deletion and edit 

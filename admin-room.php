@@ -121,10 +121,44 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
 </head>
 
 <style>
-    .card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+.stat-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease;
+    background: #fff;
 }
+
+.stat-card:hover {
+    transform: translateY(-4px);
+}
+
+.stat-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+    margin: 0;
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 18px;
+}
+
+.stat-change {
+    font-size: 13px;
+    margin-top: 6px;
+}
+
+.stat-change span {
+    font-size: 12px;
+    color: #888;
+}
+
 
 .table thead th {
     background-color: #f8f9fa;
@@ -239,6 +273,94 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
             margin-right: auto;
         }
 
+        /* Card styling */
+#addRoomForm.card {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    background: #fff;
+}
+
+/* Header */
+#addRoomForm .card-header {
+    background: #fff;
+    border-bottom: none;
+    padding: 1.25rem 1.5rem;
+}
+
+#addRoomForm .card-header h5 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1a202c;
+}
+
+#addRoomForm .card-header .btn-close {
+    font-size: 0.9rem;
+}
+
+/* Labels */
+#addRoomForm .form-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+/* Inputs and selects */
+#addRoomForm .form-control,
+#addRoomForm .form-select {
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    padding: 0.625rem 0.75rem;
+    font-size: 0.95rem;
+    color: #111827;
+    background-color: #fff;
+    box-shadow: none;
+    transition: border-color 0.2s ease;
+}
+
+#addRoomForm .form-control:focus,
+#addRoomForm .form-select:focus {
+    border-color: #2563eb; /* blue-600 */
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Section titles */
+#addRoomForm h6 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: #111827;
+}
+
+/* Buttons */
+#addRoomForm .btn {
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 0.55rem 1.25rem;
+    font-size: 0.95rem;
+}
+
+#addRoomForm .btn-light {
+    border: 1px solid #e5e7eb;
+    color: #374151;
+    background: #fff;
+}
+
+#addRoomForm .btn-light:hover {
+    background: #f9fafb;
+}
+
+#addRoomForm .btn-primary {
+    background: #2563eb;
+    border: none;
+}
+
+#addRoomForm .btn-primary:hover {
+    background: #1e40af;
+}
+
+
 @media (max-width: 768px) {
     .table-responsive {
         display: block;
@@ -276,151 +398,211 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
             </div>
         </div>
 
-        <!-- Success Messages -->
-        <?php if (isset($_GET['success'])): ?>
-            <div class="alert alert-success alert-dismissible fade show">
-                <i class="fas fa-check-circle me-2"></i>
-                <?php
-                    if ($_GET['success'] == 'added') echo "Room added successfully!";
-                    if ($_GET['success'] == 'edited') echo "Room edited successfully!";
-                    if ($_GET['success'] == 'deleted') echo "Room deleted successfully!";
-                ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        <?php endif; ?>
-        
-        <?php if (isset($_GET['error']) && $_GET['error'] == 'foreign_key_violation'): ?>
-            <div class="alert alert-danger alert-dismissible fade show">
-                <i class="fas fa-exclamation-triangle me-2"></i>
-                Cannot delete this room because it has related check-in records.
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        <?php endif; ?>
-
-        <!-- Room Statistics Cards -->
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-                            <i class="fas fa-door-open text-white fs-3"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-1">Total Rooms</h6>
-                            <h2 class="mb-0"><?php echo $total_rooms; ?></h2>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="rounded-circle bg-success d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-                            <i class="fas fa-check-circle text-white fs-3"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-1">Available Rooms</h6>
-                            <h2 class="mb-0"><?php echo $available_rooms; ?></h2>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="rounded-circle bg-danger d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-                            <i class="fas fa-tools text-white fs-3"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-1">Maintenance Rooms</h6>
-                            <h2 class="mb-0"><?php echo $maintenance_rooms; ?></h2>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <!---- success message --->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+  <?php if (isset($_GET['success'])): ?>
+    <div id="serverToastSuccess" class="toast align-items-center text-bg-success border-0" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-check-circle me-2"></i>
+          <?php
+            if ($_GET['success'] == 'added') echo "Room added successfully!";
+            if ($_GET['success'] == 'edited') echo "Room edited successfully!";
+            if ($_GET['success'] == 'deleted') echo "Room deleted successfully!";
+          ?>
         </div>
-
-        <!-- Add/Edit Room Form -->
-        <div class="card mb-4" id="addRoomForm">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><?php echo isset($room_to_edit) ? "Edit Room" : "Add New Room"; ?></h5>
-                <i class="fas fa-<?php echo isset($room_to_edit) ? "edit" : "plus-circle"; ?>"></i>
-            </div>
-            <div class="card-body">
-                <form method="POST" action="admin-room.php" class="row g-3">
-            <input type="hidden" name="room_id" value="<?php echo isset($room_to_edit) ? $room_to_edit['id'] : ''; ?>">
-
-            <div class="mb-3">
-                <label for="room_number" class="form-label">Room Number</label>
-                <input type="text" name="room_number" class="form-control" value="<?php echo isset($room_to_edit) ? $room_to_edit['room_number'] : ''; ?>" required>
-            </div>
-
-            <div class="mb-3">
-                <label for="room_type" class="form-label">Room Type</label>
-                <select name="room_type" class="form-select" required>
-                    <option value="single" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'single' ? 'selected' : ''; ?>>Single Room</option>
-                    <option value="presidential_suite" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'presidential_suite' ? 'selected' : ''; ?>>Presidential Suite</option>
-                    <option value="connecting_rooms" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'connecting_rooms' ? 'selected' : ''; ?>>Connecting Rooms</option>
-                    <option value="quad_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'quad_room' ? 'selected' : ''; ?>>Quad Room</option>
-                    <option value="deluxe_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'deluxe_room' ? 'selected' : ''; ?>>Deluxe Room</option>
-                    <option value="double_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'double_room' ? 'selected' : ''; ?>>Double Room</option>
-                    <option value="triple_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'triple_room' ? 'selected' : ''; ?>>Triple Room</option>
-                    <option value="twin_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'twin_room' ? 'selected' : ''; ?>>Twin Room</option>
-                    <option value="standard_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'standard_room' ? 'selected' : ''; ?>>Standard Room</option>
-                    <option value="studio" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'studio' ? 'selected' : ''; ?>>Studio</option>
-                    <option value="suite" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'suite' ? 'selected' : ''; ?>>Suite</option>
-                    <option value="queen_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'queen_room' ? 'selected' : ''; ?>>Queen Room</option>
-                    <option value="executive_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'executive_room' ? 'selected' : ''; ?>>Executive Room</option>
-                    <option value="suites" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'suites' ? 'selected' : ''; ?>>Suites</option>
-                    <option value="accessible_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'accessible_room' ? 'selected' : ''; ?>>Accessible Room</option>
-                    <option value="hollywood_twin_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'hollywood_twin_room' ? 'selected' : ''; ?>>Hollywood Twin Room</option>
-                    <option value="king_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'king_room' ? 'selected' : ''; ?>>King Room</option>
-                    <option value="studio_hotel_rooms" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'studio_hotel_rooms' ? 'selected' : ''; ?>>Studio Hotel Rooms</option>
-                    <option value="villa" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'villa' ? 'selected' : ''; ?>>Villa</option>
-                    <option value="double_hotel_rooms" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'double_hotel_rooms' ? 'selected' : ''; ?>>Double Hotel Rooms</option>
-                    <option value="honeymoon_suite" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'honeymoon_suite' ? 'selected' : ''; ?>>Honeymoon Suite</option>
-                    <option value="penthouse_suite" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'penthouse_suite' ? 'selected' : ''; ?>>Penthouse Suite</option>
-                    <option value="single_hotel_rooms" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'single_hotel_rooms' ? 'selected' : ''; ?>>Single Hotel Rooms</option>
-                    <option value="adjoining_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'adjoining_room' ? 'selected' : ''; ?>>Adjoining Room</option>
-                </select>
-                
-            </div>
-
-            <div class="mb-3">
-                <label for="status" class="form-label">Status</label>
-                <select name="status" class="form-select" required>
-                    <option value="available" <?php echo isset($room_to_edit) && $room_to_edit['status'] == 'available' ? 'selected' : ''; ?>>Available</option>
-                    <option value="maintenance" <?php echo isset($room_to_edit) && $room_to_edit['status'] == 'maintenance' ? 'selected' : ''; ?>>Maintenance</option>
-                </select>
-            </div>
-
-            <!-- Prices Section -->
-            <div class="mb-3">
-                <label for="price_3hrs" class="form-label">Price for 3hrs</label>
-                <input type="number" step="0.01" name="price_3hrs" class="form-control" value="<?php echo isset($room_to_edit) ? $room_to_edit['price_3hrs'] : ''; ?>" required>
-            </div>
-            <div class="mb-3">
-                <label for="price_6hrs" class="form-label">Price for 6hrs</label>
-                <input type="number" step="0.01" name="price_6hrs" class="form-control" value="<?php echo isset($room_to_edit) ? $room_to_edit['price_6hrs'] : ''; ?>" required>
-            </div>
-            <div class="mb-3">
-                <label for="price_12hrs" class="form-label">Price for 12hrs</label>
-                <input type="number" step="0.01" name="price_12hrs" class="form-control" value="<?php echo isset($room_to_edit) ? $room_to_edit['price_12hrs'] : ''; ?>" required>
-            </div>
-            <div class="mb-3">
-                <label for="price_24hrs" class="form-label">Price for 24hrs</label>
-                <input type="number" step="0.01" name="price_24hrs" class="form-control" value="<?php echo isset($room_to_edit) ? $room_to_edit['price_24hrs'] : ''; ?>" required>
-            </div>
-            <div class="mb-3">
-                <label for="price_ot" class="form-label">Overtime Price</label>
-                <input type="number" step="0.01" name="price_ot" class="form-control" value="<?php echo isset($room_to_edit) ? $room_to_edit['price_ot'] : ''; ?>" required>
-            </div>
-
-            <button type="submit" name="<?php echo isset($room_to_edit) ? 'edit_room' : 'add_room'; ?>" class="btn btn-success">
-                <?php echo isset($room_to_edit) ? 'Update Room' : 'Add Room'; ?>
-            </button>
-        </form>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
     </div>
+  <?php endif; ?>
+
+  <?php if (isset($_GET['error']) && $_GET['error'] == 'foreign_key_violation'): ?>
+    <div id="serverToastError" class="toast align-items-center text-bg-danger border-0" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          Cannot delete this room because it has related check-in records.
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+</div>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const serverToastSuccess = document.getElementById("serverToastSuccess");
+  const serverToastError = document.getElementById("serverToastError");
+
+  if (serverToastSuccess) {
+    new bootstrap.Toast(serverToastSuccess, { delay: 4000 }).show();
+  }
+  if (serverToastError) {
+    new bootstrap.Toast(serverToastError, { delay: 4000 }).show();
+  }
+});
+</script>
+
+
+<!-- Room Statistics Cards -->
+<div class="row mb-4">
+    <!-- Total Rooms -->
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Total Rooms</p>
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="fas fa-door-open"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?php echo $total_rooms; ?></h3>
+            <p class="stat-change text-success">+4% <span>from last month</span></p>
+        </div>
+    </div>
+
+    <!-- Available Rooms -->
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Available Rooms</p>
+                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?php echo $available_rooms; ?></h3>
+            <p class="stat-change text-success">+7% <span>from last month</span></p>
+        </div>
+    </div>
+
+    <!-- Maintenance Rooms -->
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Maintenance Rooms</p>
+                <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+                    <i class="fas fa-tools"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?php echo $maintenance_rooms; ?></h3>
+            <p class="stat-change text-danger">-1% <span>from last month</span></p>
+        </div>
+    </div>
+</div>
+
+
+<!-- Add/Edit Room Form -->
+<div class="card shadow-sm border-0 mb-4" id="addRoomForm">
+  <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+    <h5 class="mb-0 fw-semibold">
+      <i class="fas fa-bed text-primary me-2"></i>
+      <?php echo isset($room_to_edit) ? "Edit Room" : "Add New Room"; ?>
+    </h5>
+  </div>
+
+  <div class="card-body">
+    <form method="POST" action="admin-room.php" class="row g-4">
+      <input type="hidden" name="room_id" value="<?php echo isset($room_to_edit) ? $room_to_edit['id'] : ''; ?>">
+
+      <!-- Room Number -->
+      <div class="col-12">
+        <label for="room_number" class="form-label fw-semibold">Room Number *</label>
+        <input type="text" name="room_number" class="form-control" 
+               value="<?php echo isset($room_to_edit) ? $room_to_edit['room_number'] : ''; ?>" required>
+      </div>
+
+      <!-- Room Type + Status -->
+      <div class="col-md-6">
+        <label for="room_type" class="form-label fw-semibold">Room Type *</label>
+        <select name="room_type" class="form-select" required>
+          <!-- your PHP options untouched -->
+          <option value="single" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'single' ? 'selected' : ''; ?>>Single Room</option>
+          <option value="presidential_suite" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'presidential_suite' ? 'selected' : ''; ?>>Presidential Suite</option> 
+          <option value="connecting_rooms" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'connecting_rooms' ? 'selected' : ''; ?>>Connecting Rooms</option> 
+          <option value="quad_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'quad_room' ? 'selected' : ''; ?>>Quad Room</option> 
+          <option value="deluxe_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'deluxe_room' ? 'selected' : ''; ?>>Deluxe Room</option> 
+          <option value="double_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'double_room' ? 'selected' : ''; ?>>Double Room</option> 
+          <option value="triple_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'triple_room' ? 'selected' : ''; ?>>Triple Room</option> 
+          <option value="twin_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'twin_room' ? 'selected' : ''; ?>>Twin Room</option> 
+          <option value="standard_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'standard_room' ? 'selected' : ''; ?>>Standard Room</option> 
+          <option value="studio" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'studio' ? 'selected' : ''; ?>>Studio</option> <option value="suite" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'suite' ? 'selected' : ''; ?>>Suite</option> 
+          <option value="queen_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'queen_room' ? 'selected' : ''; ?>>Queen Room</option> 
+          <option value="executive_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'executive_room' ? 'selected' : ''; ?>>Executive Room</option> 
+          <option value="suites" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'suites' ? 'selected' : ''; ?>>Suites</option> 
+          <option value="accessible_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'accessible_room' ? 'selected' : ''; ?>>Accessible Room</option> 
+          <option value="hollywood_twin_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'hollywood_twin_room' ? 'selected' : ''; ?>>Hollywood Twin Room</option> 
+          <option value="king_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'king_room' ? 'selected' : ''; ?>>King Room</option> 
+          <option value="studio_hotel_rooms" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'studio_hotel_rooms' ? 'selected' : ''; ?>>Studio Hotel Rooms</option> <option value="villa" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'villa' ? 'selected' : ''; ?>>Villa</option> 
+          <option value="double_hotel_rooms" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'double_hotel_rooms' ? 'selected' : ''; ?>>Double Hotel Rooms</option> 
+          <option value="honeymoon_suite" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'honeymoon_suite' ? 'selected' : ''; ?>>Honeymoon Suite</option> 
+          <option value="penthouse_suite" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'penthouse_suite' ? 'selected' : ''; ?>>Penthouse Suite</option> 
+          <option value="single_hotel_rooms" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'single_hotel_rooms' ? 'selected' : ''; ?>>Single Hotel Rooms</option> 
+          <option value="adjoining_room" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'adjoining_room' ? 'selected' : ''; ?>>Adjoining Room</option>
+          </select>
+      </div>
+
+      <div class="col-md-6">
+        <label for="status" class="form-label fw-semibold">Status *</label>
+        <select name="status" class="form-select" required>
+          <option value="available" <?php echo isset($room_to_edit) && $room_to_edit['status'] == 'available' ? 'selected' : ''; ?>>Available</option>
+          <option value="maintenance" <?php echo isset($room_to_edit) && $room_to_edit['status'] == 'maintenance' ? 'selected' : ''; ?>>Maintenance</option>
+        </select>
+      </div>
+
+      <!-- Pricing Section -->
+      <div class="col-12">
+        <h6 class="fw-bold mt-3">
+          <i class="fas fa-dollar-sign me-2 text-success"></i>Pricing Information
+        </h6>
+      </div>
+
+      <div class="col-md-3">
+        <label for="price_3hrs" class="form-label">Price for 3 Hours *</label>
+        <input type="number" step="0.01" id="price_3hrs" name="price_3hrs" class="form-control" 
+              value="<?php echo isset($room_to_edit) ? $room_to_edit['price_3hrs'] : ''; ?>" required>
+        <div class="invalid-feedback">Price must be at least 400</div>
+      </div>
+
+      <div class="col-md-3">
+        <label for="price_6hrs" class="form-label">Price for 6 Hours *</label>
+        <input type="number" step="0.01" id="price_6hrs" name="price_6hrs" class="form-control" 
+              value="<?php echo isset($room_to_edit) ? $room_to_edit['price_6hrs'] : ''; ?>" required>
+        <div class="invalid-feedback">Price must be at least 400</div>
+      </div>
+
+      <div class="col-md-3">
+        <label for="price_12hrs" class="form-label">Price for 12 Hours *</label>
+        <input type="number" step="0.01" id="price_12hrs" name="price_12hrs" class="form-control" 
+              value="<?php echo isset($room_to_edit) ? $room_to_edit['price_12hrs'] : ''; ?>" required>
+        <div class="invalid-feedback">Price must be at least 400</div>
+      </div>
+
+      <div class="col-md-3">
+        <label for="price_24hrs" class="form-label">Price for 24 Hours *</label>
+        <input type="number" step="0.01" id="price_24hrs" name="price_24hrs" class="form-control" 
+              value="<?php echo isset($room_to_edit) ? $room_to_edit['price_24hrs'] : ''; ?>" required>
+        <div class="invalid-feedback">Price must be at least 400</div>
+      </div>
+
+      <div class="col-md-6">
+        <label for="price_ot" class="form-label">Overtime Price (per hour) *</label>
+        <input type="number" step="0.01" id="price_ot" name="price_ot" class="form-control" 
+              value="<?php echo isset($room_to_edit) ? $room_to_edit['price_ot'] : ''; ?>" required>
+        <div class="invalid-feedback">Overtime Price must be at least 120</div>
+      </div>
+
+
+      <!-- Buttons -->
+      <div class="col-12 d-flex justify-content-end gap-2 mt-3">
+        <button type="submit" name="<?php echo isset($room_to_edit) ? 'edit_room' : 'add_room'; ?>" 
+                class="btn btn-primary">
+          <?php echo isset($room_to_edit) ? 'Update Room' : 'Add Room'; ?>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 
 <!-- Room Table -->
 <div class="card">
@@ -486,9 +668,21 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
               <td class="px-4 py-3 text-sm"><?= number_format($room['price_ot'], 2) ?></td>
               <td class="px-4 py-3 text-center">
                 <div class="d-flex gap-2 justify-content-center user-actions">
-                  <a href="admin-room.php?action=edit&room_id=<?= $room['id'] ?>" class="p-1 action-btn edit" title="Edit">
-                    <i class="fas fa-edit"></i>
-                  </a>
+                <a href="#" 
+                  class="p-1 action-btn edit" 
+                  title="Edit"
+                  data-id="<?= $room['id'] ?>"
+                  data-room_number="<?= htmlspecialchars($room['room_number']) ?>"
+                  data-room_type="<?= htmlspecialchars($room['room_type']) ?>"
+                  data-status="<?= htmlspecialchars($room['status']) ?>"
+                  data-price_3hrs="<?= $room['price_3hrs'] ?>"
+                  data-price_6hrs="<?= $room['price_6hrs'] ?>"
+                  data-price_12hrs="<?= $room['price_12hrs'] ?>"
+                  data-price_24hrs="<?= $room['price_24hrs'] ?>"
+                  data-price_ot="<?= $room['price_ot'] ?>">
+                  <i class="fas fa-edit"></i>
+                </a>
+
                   <a href="admin-room.php?action=delete&room_id=<?= $room['id'] ?>" class="p-1 action-btn delete" title="Delete">
                     <i class="fas fa-trash"></i>
                   </a>
@@ -502,6 +696,163 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
   </div>
 </div>
 
+<!-- Toast Container -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+  <div id="validationToast" class="toast align-items-center text-bg-danger border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body">
+        Please fix pricing errors before submitting.
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Room Modal -->
+<div class="modal fade" id="editRoomModal" tabindex="-1" aria-labelledby="editRoomModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-3">
+      
+      <!-- Header -->
+      <div class="modal-header border-bottom">
+        <div class="d-flex align-items-center">
+          <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
+            <i class="fas fa-bed text-primary"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold mb-0" id="editRoomModalLabel">Edit Room</h5>
+            <small class="text-muted">Update room information</small>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body">
+        <form method="POST" action="admin-room.php" id="editRoomForm" class="row g-4">
+          <input type="hidden" name="room_id" id="edit_room_id">
+
+          <!-- Room Number -->
+          <div class="col-12">
+            <label for="edit_room_number" class="form-label fw-semibold">Room Number *</label>
+            <input type="text" name="room_number" id="edit_room_number" class="form-control" placeholder="e.g., 101, A-205" required>
+          </div>
+
+          <!-- Room Type & Status -->
+          <div class="col-md-6">
+            <label for="edit_room_type" class="form-label fw-semibold">Room Type *</label>
+            <select name="room_type" id="edit_room_type" class="form-select" required>
+              <option value="standard_room">Standard Room</option>
+              <option value="single">Single Room</option>
+              <option value="double_room">Double Room</option>
+              <option value="deluxe_room">Deluxe Room</option>
+              <option value="suite">Suite</option>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label for="edit_status" class="form-label fw-semibold">Status *</label>
+            <select name="status" id="edit_status" class="form-select" required>
+              <option value="available">Available</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+          </div>
+
+          <!-- Pricing Section -->
+          <div class="col-12">
+            <h6 class="fw-bold mt-3">
+              <i class="fas fa-dollar-sign text-success me-2"></i> Pricing Information
+            </h6>
+          </div>
+
+          <div class="col-md-3">
+            <label for="edit_price_3hrs" class="form-label">Price for 3 Hours *</label>
+            <input type="number" step="0.01" id="edit_price_3hrs" name="price_3hrs" class="form-control" required>
+            <div class="invalid-feedback">Minimum: 400</div>
+          </div>
+
+          <div class="col-md-3">
+            <label for="edit_price_6hrs" class="form-label">Price for 6 Hours *</label>
+            <input type="number" step="0.01" id="edit_price_6hrs" name="price_6hrs" class="form-control" required>
+            <div class="invalid-feedback">Minimum: 400</div>
+          </div>
+
+          <div class="col-md-3">
+            <label for="edit_price_12hrs" class="form-label">Price for 12 Hours *</label>
+            <input type="number" step="0.01" id="edit_price_12hrs" name="price_12hrs" class="form-control" required>
+            <div class="invalid-feedback">Minimum: 400</div>
+          </div>
+
+          <div class="col-md-3">
+            <label for="edit_price_24hrs" class="form-label">Price for 24 Hours *</label>
+            <input type="number" step="0.01" id="edit_price_24hrs" name="price_24hrs" class="form-control" required>
+            <div class="invalid-feedback">Minimum: 400</div>
+          </div>
+
+          <div class="col-md-6">
+            <label for="edit_price_ot" class="form-label">Overtime Price (per hour) *</label>
+            <input type="number" step="0.01" id="edit_price_ot" name="price_ot" class="form-control" required>
+            <div class="invalid-feedback">Minimum: 120</div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer border-top">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" form="editRoomForm" name="edit_room" class="btn btn-primary text-white">
+          <i class="fas fa-save me-1"></i> Update Room
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;"> <!-- Reduced width -->
+    <div class="modal-content border-0 shadow-lg">
+      
+      <!-- Header -->
+      <div class="modal-header border-0 pb-2">
+        <h5 class="modal-title fw-bold text-danger" id="deleteModalLabel">
+          <i class="fas fa-exclamation-triangle me-2"></i>Confirm Deletion
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <hr class="my-0"> <!-- Line after header -->
+      
+      <!-- Body -->
+      <div class="modal-body text-center">
+        <div class="mb-3">
+          <div class="rounded-circle bg-danger bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
+            <i class="fas fa-trash text-danger fa-2x"></i>
+          </div>
+        </div>
+        <h5 class="fw-bold mb-2">Delete room?</h5>
+        <p class="text-muted mb-0">
+          Are you sure you want to delete room <span id="roomToDelete" class="fw-semibold text-dark"></span>?<br>
+          This action cannot be undone and all associated data will be permanently removed.
+        </p>
+      </div>
+      <hr class="my-0"> <!-- Line before buttons -->
+      
+      <!-- Footer -->
+      <div class="modal-footer border-0 justify-content-center">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <a href="#" id="confirmDeleteBtn" class="btn btn-danger">
+          <i class="fas fa-trash me-1"></i> Delete
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -510,6 +861,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
+
         function togglePriceFields() {
             const roomType = document.querySelector('[name="room_type"]').value;
             const disable = roomType === 'twin';
@@ -528,14 +880,14 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
         });
 
         // Real-time clock updater (optional, if used)
-function updateClock() {
-  const now = new Date();
-  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  document.getElementById('currentDate').innerText = now.toLocaleDateString('en-PH', options);
-  document.getElementById('currentTime').innerText = now.toLocaleTimeString('en-PH');
-}
-setInterval(updateClock, 1000);
-updateClock();
+      function updateClock() {
+        const now = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('currentDate').innerText = now.toLocaleDateString('en-PH', options);
+        document.getElementById('currentTime').innerText = now.toLocaleTimeString('en-PH');
+      }
+      setInterval(updateClock, 1000);
+      updateClock();
 
 
 // Data table
@@ -606,6 +958,99 @@ $(document).ready(function() {
     });
   });
 });
+
+// pricing validation
+function validatePrice(input) {
+  const value = parseFloat(input.value);
+
+
+  const isOvertime = input.name === "price_ot";
+  const minValue = isOvertime ? 120 : 400;
+
+  const invalid =
+    (value === -1 || value === 0 || value === 1 || value < minValue);
+
+  if (invalid || isNaN(value)) {
+    input.classList.add("is-invalid");
+    input.classList.remove("is-valid");
+  } else {
+    input.classList.remove("is-invalid");
+    input.classList.add("is-valid");
+  }
+}
+
+
+document.querySelectorAll("#price_3hrs, #price_6hrs, #price_12hrs, #price_24hrs, #price_ot")
+  .forEach(input => {
+    input.addEventListener("input", function() {
+      validatePrice(this);
+    });
+  });
+
+
+document.querySelector("form").addEventListener("submit", function(event) {
+  let invalidFound = false;
+  document.querySelectorAll("#price_3hrs, #price_6hrs, #price_12hrs, #price_24hrs, #price_ot")
+    .forEach(input => {
+      validatePrice(input);
+      if (input.classList.contains("is-invalid")) {
+        invalidFound = true;
+      }
+    });
+
+if (invalidFound) {
+  event.preventDefault();
+  event.stopPropagation();
+  const toastEl = document.getElementById("validationToast");
+  const toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+  toast.show();
+}
+});
+
+
+// edit modal
+document.querySelectorAll(".action-btn.edit").forEach(btn => {
+  btn.addEventListener("click", function(e) {
+    e.preventDefault();
+
+    // Fill form fields with data attributes
+    document.getElementById("edit_room_id").value = this.dataset.id;
+    document.getElementById("edit_room_number").value = this.dataset.room_number;
+    document.getElementById("edit_room_type").value = this.dataset.room_type;
+    document.getElementById("edit_status").value = this.dataset.status;
+    document.getElementById("edit_price_3hrs").value = this.dataset.price_3hrs;
+    document.getElementById("edit_price_6hrs").value = this.dataset.price_6hrs;
+    document.getElementById("edit_price_12hrs").value = this.dataset.price_12hrs;
+    document.getElementById("edit_price_24hrs").value = this.dataset.price_24hrs;
+    document.getElementById("edit_price_ot").value = this.dataset.price_ot;
+
+    // Show modal
+    const editModal = new bootstrap.Modal(document.getElementById("editRoomModal"));
+    editModal.show();
+  });
+});
+
+
+  // delete modal 
+  document.querySelectorAll(".action-btn.delete").forEach(btn => {
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+
+    
+      const deleteUrl = this.getAttribute("href");
+      const roomRow = this.closest("tr");
+      const roomNumber = roomRow.querySelector("td").textContent.trim();
+
+     
+      document.getElementById("roomToDelete").textContent = `#${roomNumber}`;
+      document.getElementById("confirmDeleteBtn").setAttribute("href", deleteUrl);
+
+
+      const modal = new bootstrap.Modal(document.getElementById("deleteModal"));
+      modal.show();
+    });
+  });
+
 
     </script>
 </div>

@@ -121,10 +121,44 @@ $result = $conn->query($query);
 </head>
 
 <style>
-    .card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+.stat-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease;
+    background: #fff;
 }
+
+.stat-card:hover {
+    transform: translateY(-4px);
+}
+
+.stat-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+    margin: 0;
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 18px;
+}
+
+.stat-change {
+    font-size: 13px;
+    margin-top: 6px;
+}
+
+.stat-change span {
+    font-size: 12px;
+    color: #888;
+}
+
 
 .table thead th {
     background-color: #f8f9fa;
@@ -275,35 +309,36 @@ $result = $conn->query($query);
             </div>
         </div>
         
-        <!-- User Statistics Cards -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-                            <i class="fas fa-users text-white fs-3"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-1">Total Users</h6>
-                            <h2 class="mb-0"><?php echo $total_users; ?></h2>
-                        </div>
-                    </div>
+<!-- User Statistics Cards -->
+<div class="row mb-4">
+    <!-- Total Users Card -->
+    <div class="col-md-6 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Total Users</p>
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="fas fa-users"></i>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="rounded-circle bg-warning d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-                            <i class="fas fa-user-clock text-white fs-3"></i>
-                        </div>
-                        <div>
-                            <h6 class="text-muted mb-1">Pending Accounts</h6>
-                            <h2 class="mb-0"><?php echo $pending_users; ?></h2>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <h3 class="fw-bold mb-1"><?php echo $total_users; ?></h3>
+            <p class="stat-change text-success">+10% <span>from last month</span></p>
         </div>
+    </div>
+
+    <!-- Pending Accounts Card -->
+    <div class="col-md-6 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Pending Accounts</p>
+                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                    <i class="fas fa-user-clock"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?php echo $pending_users; ?></h3>
+            <p class="stat-change text-danger">-2% <span>from last month</span></p>
+        </div>
+    </div>
+</div>
 
         <!-- Success messages -->
         <?php if (isset($_GET['success'])): ?>
@@ -508,26 +543,45 @@ $result = $conn->query($query);
 
 <!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="text-center mb-3">
-                    <i class="fas fa-exclamation-triangle text-warning fa-4x"></i>
-                </div>
-                <p class="text-center fs-5">Are you sure you want to delete this user?</p>
-                <p class="text-center text-muted">This action cannot be undone.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <a href="#" id="deleteUserLink" class="btn btn-danger">Delete User</a>
-            </div>
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;"> <!-- Reduced width -->
+    <div class="modal-content border-0 shadow-lg">
+      
+      <!-- Header -->
+      <div class="modal-header border-0 pb-2">
+        <h5 class="modal-title fw-bold text-danger" id="deleteModalLabel">
+          <i class="fas fa-exclamation-triangle me-2"></i>Confirm Deletion
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <hr class="my-0"> <!-- Line after header -->
+      
+      <!-- Body -->
+      <div class="modal-body text-center">
+        <div class="mb-3">
+          <div class="rounded-circle bg-danger bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
+            <i class="fas fa-user-times text-danger fa-2x"></i> <!-- Changed icon for user -->
+          </div>
         </div>
+        <h5 class="fw-bold mb-2">Delete user?</h5>
+        <p class="text-muted mb-0">
+          Are you sure you want to delete this user?<br>
+          This action cannot be undone and all associated data will be permanently removed.
+        </p>
+      </div>
+      <hr class="my-0"> <!-- Line before buttons -->
+      
+      <!-- Footer -->
+      <div class="modal-footer border-0 justify-content-center">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <a href="#" id="deleteUserLink" class="btn btn-danger">
+          <i class="fas fa-user-times me-1"></i> Delete User
+        </a>
+      </div>
     </div>
+  </div>
 </div>
+
+
 
 <!-- Edit User Modal -->
 <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">

@@ -106,6 +106,45 @@ try {
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
 
+    .stat-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease;
+    background: #fff;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+}
+
+.stat-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #555;
+    margin: 0;
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 18px;
+}
+
+.stat-change {
+    font-size: 13px;
+    margin-top: 6px;
+}
+
+.stat-change span {
+    font-size: 12px;
+    color: #888;
+}
+
+
     .table-top {
      padding: 0 1rem; /* match card padding */
     }
@@ -178,10 +217,6 @@ try {
     }
 
     /*  Data table  */
-        .card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
-}
 
 .table thead th {
     background-color: #f8f9fa;
@@ -384,48 +419,50 @@ try {
   </div>
   <?php unset($_SESSION['error_msg']); endif; ?>
 
-  <!-- Inventory Statistics Cards -->
-  <div class="row mb-4">
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-body d-flex align-items-center">
-          <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-            <i class="fas fa-boxes-stacked text-white fs-3"></i>
-          </div>
-          <div>
-            <h6 class="text-muted mb-1">Total Supplies</h6>
-            <h2 class="mb-0"><?php echo $total_supplies; ?></h2>
-          </div>
+ <!-- Inventory Statistics Cards -->
+<div class="row mb-4">
+    <!-- Total Supplies -->
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Total Supplies</p>
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="fas fa-boxes-stacked"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?php echo $total_supplies; ?></h3>
+            <p class="stat-change text-success">+4% <span>from last month</span></p>
         </div>
-      </div>
     </div>
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-body d-flex align-items-center">
-          <div class="rounded-circle bg-danger d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-            <i class="fas fa-exclamation-triangle text-white fs-3"></i>
-          </div>
-          <div>
-            <h6 class="text-muted mb-1">Low Stock Items</h6>
-            <h2 class="mb-0"><?php echo $low_stock_count; ?></h2>
-          </div>
+
+    <!-- Low Stock Items -->
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Low Stock Items</p>
+                <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?php echo $low_stock_count; ?></h3>
+            <p class="stat-change text-danger">-2% <span>from last month</span></p>
         </div>
-      </div>
     </div>
-    <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-body d-flex align-items-center">
-          <div class="rounded-circle bg-success d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px;">
-            <i class="fas fa-peso-sign text-white fs-3"></i>
-          </div>
-          <div>
-            <h6 class="text-muted mb-1">Total Value</h6>
-            <h2 class="mb-0">₱<?php echo number_format($total_value, 2); ?></h2>
-          </div>
+
+    <!-- Total Value -->
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Total Value</p>
+                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                    <i class="fas fa-peso-sign"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1">₱<?php echo number_format($total_value, 2); ?></h3>
+            <p class="stat-change text-success">+5% <span>from last month</span></p>
         </div>
-      </div>
     </div>
-  </div>
+</div>
 
 <!-- Inventory Table Card -->
 <div class="card mb-4">
