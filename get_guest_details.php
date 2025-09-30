@@ -52,7 +52,7 @@ if (isset($_GET['booking_id'])) {
         } elseif ($now < $start) {
             echo '<span class="badge bg-info">Upcoming</span>';
         } elseif ($now >= $start && $now <= $end) {
-            echo '<span class="badge bg-success">Active</span>';
+            echo '<span class="badge bg-success">In Use</span>';
         } else {
             echo '<span class="badge bg-secondary">Completed</span>';
         }

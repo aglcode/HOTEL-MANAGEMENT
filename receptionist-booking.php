@@ -622,25 +622,81 @@ $total_pages = ceil($total_records / $limit);
                                     $start = new DateTime($row['start_date']);
                                     $end = new DateTime($row['end_date']);
 
-                                    // --- FIX: Use booking status field first, then fallback to time logic ---
-                                    if ($row['status'] === 'cancelled') {
-                                        $status_class = "bg-danger";
-                                        $status_text = "Cancelled";
-                                    } elseif ($row['status'] === 'completed') {
-                                        $status_class = "bg-secondary";
-                                        $status_text = "Completed";
-                                    } elseif ($now < $start) {
-                                        $status_class = "bg-info";
-                                        $status_text = "Upcoming";
-                                    } elseif ($now >= $start && $now <= $end) {
-                                        $status_class = "bg-success";
-                                        $status_text = "Active";
-                                    } elseif ($now > $end) {
-                                        $status_class = "bg-secondary";
-                                        $status_text = "Completed";
+                                    // Get latest checkin (if any) for this guest + room
+                                    $latestCheckin = null;
+                                    $lcStmt = $conn->prepare("
+                                        SELECT check_in_date, check_out_date 
+                                        FROM checkins 
+                                        WHERE guest_name = ? AND room_number = ? 
+                                        ORDER BY check_in_date DESC 
+                                        LIMIT 1
+                                    ");
+                                    $lcStmt->bind_param("ss", $row['guest_name'], $row['room_number']);
+                                    $lcStmt->execute();
+                                    $lcRes = $lcStmt->get_result();
+                                    if ($lcRes && $lcRow = $lcRes->fetch_assoc()) {
+                                        $latestCheckin = $lcRow;
+                                    }
+                                    $lcStmt->close();
+
+                                    // Also detect any current occupant for the room (any guest)
+                                    $currentOccupant = null;
+                                    $occStmt = $conn->prepare("
+                                        SELECT guest_name 
+                                        FROM checkins 
+                                        WHERE room_number = ? 
+                                          AND check_in_date <= NOW() 
+                                          AND check_out_date > NOW() 
+                                        ORDER BY check_in_date DESC 
+                                        LIMIT 1
+                                    ");
+                                    $occStmt->bind_param("s", $row['room_number']);
+                                    $occStmt->execute();
+                                    $occRes = $occStmt->get_result();
+                                    if ($occRes && $occRow = $occRes->fetch_assoc()) {
+                                        $currentOccupant = $occRow['guest_name'];
+                                    }
+                                    $occStmt->close();
+
+                                    // Decide status: prefer latest checkin status if present (override booking.status)
+                                    if ($latestCheckin) {
+                                        $ci_out = new DateTime($latestCheckin['check_out_date']);
+                                        $ci_in = new DateTime($latestCheckin['check_in_date']);
+                                        if ($ci_in <= $now && $ci_out > $now) {
+                                            $status_class = "bg-warning text-dark";
+                                            $status_text = "In Use";
+                                        } elseif ($ci_out <= $now) {
+                                            $status_class = "bg-secondary";
+                                            $status_text = "Checked Out";
+                                        } else {
+                                            // future checkin exists but not started
+                                            $status_class = "bg-info";
+                                            $status_text = "Upcoming";
+                                        }
                                     } else {
-                                        $status_class = "bg-secondary";
-                                        $status_text = ucfirst($row['status']);
+                                        // Fallback to booking.status/time logic
+                                        if ($row['status'] === 'cancelled') {
+                                            $status_class = "bg-danger";
+                                            $status_text = "Cancelled";
+                                        } elseif ($row['status'] === 'completed') {
+                                            $status_class = "bg-secondary";
+                                            $status_text = "Completed";
+                                        } elseif ($currentOccupant) {
+                                            $status_class = "bg-warning text-dark";
+                                            $status_text = "In Use";
+                                        } elseif ($now < $start) {
+                                            $status_class = "bg-info";
+                                            $status_text = "Upcoming";
+                                        } elseif ($now >= $start && $now <= $end) {
+                                            $status_class = "bg-success";
+                                            $status_text = "Active";
+                                        } elseif ($now > $end) {
+                                            $status_class = "bg-secondary";
+                                            $status_text = "Completed";
+                                        } else {
+                                            $status_class = "bg-secondary";
+                                            $status_text = ucfirst($row['status']);
+                                        }
                                     }
                             ?>
                             <tr>
@@ -975,34 +1031,6 @@ $total_pages = ceil($total_records / $limit);
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title" id="cancelBookingModalLabel">
-                        <i class="fas fa-times-circle me-2"></i>Cancel Booking
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form method="POST">
-                    <div class="modal-body">
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            Are you sure you want to cancel the booking for <strong id="guestNameToCancel"></strong>?
-                        </div>
-                        <div class="mb-3">
-                            <label for="cancellationReason" class="form-label">Cancellation Reason *</label>
-                            <textarea name="cancellation_reason" id="cancellationReason" class="form-control" rows="3" required placeholder="Please provide a reason for cancellation..."></textarea>
-                        </div>
-                        <input type="hidden" name="booking_id" id="bookingIdToCancel">
-                        <input type="hidden" name="delete_booking" value="1">
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-danger">
-                            <i class="fas fa-times-circle me-2"></i>Cancel Booking
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <!-- Cancelled Bookings Modal -->
     <div class="modal fade" id="cancelledBookingsModal" tabindex="-1" aria-labelledby="cancelledBookingsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">

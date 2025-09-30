@@ -79,8 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     }
 
     if (isset($_POST['checkout'])) {
-        // 1. Get total_price and amount_paid
-        $stmt = $conn->prepare("SELECT total_price, amount_paid FROM checkins WHERE room_number = ? ORDER BY check_out_date DESC LIMIT 1");
+        // 1. Get total_price, amount_paid and guest_name
+        $stmt = $conn->prepare("SELECT total_price, amount_paid, guest_name FROM checkins WHERE room_number = ? ORDER BY check_out_date DESC LIMIT 1");
         $stmt->bind_param('i', $room_number);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -90,22 +90,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         if ($checkin) {
             $total_price = (float)$checkin['total_price'];
             $amount_paid = (float)$checkin['amount_paid'];
+            $guest_name = $checkin['guest_name'];
     
-            
-    
-            // 2. Proceed with checkout if paid fully
+            // Proceed with checkout: update room and checkin
             $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
             $stmt->bind_param('i', $room_number);
             $stmt->execute();
             $stmt->close();
     
-            $stmt_update = $conn->prepare("UPDATE checkins SET check_out_date = NOW() WHERE room_number = ?");
-            $stmt_update->bind_param('i', $room_number);
-            $stmt_update->execute();
-            $stmt_update->close();
+            $stmt_update = $conn->prepare("UPDATE checkins SET check_out_date = NOW() WHERE room_number = ? AND guest_name = ? ORDER BY check_in_date DESC LIMIT 1");
+            // Note: MySQL does not support ORDER BY in UPDATE with LIMIT reliably across versions;
+            // do a safe two-step: find id then update
+            $sel = $conn->prepare("SELECT id FROM checkins WHERE room_number = ? AND guest_name = ? ORDER BY check_in_date DESC LIMIT 1");
+            $sel->bind_param('is', $room_number, $guest_name);
+            $sel->execute();
+            $selRes = $sel->get_result();
+            if ($selRes && $selRow = $selRes->fetch_assoc()) {
+                $checkin_id = $selRow['id'];
+                $sel->close();
+                $stmt_update2 = $conn->prepare("UPDATE checkins SET check_out_date = NOW() WHERE id = ?");
+                $stmt_update2->bind_param('i', $checkin_id);
+                $stmt_update2->execute();
+                $stmt_update2->close();
+
+                // Mark related booking as completed (if any)
+                $bkSel = $conn->prepare("SELECT id FROM bookings WHERE guest_name = ? AND room_number = ? AND status NOT IN ('cancelled','completed') ORDER BY start_date DESC LIMIT 1");
+                $bkSel->bind_param("si", $guest_name, $room_number);
+                $bkSel->execute();
+                $bkRes = $bkSel->get_result();
+                if ($bkRes && $bkRow = $bkRes->fetch_assoc()) {
+                    $booking_id = (int)$bkRow['id'];
+                    $bkSel->close();
+                    $bkUpd = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
+                    $bkUpd->bind_param('i', $booking_id);
+                    $bkUpd->execute();
+                    $bkUpd->close();
+                } else {
+                    $bkSel->close();
+                }
+            } else {
+                $sel->close();
+            }
         }
     }
-    
 
     header("Location: receptionist-room.php");
     exit;
@@ -467,21 +494,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                                 $booking_start = $booking['start_date'];
                                 $booking_end = $booking['end_date'];
                                 $guest_name = $booking['guest_name'];
-                                $already_checked_in = false;
                                 $now = new DateTime();
 
                                 $booking_end_dt = new DateTime($booking_end);
                                 $booking_finished = $now >= $booking_end_dt;
 
-                                // Improved: Only consider check-ins that overlap with the booking and are not checked out before booking end
-                                $stmt = $conn->prepare("SELECT id FROM checkins WHERE room_number = ? AND guest_name = ? AND check_in_date <= ? AND check_out_date >= ? LIMIT 1");
-                                $stmt->bind_param("isss", $room_number, $guest_name, $booking_end, $booking_start);
-                                $stmt->execute();
-                                $stmt->store_result();
-                                if ($stmt->num_rows > 0) {
-                                    $already_checked_in = true;
+                                // New: determine current occupant (if any) and whether this booking's guest already checked out
+                                $already_checked_in = false;
+                                $occupied_by_other = false;
+                                $checked_out_for_booking = false;
+                                $current_occupant = null;
+
+                                // 1) Check current occupant for the room (active checkin where NOW() is between check_in_date and check_out_date)
+                                $currStmt = $conn->prepare("
+                                    SELECT guest_name, check_out_date 
+                                    FROM checkins 
+                                    WHERE room_number = ? 
+                                      AND check_in_date <= NOW() 
+                                      AND check_out_date > NOW() 
+                                    ORDER BY check_in_date DESC 
+                                    LIMIT 1
+                                ");
+                                $currStmt->bind_param("i", $room_number);
+                                $currStmt->execute();
+                                $currRes = $currStmt->get_result();
+                                if ($currRes && $rowCurr = $currRes->fetch_assoc()) {
+                                    $current_occupant = $rowCurr['guest_name'];
+                                    if ($current_occupant === $guest_name) {
+                                        $already_checked_in = true; // the booking's guest is currently in the room
+                                    } else {
+                                        $occupied_by_other = true; // occupied by another guest
+                                    }
                                 }
-                                $stmt->close();
+                                $currStmt->close();
+
+                                // 2) Check if this booking's guest already checked out (a checkin record that ended already)
+                                if (! $already_checked_in) {
+                                    // More robust: any checkin for this guest+room that has already ended
+                                    $coStmt = $conn->prepare("
+                                        SELECT id 
+                                        FROM checkins 
+                                        WHERE room_number = ? 
+                                          AND guest_name = ? 
+                                          AND check_out_date <= NOW()
+                                        ORDER BY check_out_date DESC
+                                        LIMIT 1
+                                    ");
+                                    $coStmt->bind_param("is", $room_number, $guest_name);
+                                    $coStmt->execute();
+                                    $coRes = $coStmt->get_result();
+                                    if ($coRes && $coRes->num_rows > 0) {
+                                        $checked_out_for_booking = true;
+                                    }
+                                    $coStmt->close();
+                                }
+
                     ?>
                     <tr>
                         <td class="align-middle"><?= htmlspecialchars($booking['guest_name']) ?></td>
@@ -499,19 +566,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                                 $room = $room_result->fetch_assoc();
                                 $room_check->close();
 
-                                if ($room && $room['status'] === 'available' && !$already_checked_in && !$booking_finished):
-                                    $guest = urlencode($booking['guest_name']);
-                                    $checkin = urlencode($booking['start_date']);
-                                    $checkout = urlencode($booking['end_date']);
-                                    $num_people = (int)$booking['num_people'];
+                                // New decision logic (note: prefer Checked Out before Room Unavailable)
+                                // - If room is currently occupied by this booking's guest => "In Use by {name}"
+                                // - Else if booking_finished OR the booking's guest already checked out => "Checked Out"
+                                // - Else if occupied by other guest => "Room Unavailable"
+                                // - Else if room is available => show Check In button
+                                if ($already_checked_in):
                             ?>
-                            <a href="check-in.php?room_number=<?= $booking['room_number']; ?>&guest_name=<?= $guest; ?>&checkin=<?= $checkin; ?>&checkout=<?= $checkout; ?>&num_people=<?= $num_people; ?>" class="btn btn-sm btn-success">
-                                <i class="fas fa-sign-in-alt me-1"></i> Check In
-                            </a>
-                            <?php elseif ($already_checked_in): ?>
+                                <span class="badge bg-success">In Use by <?= htmlspecialchars($guest_name) ?></span>
+                            <?php elseif ($checked_out_for_booking || $booking_finished): ?>
                                 <span class="badge bg-secondary">Checked Out</span>
-                            <?php elseif ($booking_finished): ?>
-                                <span class="badge bg-secondary">Completed</span>
+                            <?php elseif ($occupied_by_other): ?>
+                                <span class="badge bg-warning text-dark">Room Unavailable</span>
+                            <?php elseif ($room && $room['status'] === 'available'): 
+                                     $guest = urlencode($booking['guest_name']);
+                                     $checkin = urlencode($booking['start_date']);
+                                     $checkout = urlencode($booking['end_date']);
+                                     $num_people = (int)$booking['num_people'];
+                            ?>
+                                <a href="check-in.php?room_number=<?= $booking['room_number']; ?>&guest_name=<?= $guest; ?>&checkin=<?= $checkin; ?>&checkout=<?= $checkout; ?>&num_people=<?= $num_people; ?>" class="btn btn-sm btn-success">
+                                    <i class="fas fa-sign-in-alt me-1"></i> Check In
+                                </a>
                             <?php else: ?>
                                 <span class="badge bg-secondary">Room Unavailable</span>
                             <?php endif; ?>
@@ -624,8 +699,5 @@ if (isset($conn) && $conn instanceof mysqli) {
     if (@$conn->ping()) {
         $conn->close();
     }
-}
-?>
-?>
 }
 ?>

@@ -51,6 +51,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt->bind_param('i', $guest['room_number']);
                 $stmt->execute();
                 $stmt->close();
+
+                // Mark related booking as completed (if exists)
+                $bkSel = $conn->prepare("SELECT id FROM bookings WHERE guest_name = ? AND room_number = ? AND status NOT IN ('cancelled','completed') ORDER BY start_date DESC LIMIT 1");
+                $bkSel->bind_param("si", $guest['guest_name'], $guest['room_number']);
+                $bkSel->execute();
+                $bkRes = $bkSel->get_result();
+                if ($bkRes && $bkRow = $bkRes->fetch_assoc()) {
+                    $booking_id = (int)$bkRow['id'];
+                    $bkSel->close();
+                    $bkUpd = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
+                    $bkUpd->bind_param('i', $booking_id);
+                    $bkUpd->execute();
+                    $bkUpd->close();
+                } else {
+                    $bkSel->close();
+                }
                 
                 echo json_encode(['success' => true, 'message' => 'Guest checked out successfully']);
             }
@@ -765,8 +781,24 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
             <?php while ($row = $history_guests->fetch_assoc()): 
               $checkout_date = new DateTime($row['check_out_date'] ?? 'now');
               $checkin_date = new DateTime($row['check_in_date'] ?? 'now');
-              $is_checked_out = $checkout_date <= new DateTime();
-              $is_active = new DateTime() >= $checkin_date && new DateTime() < $checkout_date;
+              $now_dt = new DateTime();
+              $is_checked_out = $checkout_date <= $now_dt;
+              $is_active = $now_dt >= $checkin_date && $now_dt < $checkout_date;
+
+              // If not active and not checked out by dates, check bookings table for a completed booking
+              if (! $is_checked_out && ! $is_active) {
+                  $bk_guest = $row['guest_name'];
+                  $bk_room = (int)($row['room_number'] ?? 0);
+                  $bkStmt = $conn->prepare("SELECT id FROM bookings WHERE guest_name = ? AND room_number = ? AND status = 'completed' LIMIT 1");
+                  $bkStmt->bind_param("si", $bk_guest, $bk_room);
+                  $bkStmt->execute();
+                  $bkStmt->store_result();
+                  if ($bkStmt->num_rows > 0) {
+                      $is_checked_out = true;
+                      $is_active = false;
+                  }
+                  $bkStmt->close();
+              }
             ?>
             <tr class="<?= $is_active ? 'table-success' : ($is_checked_out ? 'table-light' : '') ?>">
               <td>
@@ -839,7 +871,7 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
               <td class="no-print">
                 <?php if ($is_active): ?>
                   <span class="badge bg-success">
-                    <i class="fas fa-clock me-1"></i>Active
+                    <i class="fas fa-clock me-1"></i>In Use
                   </span>
                 <?php elseif ($is_checked_out): ?>
                   <span class="badge bg-secondary">
@@ -894,9 +926,6 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
       </div>
     <?php endif; ?>
   </div>
-</div>
-
-</div>
 </div>
 
 <script>
