@@ -19,7 +19,7 @@
 * Added error toast alert messages on 'USERS'
 * Changed the pause icon to 'undo' for reverting the user to pending status
 * USERS FINISHED --------------------------------------------------------------
-   - pending // the email must be existing
+   - pending // modal for send, loading verification code // validation for expired code
 * REPORTS FINISHED ------------------------------------------------------------
 * MODIFIED delete confirmation modals
 * MODIFIED edit modals

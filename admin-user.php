@@ -1,7 +1,10 @@
 <?php
 session_start();
+require_once 'database.php'; 
+require 'vendor/autoload.php'; 
 
-require_once 'database.php'; // Include your database connection settings
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 // Check connection
 if ($conn->connect_error) {
@@ -14,20 +17,178 @@ if ($_SESSION['role'] != 'Admin') {
     exit();
 }
 
-// Handle adding a new user
+// ====== Send Verification Code ======
+if (isset($_POST['send_verification'])) {
+    $email = $_POST['email'];
+
+    // Generate 6-digit code
+    $verification_code = rand(100000, 999999);
+    $_SESSION['verification_code'] = $verification_code;
+    $_SESSION['verification_email'] = $email;
+    $_SESSION['verification_expiry'] = time() + (10 * 60); // expiry timestamp
+
+    // Send email via PHPMailer
+    $mail = new PHPMailer(true);
+
+try {
+    // Debugging
+    $mail->SMTPDebug = 3;  
+    $mail->Debugoutput = 'echo';  
+
+    // Server settings
+    $mail->isSMTP();
+    $mail->Host = 'smtp.gmail.com';
+    $mail->SMTPAuth = true;
+    $mail->Username = 'gitarraapartelle@gmail.com'; 
+    $mail->Password = 'pngssmeypubvvhvg';   
+    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; 
+    $mail->Port = 587;
+
+    // Recipients
+    $mail->setFrom('gitarraapartelle@gmail.com', 'Gitarra Apartelle');
+    $mail->addAddress($email);
+
+    // embededd logo
+    // $mail->AddEmbeddedImage(__DIR__ . '/Image/logo.jpg', 'logo_cid');
+
+    // Content
+    $mail->isHTML(true);
+    $mail->Subject = "Verify Your Email Address";
+
+    $mail->Body = '
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    <title>Email Verification</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px;">
+
+    <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+        <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+            
+            <!-- Logo -->
+                <tr>
+                    <td align="center" style="padding: 30px 20px 10px;">
+                    <img src="https://scontent.fmnl4-2.fna.fbcdn.net/v/t39.30808-6/385490993_637069471904349_5667210045998647721_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeGzZeSS-VOU3mip2PYWEEzq1gvmc1__1N7WC-ZzX__U3mLCFaIrm7hU1jRbcR-aF-UDhFluOFLrdBAFUTM2hObl&_nc_ohc=dKD1RXbHvvkQ7kNvwG8VGOA&_nc_oc=AdmimU2yBWktWuhmYpR8Fnf12qph0CsLU3poBxHzYZUTgTvb5B4y_wTVy9ILZRovBH21sK152rXhDsLM6ON2Nl3F&_nc_zt=23&_nc_ht=scontent.fmnl4-2.fna&_nc_gid=duKeXcCy8oVLyFMJ-tw7pg&oh=00_Afa09rl7bQO66navTj9nz0We2qZUBrfnLGC_oVInN4PoaQ&oe=68E30617" alt="Gitarra Apartelle" style="display:block; margin-bottom:10px; max-width:150px; height:auto;">
+                    <h2 style="margin: 0; font-size:22px; color:#333;">Gitarra Apartelle</h2>
+                    </td>
+                </tr>
+
+            <!-- Title -->
+            <tr>
+                <td align="center" style="padding: 10px 30px;">
+                <h3 style="margin:0; font-size:20px; color:#333;">Verify Your Email Address</h3>
+                </td>
+            </tr>
+
+            <!-- Body Text -->
+            <tr>
+                <td style="padding: 20px 30px; font-size:16px; line-height:1.6; color:#555;">
+                <p>Thank you for choosing <b>Gitarra Apartelle</b>. To complete your registration and secure your account, please use the verification code below:</p>
+                </td>
+            </tr>
+
+            <!-- Verification Code -->
+            <tr>
+                <td align="center" style="padding: 10px 30px;">
+                <div style="background:#f4f6f9; border:1px solid #e0e0e0; border-radius:6px; padding:20px; display:inline-block;">
+                    <span style="font-size:28px; font-weight:bold; letter-spacing:4px; color:#2c3e50;">
+                    ' . $verification_code . '
+                    </span>
+                </div>
+                </td>
+            </tr>
+
+            <!-- Expiration Note -->
+            <tr>
+            <td style="padding: 20px 30px; font-size:14px; color:#555;">
+                <p>
+                This code will expire in 
+                <b><span style="color:#FF0000;">10 minutes</span></b> 
+                for security purposes.
+                </p>
+                <p>
+                If you didn’t request this verification code, please ignore this email or contact our support team if you have concerns.
+                </p>
+            </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+                <td align="center" style="background:#f9f9f9; padding: 15px; font-size:13px; color:#777;">
+                <p style="margin: 0; font-weight:bold;">Gitarra Apartelle</p>
+                <p style="margin: 5px 0 0;">This is an automated message, please do not reply.</p>
+                <p style="margin: 5px 0 0;">&copy; ' . date("Y") . ' Gitarra Apartelle. All rights reserved.</p>
+                </td>
+            </tr>
+
+            </table>
+        </td>
+        </tr>
+    </table>
+
+    </body>
+    </html>
+    ';
+
+    echo "<p>📡 Sending... Please wait...</p>";
+    flush();
+
+    $mail->send();
+    echo "<h3 style='color:green;'>Verification code sent successfully to $email ✅</h3>";
+    } catch (Exception $e) {
+        echo "<h3 style='color:red;'>Mailer Exception: {$mail->ErrorInfo}</h3>";
+    }
+}
+
+
+// ====== Add User After Code Verified ======
 if (isset($_POST['add_user'])) {
     $name = $_POST['name'];
     $username = $_POST['username'];
     $email = $_POST['email'];
+    $input_code = $_POST['verification_code']; // field from form
     $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
     $role = $_POST['role'];
 
-    // Insert new user into the database
+    // Check code
+    // if (!isset($_SESSION['verification_code']) || $input_code != $_SESSION['verification_code'] || $email != $_SESSION['verification_email']) {
+    //     header("Location: admin-user.php?error=invalid_code");
+    //     exit();
+    // }
+
+    // Check if code exists
+    if (!isset($_SESSION['verification_code']) || !isset($_SESSION['verification_expiry'])) {
+        header("Location: admin-user.php?error=no_code");
+        exit();
+    }
+
+    // Check expiration (10 mins)
+    if (time() > $_SESSION['verification_expiry']) {
+        unset($_SESSION['verification_code'], $_SESSION['verification_expiry'], $_SESSION['verification_email']);
+        header("Location: admin-user.php?error=code_expired");
+        exit();
+    }
+
+    // Check if code matches and email is same
+    if ($input_code != $_SESSION['verification_code'] || $email != $_SESSION['verification_email']) {
+        header("Location: admin-user.php?error=invalid_code");
+        exit();
+    }
+
+    // Insert new user into DB
     $query = "INSERT INTO users (name, username, email, password, role, status) VALUES (?, ?, ?, ?, ?, 'approved')";
     $stmt = $conn->prepare($query);
     $stmt->bind_param("sssss", $name, $username, $email, $password, $role);
     $stmt->execute();
     $stmt->close();
+
+    // Clear session code
+    unset($_SESSION['verification_code']);
+    unset($_SESSION['verification_email']);
 
     header("Location: admin-user.php?success=added");
     exit();
@@ -119,6 +280,7 @@ $result = $conn->query($query);
     <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
 </head>
+
 
 <style>
 .stat-card {
@@ -355,7 +517,7 @@ $result = $conn->query($query);
             <label for="name" class="form-label">Full Name</label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-user"></i></span>
-              <input type="text" name="name" class="form-control" placeholder="Enter full name" required>
+              <input type="text" name="name" id="name" class="form-control" placeholder="Enter full name" required>
             </div>
           </div>
 
@@ -363,18 +525,35 @@ $result = $conn->query($query);
             <label for="username" class="form-label">Username</label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-user"></i></span>
-              <input type="text" name="username" class="form-control" placeholder="Enter username" required>
+              <input type="text" name="username" id="username" class="form-control" placeholder="Enter username" required>
             </div>
           </div>
 
-          <div class="col-md-6">
+            <div class="col-md-6">
             <label for="email" class="form-label">Email</label>
             <div class="input-group">
-              <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-              <input type="email" name="email" id="email" class="form-control" placeholder="Enter email address" required>
-              <div class="invalid-feedback">Email must contain '@'.</div>
+                <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                <input type="email" name="email" id="email" class="form-control" placeholder="Enter email address" required>
+                <button type="button" id="sendCodeBtn" class="btn btn-outline-primary d-none">
+                Send Code
+                </button>
+                <div class="invalid-feedback">You must verify this email(@) before continuing.</div>
             </div>
-          </div>
+            </div>
+
+            <div class="col-md-6">
+            <label for="verification_code" class="form-label">Enter Verification Code</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-key"></i></span>
+                <input type="text" name="verification_code" id="verification_code" class="form-control" placeholder="Enter code sent to email" required>
+            </div>
+                <div class="invalid-feedback">
+                Please enter the 6-digit code sent to your email.
+                </div>
+                  <div class="invalid-feedback d-none" id="codeExpired">
+                Your verification code has expired. Please request a new one.
+                </div>
+            </div>
 
           <div class="col-md-6">
             <label for="password" class="form-label">Password</label>
@@ -389,7 +568,7 @@ $result = $conn->query($query);
             <label for="role" class="form-label">Role</label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
-              <select name="role" class="form-select" required>
+              <select name="role" id="role" class="form-select" required>
                 <option value="" selected disabled>Select a role</option>
                 <option value="Admin">Admin</option>
                 <option value="Receptionist">Receptionist</option>
@@ -420,6 +599,8 @@ $result = $conn->query($query);
     </div>
   </div>
 </div>
+
+
 
 <!-- Success messages -->
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
@@ -471,16 +652,18 @@ document.addEventListener("DOMContentLoaded", () => {
   if (userToastSuccess) new bootstrap.Toast(userToastSuccess, { delay: 4000 }).show();
   if (userToastError) new bootstrap.Toast(userToastError, { delay: 4000 }).show();
 
-  // ====== New Add User Validation ======
+  // ====== Validation Functions ======
   function validateEmail(input) {
     const value = input.value.trim();
-    if (!value.includes("@")) {
+    const valid = value.includes("@");
+    if (!valid) {
       input.classList.add("is-invalid");
       input.classList.remove("is-valid");
     } else {
       input.classList.remove("is-invalid");
       input.classList.add("is-valid");
     }
+    return valid;
   }
 
   function validatePassword(input) {
@@ -493,28 +676,114 @@ document.addEventListener("DOMContentLoaded", () => {
       input.classList.remove("is-invalid");
       input.classList.add("is-valid");
     }
+    return valid;
   }
+
+    function validateVerificationCode(input) {
+    const value = input.value.trim();
+    const valid = /^\d{6}$/.test(value); // must be exactly 6 digits
+    if (!valid) {
+      input.classList.add("is-invalid");
+      input.classList.remove("is-valid");
+    } else {
+      input.classList.remove("is-invalid");
+      input.classList.add("is-valid");
+    }
+    return valid;
+  }
+
+  function showCodeError(type) {
+  const codeInput = document.getElementById("verification_code");
+  const codeInvalid = document.getElementById("codeInvalid");
+  const codeExpired = document.getElementById("codeExpired");
+
+  // Reset
+  codeInvalid.classList.add("d-none");
+  codeExpired.classList.add("d-none");
+
+  codeInput.classList.add("is-invalid"); // trigger red border
+
+  if (type === "invalid") {
+    codeInvalid.classList.remove("d-none");
+  } else if (type === "expired") {
+    codeExpired.classList.remove("d-none");
+  }
+}
+  
 
   const emailInput = document.getElementById("email");
   const passwordInput = document.getElementById("password");
+  const codeInput = document.getElementById("verification_code");
+  const sendCodeBtn = document.getElementById("sendCodeBtn");
+  let emailVerified = false;
 
-  emailInput.addEventListener("input", () => validateEmail(emailInput));
+  // Show/hide Send Code button as user types
+  emailInput.addEventListener("input", () => {
+    if (validateEmail(emailInput)) {
+      sendCodeBtn.classList.remove("d-none");
+    } else {
+      sendCodeBtn.classList.add("d-none");
+    }
+  });
+
+  // Real-time validation for password 
   passwordInput.addEventListener("input", () => validatePassword(passwordInput));
+  codeInput.addEventListener("input", () => validateVerificationCode(codeInput));
+  emailInput.addEventListener("input", () => validateEmail(emailInput));
 
+  // Handle Send Code click
+  sendCodeBtn.addEventListener("click", () => {
+    if (!validateEmail(emailInput)) return;
+
+    fetch("admin-user.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "send_verification=1&email=" + encodeURIComponent(emailInput.value)
+    })
+      .then(res => res.text())
+      .then(data => {
+        console.log("Response:", data);
+        alert("Verification code sent to " + emailInput.value);
+        sendCodeBtn.disabled = true;
+        sendCodeBtn.textContent = "Code Sent";
+        emailVerified = true; // ✅ mark email as verified after code is sent
+        emailInput.classList.remove("is-invalid");
+        emailInput.classList.add("is-valid");
+      })
+      .catch(err => console.error("Error:", err));
+  });
+
+  // Form submit validation
   document.getElementById("addUserForm").addEventListener("submit", function(event) {
-    validateEmail(emailInput);
-    validatePassword(passwordInput);
+    const emailOk = validateEmail(emailInput);
+    const passwordOk = validatePassword(passwordInput);
+    const codeOk = validateVerificationCode(codeInput);
 
-    if (emailInput.classList.contains("is-invalid") || passwordInput.classList.contains("is-invalid")) {
+    let hasError = false;
+
+    if (!emailOk || !emailVerified) {
+      hasError = true;
+      emailInput.classList.add("is-invalid");
+    }
+
+    if (!passwordOk) {
+      hasError = true;
+      passwordInput.classList.add("is-invalid");
+    }
+
+    if (!codeOk) {
+      hasError = true;
+      codeInput.classList.add("is-invalid");
+    }
+
+    if (hasError) {
       event.preventDefault();
-      event.stopPropagation();
-
-      // show toast error
       const validationToast = document.getElementById("validationToast");
       new bootstrap.Toast(validationToast, { delay: 4000 }).show();
     }
   });
 });
+
 </script>
 
 
