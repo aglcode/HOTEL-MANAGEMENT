@@ -43,69 +43,18 @@ $result = $conn->query($sql);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <style>
-        body {
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .sidebar {
-            width: 250px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100vh;
-        }
-
-        .content {
-            margin-left: 265px;
-            max-width: 1400px;
-            margin-right: auto;
-            padding: 20px;
-        }
-
-        .card {
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s ease;
-            background: #fff;
-            padding: 20px;
-        }
-
-        .card:hover {
-            transform: translateY(-2px);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-
-        table th {
-            background: #f8f9fa;
-            text-align: left;
-            padding: 14px 16px;
-            font-weight: 600;
-        }
-
-        table td {
-            padding: 14px 16px;
-            border-bottom: 1px solid #eee;
-            vertical-align: middle;
-        }
-
-        table tr:hover {
-            background-color: rgba(0, 0, 0, 0.02);
-            transition: background-color 0.2s ease;
-        }
-
-        .badge {
-            padding: 6px 12px;
-            font-size: 0.85rem;
-            border-radius: 20px;
-        }
-
-        .table th, .table td { vertical-align: middle; }
+        body { font-family: 'Poppins', sans-serif; }
+        .sidebar { width: 250px; position: fixed; top: 0; left: 0; height: 100vh; }
+        .content { margin-left: 265px; max-width: 1400px; margin-right: auto; padding: 20px; }
+        .card { border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s ease; background: #fff; padding: 20px; }
+        .card:hover { transform: translateY(-2px); }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        table th { background: #f8f9fa; text-align: left; padding: 14px 16px; font-weight: 600; }
+        table td { padding: 14px 16px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        table tr:hover { background-color: rgba(0,0,0,0.02); transition: background-color 0.2s ease; }
+        .badge { padding: 6px 12px; font-size: 0.85rem; border-radius: 20px; }
     </style>
 </head>
 <body>
@@ -144,7 +93,7 @@ $result = $conn->query($sql);
                 <label for="searchInput" class="form-label">Search</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" name="search" id="searchInput" class="form-control" placeholder="Guest, Room, Payment..." value="<?= htmlspecialchars($search) ?>">
+                    <input type="text" name="search" id="searchInput" class="form-control" placeholder="Guest, Room, Payment." value="<?= htmlspecialchars($search) ?>">
                 </div>
             </div>
             <div class="col-md-3">
@@ -171,7 +120,7 @@ $result = $conn->query($sql);
         <div class="card-body p-0">
             <?php if ($result->num_rows > 0): ?>
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table id="paymentTable" class="table table-hover mb-0">
                     <thead>
                         <tr>
                             <th>Guest Name</th>
@@ -208,12 +157,8 @@ $result = $conn->query($sql);
                                     <span class="text-muted">₱0.00</span>
                                 <?php endif; ?>
                             </td>
-                            <td>
-                                <small><?= date('M d, Y h:i A', strtotime($row['check_in_date'])) ?></small>
-                            </td>
-                            <td>
-                                <small><?= date('M d, Y h:i A', strtotime($row['check_out_date'])) ?></small>
-                            </td>
+                            <td><small><?= date('M d, Y h:i A', strtotime($row['check_in_date'])) ?></small></td>
+                            <td><small><?= date('M d, Y h:i A', strtotime($row['check_out_date'])) ?></small></td>
                             <td>
                                 <?php if (!empty($row['gcash_reference'])): ?>
                                     <span class="badge bg-primary"><?= htmlspecialchars($row['gcash_reference']) ?></span>
@@ -237,23 +182,44 @@ $result = $conn->query($sql);
     </div>
   </div>
 
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
   <script>
+    $(document).ready(function() {
+        $('#paymentTable').DataTable({
+            paging: true,
+            lengthChange: true,
+            searching: true,
+            ordering: true,
+            info: true,
+            autoWidth: false,
+            responsive: true,
+            pageLength: 5, 
+            lengthMenu: [5, 10, 25, 50, 100],
+            dom: '<"d-none"l>rt' +
+                 '<"row mt-3"<"col-sm-5"i><"col-sm-7"p>>',
+            language: {
+                emptyTable: "<i class='fas fa-money-bill-wave fa-3x text-muted mb-3'></i><p class='mb-0'>No payments found</p>",
+                info: "Showing START to END of TOTAL payments",
+                infoEmpty: "No entries available",
+                infoFiltered: "(filtered from MAX total payments)",
+                lengthMenu: "Show MENU payments",
+                paginate: { first: "«", last: "»", next: "›", previous: "‹" }
+            }
+        });
+    });
+
     function updateClock() {
         const now = new Date();
         document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
         document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
         });
     }
     setInterval(updateClock, 1000);
     updateClock();
-</script>
+  </script>
 </body>
 </html>

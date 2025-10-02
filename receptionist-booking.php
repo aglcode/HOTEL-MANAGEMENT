@@ -843,53 +843,56 @@ $total_pages = ceil($total_records / $limit);
         </div>
     </div>
 
-    <!-- Booking Modal -->
+<!-- Booking Modal -->
 <div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="bookingModalLabel">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg rounded-4 overflow-hidden">
+            <!-- Header -->
+            <div class="modal-header bg-gradient text-white" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);">
+                <h5 class="modal-title fw-bold" id="bookingModalLabel">
                     <i class="fas fa-calendar-plus me-2"></i>Reserve Your Room
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+
+            <!-- Form -->
             <form method="POST" onsubmit="return validateBookingForm();">
-                <div class="modal-body">
-                    <div class="container">
-                        <div class="row">
+                <div class="modal-body p-4" style="background: #f9faff;">
+                    <div class="container-fluid">
+                        <div class="row g-4">
                             <!-- Guest Information -->
-                            <div class="col-md-6 mb-4">
-                                <div class="card shadow-sm">
-                                    <div class="card-header bg-primary text-white">
-                                        <h6 class="mb-0"><i class="fas fa-user me-2"></i>Guest Information</h6>
+                            <div class="col-md-6">
+                                <div class="card border-0 shadow-sm h-100 rounded-3">
+                                    <div class="card-header bg-primary text-white rounded-top-3">
+                                        <h6 class="mb-0 fw-semibold"><i class="fas fa-user me-2"></i>Guest Information</h6>
                                     </div>
                                     <div class="card-body">
                                         <div class="mb-3">
-                                            <label for="guestName" class="form-label">Full Name *</label>
+                                            <label for="guestName" class="form-label fw-medium">Full Name *</label>
                                             <input type="text" name="guest_name" id="guestName" class="form-control" required>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="email" class="form-label">Email Address *</label>
+                                            <label for="email" class="form-label fw-medium">Email Address *</label>
                                             <input type="email" name="email" id="email" class="form-control" required>
-                                            <small class="text-muted">We'll send your booking confirmation to this email</small>
+                                            <small class="text-muted">We'll send your booking confirmation here</small>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="telephone" class="form-label">Phone Number *</label>
+                                            <label for="telephone" class="form-label fw-medium">Phone Number *</label>
                                             <input type="text" name="telephone" id="telephone" class="form-control" required pattern="\d{10,11}">
                                             <small class="text-muted">Enter a valid 10-11 digit phone number</small>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="address" class="form-label">Complete Address *</label>
+                                            <label for="address" class="form-label fw-medium">Complete Address *</label>
                                             <input type="text" name="address" id="address" class="form-control" required>
                                         </div>
-                                        <div class="row">
-                                            <div class="col-md-6 mb-3">
-                                                <label for="age" class="form-label">Age *</label>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label for="age" class="form-label fw-medium">Age *</label>
                                                 <input type="number" name="age" id="age" class="form-control" required>
-                                                <small class="text-muted">Must be 18 or older</small>
+                                                <small class="text-muted">Must be 18+</small>
                                             </div>
-                                            <div class="col-md-6 mb-3">
-                                                <label for="numPeople" class="form-label">Number of Guests *</label>
+                                            <div class="col-md-6">
+                                                <label for="numPeople" class="form-label fw-medium">Guests *</label>
                                                 <input type="number" name="num_people" id="numPeople" class="form-control" required>
                                             </div>
                                         </div>
@@ -898,14 +901,14 @@ $total_pages = ceil($total_records / $limit);
                             </div>
 
                             <!-- Booking Details -->
-                            <div class="col-md-6 mb-4">
-                                <div class="card shadow-sm">
-                                    <div class="card-header bg-primary text-white">
-                                        <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Booking Details</h6>
+                            <div class="col-md-6">
+                                <div class="card border-0 shadow-sm h-100 rounded-3">
+                                    <div class="card-header bg-primary text-white rounded-top-3">
+                                        <h6 class="mb-0 fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Booking Details</h6>
                                     </div>
                                     <div class="card-body">
                                         <div class="mb-3">
-                                            <label for="roomNumber" class="form-label">Select Room *</label>
+                                            <label for="roomNumber" class="form-label fw-medium">Select Room *</label>
                                             <select name="room_number" id="roomNumber" class="form-select" required>
                                                 <option value="">Choose your preferred room</option>
                                                 <?php
@@ -918,7 +921,7 @@ $total_pages = ceil($total_records / $limit);
                                             </select>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="duration" class="form-label">Stay Duration *</label>
+                                            <label for="duration" class="form-label fw-medium">Stay Duration *</label>
                                             <select name="duration" id="duration" class="form-select" required>
                                                 <option value="3">3 Hours</option>
                                                 <option value="6">6 Hours</option>
@@ -928,16 +931,16 @@ $total_pages = ceil($total_records / $limit);
                                             </select>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="startDate" class="form-label">Check-in Date & Time *</label>
+                                            <label for="startDate" class="form-label fw-medium">Check-in Date & Time *</label>
                                             <input type="datetime-local" name="start_date" id="startDate" class="form-control" required>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="endDate" class="form-label">Estimated Check-out *</label>
+                                            <label for="endDate" class="form-label fw-medium">Estimated Check-out *</label>
                                             <input type="text" id="endDate" class="form-control bg-light" readonly>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="totalPrice" class="form-label">Total Price</label>
-                                            <input type="text" id="totalPrice" class="form-control bg-light" readonly>
+                                            <label for="totalPrice" class="form-label fw-medium">Total Price</label>
+                                            <input type="text" id="totalPrice" class="form-control bg-light fw-semibold" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -945,85 +948,89 @@ $total_pages = ceil($total_records / $limit);
                         </div>
 
                         <!-- Payment Information -->
-                        <div class="card shadow-sm mb-4" style="border-radius: 16px; border: 1px solid #a18cd1; background: linear-gradient(90deg, #a18cd1 0%, #fbc2eb 100%);">
-                            <div class="card-header text-white" style="background: transparent; border-bottom: none;">
-                                <h6 class="mb-0" style="font-weight:600;">
+                        <div class="card shadow-sm border-0 mt-4 rounded-3">
+                            <div class="card-header text-white rounded-top-3" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);">
+                                <h6 class="mb-0 fw-semibold">
                                     <i class="fas fa-credit-card me-2"></i>Payment Information
                                 </h6>
                             </div>
-                            <div class="card-body bg-white rounded-bottom" style="border-radius: 0 0 16px 16px;">
-                                <div class="row align-items-end">
-                                    <div class="col-md-6 mb-3">
-                                        <label for="paymentMode" class="form-label">Payment Method *</label>
+                            <div class="card-body bg-white rounded-bottom">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-6">
+                                        <label for="paymentMode" class="form-label fw-medium">Payment Method *</label>
                                         <select name="payment_mode" id="paymentMode" class="form-select" required onchange="togglePaymentFields();">
                                             <option value="">Select payment method</option>
-                                            <option value="Cash">&#x1F4B5; Cash Payment</option>
-                                            <option value="GCash">&#x1F4F1; GCash</option>
+                                            <option value="Cash">💵 Cash Payment</option>
+                                            <option value="GCash">📱 GCash</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label for="amountPaid" class="form-label">Amount to Pay *</label>
+                                    <div class="col-md-6">
+                                        <label for="amountPaid" class="form-label fw-medium">Amount to Pay *</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-gradient" style="background: linear-gradient(90deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
+                                            <span class="input-group-text" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
                                             <input type="number" name="amount_paid" id="amountPaid" class="form-control" min="0" step="0.01" required oninput="calculateChange();">
                                         </div>
                                     </div>
                                 </div>
+
                                 <!-- GCash Section -->
-                                <div id="gcashSection" class="row mt-3" style="display: none;">
+                                <div id="gcashSection" class="row mt-4" style="display: none;">
                                     <div class="col-md-8">
-                                        <div style="background: #e9f3ff; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
-                                            <div style="background: #b6dbff; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                                                <strong><i class="fas fa-info-circle me-2"></i>GCash Payment Instructions:</strong>
-                                                <ol class="mb-0 mt-2" style="padding-left: 18px; color: #1a237e;">
-                                                    <li>Send your payment to the GCash number provided</li>
-                                                    <li>Take a screenshot of the transaction</li>
-                                                    <li>Enter the 13-digit reference number below</li>
-                                                </ol>
-                                            </div>
-                                            <div class="mb-2">
-                                                <label for="referenceNumber" class="form-label">GCash Reference Number *</label>
+                                        <div class="p-3 rounded-3" style="background: #f0f4ff;">
+                                            <strong class="d-block mb-2"><i class="fas fa-info-circle me-2"></i>GCash Payment Instructions:</strong>
+                                            <ol class="mb-0 ps-3 text-dark">
+                                                <li>Send your payment to the GCash number provided</li>
+                                                <li>Take a screenshot of the transaction</li>
+                                                <li>Enter the 13-digit reference number below</li>
+                                            </ol>
+                                            <div class="mt-3">
+                                                <label for="referenceNumber" class="form-label fw-medium">GCash Reference Number *</label>
                                                 <input type="text" name="reference_number" id="referenceNumber" class="form-control" placeholder="Enter 13-digit reference number" maxlength="13" pattern="\d{13}">
-                                                <small class="text-muted">This can be found in your GCash transaction receipt</small>
+                                                <small class="text-muted">Found in your GCash transaction receipt</small>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-md-4 d-flex align-items-stretch">
-                                        <div style="background: linear-gradient(135deg, #e0e7ff 0%, #fbc2eb 100%); border-radius: 12px; padding: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                                            <div style="color: #0063F7; font-weight: bold; font-size: 1.2rem; margin-bottom: 8px;">
+                                        <div class="text-center p-3 rounded-3 shadow-sm" style="background: linear-gradient(135deg, #e0e7ff 0%, #fbc2eb 100%);">
+                                            <div class="fw-bold mb-2" style="color: #0063F7; font-size: 1.2rem;">
                                                 <i class="fab fa-google-pay"></i> G<span style="color:#0063F7;">Pay</span>
                                             </div>
-                                            <div style="font-size: 1rem; color: #333;">GCash Number:</div>
-                                            <div style="font-size: 1.5rem; font-weight: bold; color: #4f46e5; margin-bottom: 6px;">09123456789</div>
-                                            <div style="font-size: 1rem; color: #333;">Account Name:</div>
-                                            <div style="font-weight: 500; color: #4f46e5;">Gitarra Apartelle</div>
+                                            <p class="mb-1 text-dark">GCash Number:</p>
+                                            <h5 class="fw-bold text-primary mb-2">09123456789</h5>
+                                            <p class="mb-1 text-dark">Account Name:</p>
+                                            <p class="fw-semibold text-primary mb-0">Gitarra Apartelle</p>
                                         </div>
                                     </div>
                                 </div>
-                                <!-- End GCash Section -->
-                                <div class="row" id="cashSection" style="display: none;">
-                                    <div class="col-md-6 mb-3">
-                                        <label for="changeAmount" class="form-label">Change</label>
+
+                                <!-- Cash Section -->
+                                <div class="row mt-3" id="cashSection" style="display: none;">
+                                    <div class="col-md-6">
+                                        <label for="changeAmount" class="form-label fw-medium">Change</label>
                                         <div class="input-group">
-                                            <span class="input-group-text bg-gradient" style="background: linear-gradient(90deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
+                                            <span class="input-group-text" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
                                             <input type="text" id="changeAmount" class="form-control" readonly value="0.00">
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary w-100" style="background: linear-gradient(90deg, #a18cd1 0%, #fbc2eb 100%); border: none; font-weight:600;">
-                        <i class="fas fa-calendar-check me-2"></i>Confirm Booking & Reserve Now
+
+                <!-- Footer -->
+                <div class="modal-footer bg-light p-3">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4" style="background: linear-gradient(135deg, #6a11cb 0%, #fbc2eb 100%); border: none; font-weight:600;">
+                        <i class="fas fa-calendar-check me-2"></i>Confirm & Reserve
                     </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
 
     <!-- Cancel Booking Modal -->
     <div class="modal fade" id="cancelBookingModal" tabindex="-1" aria-labelledby="cancelBookingModalLabel" aria-hidden="true">

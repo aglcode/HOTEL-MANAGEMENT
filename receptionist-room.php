@@ -149,6 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="style.css" rel="stylesheet">
     <style>
         .stat-card {
@@ -637,23 +638,51 @@ document.querySelectorAll('.countdown-timer').forEach(function (timer) {
     }, 1000);
 });
 
-// Confirmation before Extend
+// SweetAlert Confirmation before Extending Stay
 document.querySelectorAll('.extend-form').forEach(form => {
     form.addEventListener('submit', function(e) {
-        if (!confirm('Do you want to extend this stay by 1 hour?')) {
-            e.preventDefault();
-        }
+        e.preventDefault();
+
+        Swal.fire({
+            title: 'Extend Stay?',
+            text: "Do you want to extend this stay by 1 hour?",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#aaa',
+            confirmButtonText: 'Yes, extend',
+            cancelButtonText: 'No'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                form.submit();
+            }
+        });
     });
 });
 
-// Confirmation before Check Out
+
+// SweetAlert Confirmation before Check Out
 document.querySelectorAll('.checkout-form').forEach(form => {
     form.addEventListener('submit', function(e) {
-        if (!confirm('Do you really want to check out this guest?')) {
-            e.preventDefault();
-        }
+        e.preventDefault(); // prevent immediate submit
+
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "Do you really want to check out this guest?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, check out',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                form.submit(); // proceed with form submission
+            }
+        });
     });
 });
+
 
 // Handle card click
 function cardClicked(event, roomNumber, status) {
