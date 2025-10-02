@@ -435,6 +435,34 @@ $result = $conn->query($query);
             margin-right: auto;
         }
 
+/* Checkmark Animation */
+.checkmark-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid #28a745;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  animation: pop 0.4s ease forwards;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+/* Smooth filling progress bar */
+.progress-animate {
+  width: 0%;
+  animation: loadProgress 2s linear forwards;
+}
+
+@keyframes loadProgress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
 @media (max-width: 768px) {
     .table-responsive {
         display: block;
@@ -541,19 +569,16 @@ $result = $conn->query($query);
             </div>
             </div>
 
-            <div class="col-md-6">
+          <div class="col-md-6">
             <label for="verification_code" class="form-label">Enter Verification Code</label>
             <div class="input-group">
-                <span class="input-group-text"><i class="fas fa-key"></i></span>
-                <input type="text" name="verification_code" id="verification_code" class="form-control" placeholder="Enter code sent to email" required>
+              <span class="input-group-text"><i class="fas fa-key"></i></span>
+              <input type="text" name="verification_code" id="verification_code" class="form-control" placeholder="Enter code sent to email" required>
             </div>
-                <div class="invalid-feedback">
-                Please enter the 6-digit code sent to your email.
-                </div>
-                  <div class="invalid-feedback d-none" id="codeExpired">
-                Your verification code has expired. Please request a new one.
-                </div>
+            <div class="invalid-feedback">
+              Please enter the 6-digit code sent to your email.
             </div>
+          </div>
 
           <div class="col-md-6">
             <label for="password" class="form-label">Password</label>
@@ -588,19 +613,17 @@ $result = $conn->query($query);
   </div>
 </div>
 
-<!-- Error message -->
+<!-- Error / Validation Toast -->
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
   <div id="validationToast" class="toast align-items-center text-bg-danger border-0" role="alert">
     <div class="d-flex">
-      <div class="toast-body">
+      <div class="toast-body" id="validationToastBody">
         <i class="fas fa-exclamation-triangle me-2"></i> Please correct the highlighted errors.
       </div>
       <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
     </div>
   </div>
 </div>
-
-
 
 <!-- Success messages -->
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
@@ -644,13 +667,73 @@ $result = $conn->query($query);
   </div>
 </div>
 
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-center p-4">
+      <!-- Email Icon -->
+      <div class="mb-2">
+        <i class="fas fa-envelope fa-3x text-primary"></i>
+      </div>
+
+      <!-- Spinner BELOW icon -->
+      <div class="mb-3">
+        <div class="spinner-border text-primary" role="status"></div>
+      </div>
+
+      <h5>Sending Verification Code</h5>
+      <p class="text-muted">
+        Please wait while we send the code to your email 
+        <span id="loadingEmail"></span>
+      </p>
+
+      <!-- Animated Progress Bar -->
+      <div class="progress mt-3" style="height:5px;">
+        <div class="progress-bar bg-primary progress-animate" role="progressbar"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Code Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-center p-4">
+      <div class="checkmark-container mb-3">
+        <div class="checkmark-circle">
+          <i class="fas fa-check fa-2x text-success"></i>
+        </div>
+      </div>
+      <h5>Code Sent Successfully!</h5>
+      <p class="text-muted">We've sent a verification code to <span id="successEmail"></span></p>
+      <p class="text-muted">Please check your inbox and enter the code to verify your email</p>
+      <button type="button" class="btn btn-success w-100" data-bs-dismiss="modal">Continue</button>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const userToastSuccess = document.getElementById("userToastSuccess");
   const userToastError = document.getElementById("userToastError");
+  const validationToast = document.getElementById("validationToast");
+  const validationToastBody = document.getElementById("validationToastBody");
 
   if (userToastSuccess) new bootstrap.Toast(userToastSuccess, { delay: 4000 }).show();
   if (userToastError) new bootstrap.Toast(userToastError, { delay: 4000 }).show();
+
+  // ====== Show server-side errors ======
+  const urlParams = new URLSearchParams(window.location.search);
+  const error = urlParams.get("error");
+
+  if (error === "code_expired") {
+    validationToastBody.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i> Your verification code has expired. Please request a new one.`;
+    new bootstrap.Toast(validationToast, { delay: 5000 }).show();
+  }
+  if (error === "invalid_code") {
+    validationToastBody.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i> The verification code is invalid.`;
+    new bootstrap.Toast(validationToast, { delay: 5000 }).show();
+  }
 
   // ====== Validation Functions ======
   function validateEmail(input) {
@@ -679,7 +762,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return valid;
   }
 
-    function validateVerificationCode(input) {
+  function validateVerificationCode(input) {
     const value = input.value.trim();
     const valid = /^\d{6}$/.test(value); // must be exactly 6 digits
     if (!valid) {
@@ -691,25 +774,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return valid;
   }
-
-  function showCodeError(type) {
-  const codeInput = document.getElementById("verification_code");
-  const codeInvalid = document.getElementById("codeInvalid");
-  const codeExpired = document.getElementById("codeExpired");
-
-  // Reset
-  codeInvalid.classList.add("d-none");
-  codeExpired.classList.add("d-none");
-
-  codeInput.classList.add("is-invalid"); // trigger red border
-
-  if (type === "invalid") {
-    codeInvalid.classList.remove("d-none");
-  } else if (type === "expired") {
-    codeExpired.classList.remove("d-none");
-  }
-}
-  
 
   const emailInput = document.getElementById("email");
   const passwordInput = document.getElementById("password");
@@ -726,32 +790,58 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Real-time validation for password 
+  // Real-time validation for password & code
   passwordInput.addEventListener("input", () => validatePassword(passwordInput));
   codeInput.addEventListener("input", () => validateVerificationCode(codeInput));
   emailInput.addEventListener("input", () => validateEmail(emailInput));
 
-  // Handle Send Code click
-  sendCodeBtn.addEventListener("click", () => {
-    if (!validateEmail(emailInput)) return;
+// Handle Send Code click
+sendCodeBtn.addEventListener("click", () => {
+  if (!validateEmail(emailInput)) return;
 
-    fetch("admin-user.php", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "send_verification=1&email=" + encodeURIComponent(emailInput.value)
-    })
-      .then(res => res.text())
-      .then(data => {
-        console.log("Response:", data);
-        alert("Verification code sent to " + emailInput.value);
+  // ====== Show loading modal ======
+  document.getElementById("loadingEmail").textContent = emailInput.value;
+  const loadingModalEl = document.getElementById("loadingModal");
+  const loadingModal = new bootstrap.Modal(loadingModalEl, { backdrop: "static", keyboard: false });
+
+  // Reset progress animation each time
+  const progressBar = loadingModalEl.querySelector(".progress-bar");
+  progressBar.style.width = "0%";
+  progressBar.classList.remove("progress-animate");
+  void progressBar.offsetWidth; // trigger reflow
+  progressBar.classList.add("progress-animate");
+
+  loadingModal.show();
+
+  fetch("admin-user.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "send_verification=1&email=" + encodeURIComponent(emailInput.value)
+  })
+    .then(res => res.text())
+    .then(data => {
+      console.log("Response:", data);
+
+      // Hide loading, show success
+      setTimeout(() => {
+        loadingModal.hide();
+        document.getElementById("successEmail").textContent = emailInput.value;
+        const successModal = new bootstrap.Modal(document.getElementById("successModal"));
+        successModal.show();
+
         sendCodeBtn.disabled = true;
         sendCodeBtn.textContent = "Code Sent";
-        emailVerified = true; // ✅ mark email as verified after code is sent
+        emailVerified = true;
         emailInput.classList.remove("is-invalid");
         emailInput.classList.add("is-valid");
-      })
-      .catch(err => console.error("Error:", err));
-  });
+      }, 2000); // sync with animation duration
+    })
+    .catch(err => {
+      console.error("Error:", err);
+      loadingModal.hide();
+    });
+});
+
 
   // Form submit validation
   document.getElementById("addUserForm").addEventListener("submit", function(event) {
@@ -778,19 +868,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (hasError) {
       event.preventDefault();
-      const validationToast = document.getElementById("validationToast");
+      validationToastBody.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i> Please correct the highlighted errors.`;
       new bootstrap.Toast(validationToast, { delay: 4000 }).show();
     }
   });
 });
-
 </script>
 
 
-
-
-        <!-- User List -->
-     
+        <!-- User List --> 
         <div class="card">
     <div class="card-header bg-light d-flex justify-content-between align-items-center p-3">
         <div>
@@ -1121,7 +1207,7 @@ document.addEventListener("DOMContentLoaded", () => {
         responsive: true,
         pageLength: 5, 
         lengthMenu: [5, 10, 25, 50, 100],
-        dom: '<"d-none"l>rt' +   // ✅ generate lengthMenu but keep hidden
+        dom: '<"d-none"l>rt' +  
              '<"row mt-3"<"col-sm-5"i><"col-sm-7"p>>',
         language: {
             emptyTable: "<i class='fas fa-users fa-3x text-muted mb-3'></i><p class='mb-0'>No users found</p>",

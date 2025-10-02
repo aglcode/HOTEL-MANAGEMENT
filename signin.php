@@ -88,113 +88,103 @@ if (isset($_POST['login'])) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Gitarra Apartelle | Login & Register</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(to right, #4facfe, #00f2fe);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .card {
-            padding: 2rem;
-            border-radius: 1rem;
-            background: #fff;
-            box-shadow: 0 0 30px rgba(0,0,0,0.1);
-        }
-        .brand-title {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #007bff;
-            text-align: center;
-            margin-bottom: 1rem;
-        }
-        .form-title {
-            text-align: center;
-            margin-bottom: 1rem;
-        }
-        .toggle-btn {
-            cursor: pointer;
-            font-size: 1.5rem;
-            color: #007bff;
-            text-align: center;
-        }
-        .toggle-btn:hover {
-            color: #0056b3;
-        }
-        .password-toggle {
-            cursor: pointer;
-            position: absolute;
-            right: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: gray;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Gitarra Apartelle | Login</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      background: linear-gradient(to right, #eef2f3, #dfe9f3);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .login-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .login-card img {
+      width: 60px;
+      margin-bottom: 1rem;
+    }
+    .login-card h2 {
+      font-weight: 700;
+      margin-bottom: .25rem;
+    }
+    .login-card p {
+      color: #6c757d;
+      margin-bottom: 2rem;
+    }
+    .form-control {
+      padding-left: 40px;
+      border-radius: 10px;
+    }
+    .input-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #6c757d;
+    }
+    .btn-primary {
+      background: #2563eb;
+      border: none;
+      border-radius: 12px;
+      padding: .75rem;
+      font-weight: 600;
+      font-size: 1rem;
+      box-shadow: 0 4px 10px rgba(37,99,235,0.3);
+      transition: 0.3s;
+    }
+    .btn-primary:hover {
+      background: #1e4ed8;
+    }
+    .forgot-link {
+      font-size: 0.9rem;
+      text-decoration: none;
+      color: #2563eb;
+    }
+    .forgot-link:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
 
-<div class="card col-md-5">
-    <div class="brand-title">Gitarra Apartelle</div>
-    <h4 class="form-title" id="formTitle">Login</h4>
+  <div class="login-card">
+    <!-- Title -->
+    <h2>Gitarra Apartelle</h2>
+    <p>Sign in to your account</p>
 
-    <div class="toggle-btn mb-3" id="toggleForm">
-        <i class="fa fa-toggle-off"></i> Switch Form
-    </div>
+    <!-- Error -->
+    <?php if (isset($error_message)): ?>
+      <div class="alert alert-danger py-2"><?php echo $error_message; ?></div>
+    <?php endif; ?>
 
     <!-- Login Form -->
-    <form method="POST" id="loginForm">
-        <?php if (isset($error_message)): ?>
-            <div class="alert alert-danger"><?php echo $error_message; ?></div>
-        <?php endif; ?>
-        <div class="mb-3">
-            <input type="text" name="username" class="form-control" placeholder="Username" required>
-        </div>
-        <div class="mb-3 position-relative">
-            <input type="password" name="password" class="form-control" placeholder="Password" id="loginPassword" required>
-            <span class="password-toggle" onclick="togglePassword('loginPassword')">
-                <i class="fa fa-eye"></i>
-            </span>
-        </div>
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="form-check">
-                <input type="checkbox" name="remember_me" class="form-check-input" id="rememberMe">
-                <label class="form-check-label" for="rememberMe">Remember Me</label>
-            </div>
-            <a href="forgot-password.php">Forgot Password?</a>
-        </div>
-        <button type="submit" name="login" class="btn btn-primary w-100">Login</button>
+    <form method="POST">
+      <div class="mb-3 position-relative">
+        <span class="input-icon"><i class="fa fa-user"></i></span>
+        <input type="text" name="username" class="form-control" placeholder="Enter your username" required>
+      </div>
+      <div class="mb-3 position-relative">
+        <span class="input-icon"><i class="fa fa-lock"></i></span>
+        <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
+      </div>
+      <div class="d-flex justify-content-end mb-3">
+        <a href="forgot-password.php" class="forgot-link">Forgot Password?</a>
+      </div>
+      <button type="submit" name="login" class="btn btn-primary w-100">Sign In</button>
     </form>
-
-    <!-- Register Form -->
-    <form method="POST" id="registerForm" class="d-none">
-        <div class="mb-3">
-            <input type="text" name="name" class="form-control" placeholder="Full Name" required>
-        </div>
-        <div class="mb-3">
-            <input type="text" name="username" class="form-control" placeholder="Username" required>
-        </div>
-        <div class="mb-3">
-            <input type="email" name="email" class="form-control" placeholder="Email" required>
-        </div>
-        <div class="mb-3 position-relative">
-            <input type="password" name="password" class="form-control" placeholder="Password" id="registerPassword" required>
-            <span class="password-toggle" onclick="togglePassword('registerPassword')">
-                <i class="fa fa-eye"></i>
-            </span>
-        </div>
-        <div class="mb-3 position-relative">
-            <input type="password" name="confirm_password" class="form-control" placeholder="Confirm Password" id="confirmPassword" required>
-            <span class="password-toggle" onclick="togglePassword('confirmPassword')">
-                <i class="fa fa-eye"></i>
-        </div>
-        <input name="user_type" value="Receptionist" hidden>
-        <button type="submit" name="register" class="btn btn-success w-100">Register</button>
-    </form>
-</div>
+  </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/js/all.min.js"></script>
 <script>

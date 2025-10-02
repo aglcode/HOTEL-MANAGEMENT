@@ -18,11 +18,21 @@
 * Modified the success messages into toast alert on 'USERS'
 * Added error toast alert messages on 'USERS'
 * Changed the pause icon to 'undo' for reverting the user to pending status
+* Email verification
+* Code verification
+* Code expiration validation
+* Loading and Success modal for send and sent verification code
 * USERS FINISHED --------------------------------------------------------------
-   - pending // modal for send, loading verification code // validation for expired code
 * REPORTS FINISHED ------------------------------------------------------------
 * MODIFIED delete confirmation modals
 * MODIFIED edit modals
 * Edited form, modals, and supply filters on 'Supplies'
 * SUPPLIES FINISHED -----------------------------------------------------------
-   - pending // validation for price (must have decimal value? threshold for price?)
+* Added function to forgot password
+* Added mailer to reset password
+* Added loading and success modals for forgot and reset password
+* Added reset token in database
+* Added reset password validation
+* RESET PASSWORD FINISHED -----------------------------------------------------
+  - pending // Reset Password mail template UI
+* SIGN IN UI changed
