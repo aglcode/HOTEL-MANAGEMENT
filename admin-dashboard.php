@@ -134,26 +134,47 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
+    
     <style>
+        
         .stat-card {
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease;
+            background: #fff;
         }
-        
+
         .stat-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-4px);
         }
-        
+
+        .stat-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+            margin: 0;
+        }
+
         .stat-icon {
-            width: 60px;
-            height: 60px;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 50%;
-            font-size: 24px;
+            border-radius: 10px;
+            font-size: 18px;
         }
+
+        .stat-change {
+            font-size: 13px;
+            margin-top: 6px;
+        }
+
+        .stat-change span {
+            font-size: 12px;
+            color: #888;
+        }
+
         
         .announcement-item {
             transition: background-color 0.2s ease;
@@ -178,7 +199,24 @@ try {
         .feedback-item.resolved {
             opacity: 0.7;
         }
+        
+        /* centering the dashboard content */
+        .sidebar {
+            width: 250px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+        }
+
+        .content {
+            margin-left: 265px;
+            max-width: 1400px;
+            margin-right: auto;
+        }
+        
     </style>
+
 </head>
 <body>
     <!-- Sidebar -->
@@ -188,6 +226,7 @@ try {
             <h5 class="mb-1">Welcome,</h5>
             <p id="user-role" class="mb-0">Admin</p>
         </div>
+
         <a href="admin-dashboard.php" class="active"><i class="fa-solid fa-gauge"></i> Dashboard</a>
         <a href="admin-user.php"><i class="fa-solid fa-users"></i> Users</a>
         <a href="admin-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
@@ -197,17 +236,20 @@ try {
         <a href="admin-logout.php" class="mt-auto text-danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
     </div>
 
-    <div class="content p-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h2 class="fw-bold mb-0">Dashboard</h2>
-                <p class="text-muted mb-0">Welcome to Gitarra Apartelle Management System</p>
+<div class="content p-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-12">
+            <!-- Dashboard header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="fw-bold mb-0">Dashboard</h2>
+                    <p class="text-muted mb-0">Welcome to Gitarra Apartelle Management System</p>
+                </div>
+                <div class="clock-box text-end">
+                    <div id="currentDate" class="fw-semibold"></div>
+                    <div id="currentTime"></div>
+                </div>
             </div>
-            <div class="clock-box text-end">
-                <div id="currentDate" class="fw-semibold"></div>
-                <div id="currentTime"></div>
-            </div>
-        </div>
         
         <?php if (isset($_SESSION['success_msg'])): ?>
         <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -229,64 +271,62 @@ try {
         <div class="row mb-4">
             <!-- Current Guests Card -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+                <div class="card stat-card h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <p class="stat-title">Current Guests</p>
+                        <div class="stat-icon bg-success bg-opacity-10 text-success">
                             <i class="fas fa-users"></i>
                         </div>
-                        <div>
-                            <h3 class="fw-bold mb-1"><?= $current_guests ?></h3>
-                            <p class="text-muted mb-0">Current Guests</p>
-                        </div>
                     </div>
+                    <h3 class="fw-bold mb-1"><?= $current_guests ?></h3>
+                    <p class="stat-change text-success">+12% <span>from last month</span></p>
                 </div>
             </div>
-            
+
             <!-- Total Check-ins Card -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
+                <div class="card stat-card h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <p class="stat-title">Total Check-ins</p>
+                        <div class="stat-icon bg-primary bg-opacity-10 text-primary">
                             <i class="fas fa-check-circle"></i>
                         </div>
-                        <div>
-                            <h3 class="fw-bold mb-1"><?= $total_checkins ?></h3>
-                            <p class="text-muted mb-0">Total Check-ins</p>
-                        </div>
                     </div>
+                    <h3 class="fw-bold mb-1"><?= $total_checkins ?></h3>
+                    <p class="stat-change text-success">+8% <span>from last month</span></p>
                 </div>
             </div>
-            
+
             <!-- Revenue Card -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-info bg-opacity-10 text-info me-3">
+                <div class="card stat-card h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <p class="stat-title">Total Revenue</p>
+                        <div class="stat-icon bg-info bg-opacity-10 text-info">
                             <i class="fas fa-peso-sign"></i>
                         </div>
-                        <div>
-                            <h3 class="fw-bold mb-1">₱<?= number_format($total_revenue, 2) ?></h3>
-                            <p class="text-muted mb-0">Total Revenue</p>
-                        </div>
                     </div>
+                    <h3 class="fw-bold mb-1">₱<?= number_format($total_revenue, 2) ?></h3>
+                    <p class="stat-change text-success">+5% <span>from last month</span></p>
                 </div>
             </div>
-            
+
             <!-- Low Stock Items Card -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-warning bg-opacity-10 text-warning me-3">
+                <div class="card stat-card h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <p class="stat-title">Low Stock Items</p>
+                        <div class="stat-icon bg-warning bg-opacity-10 text-warning">
                             <i class="fas fa-exclamation-triangle"></i>
                         </div>
-                        <div>
-                            <h3 class="fw-bold mb-1"><?= $low_stock_count ?></h3>
-                            <p class="text-muted mb-0">Low Stock Items</p>
-                        </div>
                     </div>
+                    <h3 class="fw-bold mb-1"><?= $low_stock_count ?></h3>
+                    <p class="stat-change text-danger">-3% <span>from last month</span></p>
                 </div>
             </div>
         </div>
+
+
         
         <div class="row">
             <!-- Announcements Section -->
@@ -359,7 +399,7 @@ try {
             <div class="col-md-6 mb-4">
                 <div class="card h-100">
                     <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Customer Feedback & Complaints</h5>
+                        <h5 class="mb-0">Customer Feedback</h5>
                         <i class="fas fa-comments"></i>
                     </div>
                     <div class="card-body p-0">

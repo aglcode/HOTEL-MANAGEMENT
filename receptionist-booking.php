@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_booking'])) {
     $address      = $_POST['address'];
     $telephone    = $_POST['telephone'];
     $age          = (int)$_POST['age'];
-    $num_people   = (int)$_POST['num_people'];
+    $num_people   = isset($_POST['num_people']) ? (int)$_POST['num_people'] : 1; // Default to 1 if not provided
     $room_number  = $_POST['room_number'];
     $duration     = $_POST['duration'];
     $payment_mode = $_POST['payment_mode'];
@@ -113,13 +113,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_booking'])) {
             // Calculate change
             $change = $amount_paid - $total_price;
 
-            // Conflict check
-            $conflict_stmt = $conn->prepare("SELECT * FROM bookings WHERE room_number = ? AND (
-                (? BETWEEN start_date AND end_date) OR
-                (? BETWEEN start_date AND end_date) OR
-                (start_date BETWEEN ? AND ?)
-            )");
-            $conflict_stmt->bind_param("sssss", $room_number, $start_date, $end_date, $start_date, $end_date);
+            // Conflict check (fix: check for overlap only with non-cancelled bookings)
+            $conflict_stmt = $conn->prepare("
+                SELECT 1 FROM bookings 
+                WHERE room_number = ? 
+                  AND status NOT IN ('cancelled', 'completed') 
+                  AND (
+                    (? < end_date AND ? > start_date)
+                  )
+                LIMIT 1
+            ");
+            $conflict_stmt->bind_param("sss", $room_number, $start_date, $end_date);
             $conflict_stmt->execute();
             $conflict_result = $conflict_stmt->get_result();
 
@@ -156,6 +160,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_booking'])) {
             }
         }
     }
+}
+
+// Define a placeholder for sendBookingEmail function
+function sendBookingEmail($email, $guest_name, $booking_token, $bookingDetails) {
+    // Placeholder implementation
+    // You can replace this with actual email-sending logic
+    error_log("Sending booking email to $email for $guest_name with token $booking_token");
 }
 
 // Filter and pagination
@@ -261,9 +272,9 @@ $total_pages = ceil($total_records / $limit);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Booking Management - Gitarra Apartelle</title>
+    <title>Gitarra Apartelle - Booking Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
     <style>
@@ -380,44 +391,49 @@ $total_pages = ceil($total_records / $limit);
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
         }
         
-        /* Print Styles */
-        @media print {
-            .sidebar, .search-filter-container, .no-print {
-                display: none !important;
-            }
-            
-            .content {
-                margin-left: 0 !important;
-                width: 100% !important;
-            }
-            
-            .card {
-                box-shadow: none !important;
-                border: 1px solid #ddd !important;
-            }
-            
-            body {
-                background-color: white !important;
-            }
-        }
+    .sidebar {
+      width: 250px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+    }
+    .content { margin-left: 265px; padding: 20px; }
+    .card { border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    table th { background: #f8f9fa; }
+    table td, table th { padding: 12px; }
     </style>
 </head>
 <body>
     <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
-        <div class="user-info">
-            <a href="receptionist-profile.php" class="text-white text-decoration-none d-flex flex-column align-items-center">
-                <i class="fa-solid fa-user-circle" style="font-size: 60px;"></i>
-                <p class="mt-2 mb-0">Receptionist</p>
-            </a>
-        </div>
-        <a href="receptionist-dash.php"><i class="fa-solid fa-tachometer-alt"></i> Dashboard</a>
-        <a href="receptionist-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
-        <a href="receptionist-guest.php"><i class="fa-solid fa-users"></i> Guest</a>
-        <a href="receptionist-booking.php" class="active"><i class="fa-solid fa-calendar-check"></i> Booking</a>
-        <a href="receptionist-payment.php"><i class="fa-solid fa-money-check-alt"></i> Payment</a>
-        <a href="signin.php"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
-    </div>
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="user-info mb-4 text-center">
+    <i class="fa-solid fa-user-circle mb-2" style="font-size: 60px;"></i>
+    <h5 class="mb-1">Welcome,</h5>
+    <p id="user-role" class="mb-0">Receptionist</p>
+  </div>
+
+  <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-gauge"></i> Dashboard
+  </a>
+  <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-bed"></i> Rooms
+  </a>
+  <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-users"></i> Guest
+  </a>
+  <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-calendar-check"></i> Booking
+  </a>
+  <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-money-check"></i> Payment
+  </a>
+  <a href="signin.php" class="text-danger">
+    <i class="fa-solid fa-right-from-bracket"></i> Logout
+  </a>
+</div>
+
 
     <!-- Content -->
     <div class="content">
@@ -605,19 +621,82 @@ $total_pages = ceil($total_records / $limit);
                                     $now = new DateTime();
                                     $start = new DateTime($row['start_date']);
                                     $end = new DateTime($row['end_date']);
-                                    
-                                    if ($row['status'] === 'cancelled') {
-                                        $status_class = "bg-danger";
-                                        $status_text = "Cancelled";
-                                    } elseif ($now < $start) {
-                                        $status_class = "bg-info";
-                                        $status_text = "Upcoming";
-                                    } elseif ($now >= $start && $now <= $end) {
-                                        $status_class = "bg-success";
-                                        $status_text = "Active";
+
+                                    // Get latest checkin (if any) for this guest + room
+                                    $latestCheckin = null;
+                                    $lcStmt = $conn->prepare("
+                                        SELECT check_in_date, check_out_date 
+                                        FROM checkins 
+                                        WHERE guest_name = ? AND room_number = ? 
+                                        ORDER BY check_in_date DESC 
+                                        LIMIT 1
+                                    ");
+                                    $lcStmt->bind_param("ss", $row['guest_name'], $row['room_number']);
+                                    $lcStmt->execute();
+                                    $lcRes = $lcStmt->get_result();
+                                    if ($lcRes && $lcRow = $lcRes->fetch_assoc()) {
+                                        $latestCheckin = $lcRow;
+                                    }
+                                    $lcStmt->close();
+
+                                    // Also detect any current occupant for the room (any guest)
+                                    $currentOccupant = null;
+                                    $occStmt = $conn->prepare("
+                                        SELECT guest_name 
+                                        FROM checkins 
+                                        WHERE room_number = ? 
+                                          AND check_in_date <= NOW() 
+                                          AND check_out_date > NOW() 
+                                        ORDER BY check_in_date DESC 
+                                        LIMIT 1
+                                    ");
+                                    $occStmt->bind_param("s", $row['room_number']);
+                                    $occStmt->execute();
+                                    $occRes = $occStmt->get_result();
+                                    if ($occRes && $occRow = $occRes->fetch_assoc()) {
+                                        $currentOccupant = $occRow['guest_name'];
+                                    }
+                                    $occStmt->close();
+
+                                    // Decide status: prefer latest checkin status if present (override booking.status)
+                                    if ($latestCheckin) {
+                                        $ci_out = new DateTime($latestCheckin['check_out_date']);
+                                        $ci_in = new DateTime($latestCheckin['check_in_date']);
+                                        if ($ci_in <= $now && $ci_out > $now) {
+                                            $status_class = "bg-warning text-dark";
+                                            $status_text = "In Use";
+                                        } elseif ($ci_out <= $now) {
+                                            $status_class = "bg-secondary";
+                                            $status_text = "Checked Out";
+                                        } else {
+                                            // future checkin exists but not started
+                                            $status_class = "bg-info";
+                                            $status_text = "Upcoming";
+                                        }
                                     } else {
-                                        $status_class = "bg-secondary";
-                                        $status_text = "Completed";
+                                        // Fallback to booking.status/time logic
+                                        if ($row['status'] === 'cancelled') {
+                                            $status_class = "bg-danger";
+                                            $status_text = "Cancelled";
+                                        } elseif ($row['status'] === 'completed') {
+                                            $status_class = "bg-secondary";
+                                            $status_text = "Completed";
+                                        } elseif ($currentOccupant) {
+                                            $status_class = "bg-warning text-dark";
+                                            $status_text = "In Use";
+                                        } elseif ($now < $start) {
+                                            $status_class = "bg-info";
+                                            $status_text = "Upcoming";
+                                        } elseif ($now >= $start && $now <= $end) {
+                                            $status_class = "bg-success";
+                                            $status_text = "Active";
+                                        } elseif ($now > $end) {
+                                            $status_class = "bg-secondary";
+                                            $status_text = "Completed";
+                                        } else {
+                                            $status_class = "bg-secondary";
+                                            $status_text = ucfirst($row['status']);
+                                        }
                                     }
                             ?>
                             <tr>
@@ -764,7 +843,194 @@ $total_pages = ceil($total_records / $limit);
         </div>
     </div>
 
-    <?php include 'booking-form.php'; ?>
+<!-- Booking Modal -->
+<div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg rounded-4 overflow-hidden">
+            <!-- Header -->
+            <div class="modal-header bg-gradient text-white" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);">
+                <h5 class="modal-title fw-bold" id="bookingModalLabel">
+                    <i class="fas fa-calendar-plus me-2"></i>Reserve Your Room
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- Form -->
+            <form method="POST" onsubmit="return validateBookingForm();">
+                <div class="modal-body p-4" style="background: #f9faff;">
+                    <div class="container-fluid">
+                        <div class="row g-4">
+                            <!-- Guest Information -->
+                            <div class="col-md-6">
+                                <div class="card border-0 shadow-sm h-100 rounded-3">
+                                    <div class="card-header bg-primary text-white rounded-top-3">
+                                        <h6 class="mb-0 fw-semibold"><i class="fas fa-user me-2"></i>Guest Information</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="guestName" class="form-label fw-medium">Full Name *</label>
+                                            <input type="text" name="guest_name" id="guestName" class="form-control" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="email" class="form-label fw-medium">Email Address *</label>
+                                            <input type="email" name="email" id="email" class="form-control" required>
+                                            <small class="text-muted">We'll send your booking confirmation here</small>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="telephone" class="form-label fw-medium">Phone Number *</label>
+                                            <input type="text" name="telephone" id="telephone" class="form-control" required pattern="\d{10,11}">
+                                            <small class="text-muted">Enter a valid 10-11 digit phone number</small>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="address" class="form-label fw-medium">Complete Address *</label>
+                                            <input type="text" name="address" id="address" class="form-control" required>
+                                        </div>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label for="age" class="form-label fw-medium">Age *</label>
+                                                <input type="number" name="age" id="age" class="form-control" required>
+                                                <small class="text-muted">Must be 18+</small>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="numPeople" class="form-label fw-medium">Guests *</label>
+                                                <input type="number" name="num_people" id="numPeople" class="form-control" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Booking Details -->
+                            <div class="col-md-6">
+                                <div class="card border-0 shadow-sm h-100 rounded-3">
+                                    <div class="card-header bg-primary text-white rounded-top-3">
+                                        <h6 class="mb-0 fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Booking Details</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="roomNumber" class="form-label fw-medium">Select Room *</label>
+                                            <select name="room_number" id="roomNumber" class="form-select" required>
+                                                <option value="">Choose your preferred room</option>
+                                                <?php
+                                                $room_query = "SELECT room_number, room_type FROM rooms WHERE status = 'available'";
+                                                $room_result = $conn->query($room_query);
+                                                while ($room = $room_result->fetch_assoc()) {
+                                                    echo "<option value='{$room['room_number']}'>Room {$room['room_number']} ({$room['room_type']})</option>";
+                                                }
+                                                ?>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="duration" class="form-label fw-medium">Stay Duration *</label>
+                                            <select name="duration" id="duration" class="form-select" required>
+                                                <option value="3">3 Hours</option>
+                                                <option value="6">6 Hours</option>
+                                                <option value="12">12 Hours</option>
+                                                <option value="24">24 Hours</option>
+                                                <option value="48">48 Hours</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="startDate" class="form-label fw-medium">Check-in Date & Time *</label>
+                                            <input type="datetime-local" name="start_date" id="startDate" class="form-control" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="endDate" class="form-label fw-medium">Estimated Check-out *</label>
+                                            <input type="text" id="endDate" class="form-control bg-light" readonly>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="totalPrice" class="form-label fw-medium">Total Price</label>
+                                            <input type="text" id="totalPrice" class="form-control bg-light fw-semibold" readonly>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Information -->
+                        <div class="card shadow-sm border-0 mt-4 rounded-3">
+                            <div class="card-header text-white rounded-top-3" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);">
+                                <h6 class="mb-0 fw-semibold">
+                                    <i class="fas fa-credit-card me-2"></i>Payment Information
+                                </h6>
+                            </div>
+                            <div class="card-body bg-white rounded-bottom">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-6">
+                                        <label for="paymentMode" class="form-label fw-medium">Payment Method *</label>
+                                        <select name="payment_mode" id="paymentMode" class="form-select" required onchange="togglePaymentFields();">
+                                            <option value="">Select payment method</option>
+                                            <option value="Cash">💵 Cash Payment</option>
+                                            <option value="GCash">📱 GCash</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="amountPaid" class="form-label fw-medium">Amount to Pay *</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
+                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" min="0" step="0.01" required oninput="calculateChange();">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- GCash Section -->
+                                <div id="gcashSection" class="row mt-4" style="display: none;">
+                                    <div class="col-md-8">
+                                        <div class="p-3 rounded-3" style="background: #f0f4ff;">
+                                            <strong class="d-block mb-2"><i class="fas fa-info-circle me-2"></i>GCash Payment Instructions:</strong>
+                                            <ol class="mb-0 ps-3 text-dark">
+                                                <li>Send your payment to the GCash number provided</li>
+                                                <li>Take a screenshot of the transaction</li>
+                                                <li>Enter the 13-digit reference number below</li>
+                                            </ol>
+                                            <div class="mt-3">
+                                                <label for="referenceNumber" class="form-label fw-medium">GCash Reference Number *</label>
+                                                <input type="text" name="reference_number" id="referenceNumber" class="form-control" placeholder="Enter 13-digit reference number" maxlength="13" pattern="\d{13}">
+                                                <small class="text-muted">Found in your GCash transaction receipt</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 d-flex align-items-stretch">
+                                        <div class="text-center p-3 rounded-3 shadow-sm" style="background: linear-gradient(135deg, #e0e7ff 0%, #fbc2eb 100%);">
+                                            <div class="fw-bold mb-2" style="color: #0063F7; font-size: 1.2rem;">
+                                                <i class="fab fa-google-pay"></i> G<span style="color:#0063F7;">Pay</span>
+                                            </div>
+                                            <p class="mb-1 text-dark">GCash Number:</p>
+                                            <h5 class="fw-bold text-primary mb-2">09123456789</h5>
+                                            <p class="mb-1 text-dark">Account Name:</p>
+                                            <p class="fw-semibold text-primary mb-0">Gitarra Apartelle</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Cash Section -->
+                                <div class="row mt-3" id="cashSection" style="display: none;">
+                                    <div class="col-md-6">
+                                        <label for="changeAmount" class="form-label fw-medium">Change</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
+                                            <input type="text" id="changeAmount" class="form-control" readonly value="0.00">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer bg-light p-3">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4" style="background: linear-gradient(135deg, #6a11cb 0%, #fbc2eb 100%); border: none; font-weight:600;">
+                        <i class="fas fa-calendar-check me-2"></i>Confirm & Reserve
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 
     <!-- Cancel Booking Modal -->
     <div class="modal fade" id="cancelBookingModal" tabindex="-1" aria-labelledby="cancelBookingModalLabel" aria-hidden="true">
@@ -772,34 +1038,6 @@ $total_pages = ceil($total_records / $limit);
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title" id="cancelBookingModalLabel">
-                        <i class="fas fa-times-circle me-2"></i>Cancel Booking
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form method="POST">
-                    <div class="modal-body">
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            Are you sure you want to cancel the booking for <strong id="guestNameToCancel"></strong>?
-                        </div>
-                        <div class="mb-3">
-                            <label for="cancellationReason" class="form-label">Cancellation Reason *</label>
-                            <textarea name="cancellation_reason" id="cancellationReason" class="form-control" rows="3" required placeholder="Please provide a reason for cancellation..."></textarea>
-                        </div>
-                        <input type="hidden" name="booking_id" id="bookingIdToCancel">
-                        <input type="hidden" name="delete_booking" value="1">
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-danger">
-                            <i class="fas fa-times-circle me-2"></i>Cancel Booking
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <!-- Cancelled Bookings Modal -->
     <div class="modal fade" id="cancelledBookingsModal" tabindex="-1" aria-labelledby="cancelledBookingsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -910,26 +1148,37 @@ $total_pages = ceil($total_records / $limit);
         // Calculate change
         function calculateChange() {
             const totalPrice = parseFloat(document.getElementById('totalPrice').value) || 0;
-            const amountPaid = parseFloat(document.querySelector('input[name="amount_paid"]').value) || 0;
-            const change = amountPaid - totalPrice;
-            
+            const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
+            const paymentMode = document.getElementById('paymentMode').value;
+            let change = 0;
+            if (paymentMode === 'Cash') {
+                change = amountPaid - totalPrice;
+            }
             document.getElementById('changeAmount').value = change >= 0 ? change.toFixed(2) : '0.00';
         }
         
         // Toggle payment fields
         function togglePaymentFields() {
-            const paymentMode = document.querySelector('select[name="payment_mode"]').value;
+            const paymentMode = document.getElementById('paymentMode').value;
             const gcashSection = document.getElementById('gcashSection');
-            const referenceInput = document.querySelector('input[name="reference_number"]');
-            
+            const cashSection = document.getElementById('cashSection');
+            const referenceInput = document.getElementById('referenceNumber');
             if (paymentMode === 'GCash') {
-                gcashSection.style.display = 'block';
+                gcashSection.style.display = 'flex';
+                cashSection.style.display = 'none';
                 referenceInput.required = true;
+            } else if (paymentMode === 'Cash') {
+                gcashSection.style.display = 'none';
+                cashSection.style.display = 'flex';
+                referenceInput.required = false;
+                referenceInput.value = '';
             } else {
                 gcashSection.style.display = 'none';
+                cashSection.style.display = 'none';
                 referenceInput.required = false;
                 referenceInput.value = '';
             }
+            calculateChange();
         }
         
         // Form validation

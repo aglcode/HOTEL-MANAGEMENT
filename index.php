@@ -52,7 +52,7 @@ if (isset($_POST['login'])) {
 
                 switch ($user['role']) {
                     case 'Admin':
-                        header("Location: admin-dash.php");
+                        header("Location: admin-dashboard.php");
                         break;
                     case 'Receptionist':
                         header("Location: receptionist-dash.php");

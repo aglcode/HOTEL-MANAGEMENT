@@ -1,5 +1,6 @@
 {
     "require": {
-        "endroid/qr-code": "^5.1"
+        "endroid/qr-code": "^5.1",
+        "phpmailer/phpmailer": "^6.11"
     }
 }
