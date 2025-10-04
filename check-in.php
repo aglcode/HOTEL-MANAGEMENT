@@ -33,9 +33,84 @@ $room = $result->fetch_assoc();
 $stmt->close();
 
 if (!$room && $_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo "Room not found or not available.";
+    echo "
+    <style>
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #dc3545; /* red danger */
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s, transform 0.4s;
+            transform: translateY(-20px);
+            z-index: 9999;
+        }
+        .toast.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .btn-toast {
+            margin: 20px;
+            padding: 10px 16px;
+            border: none;
+            background: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn-toast:hover {
+            background: #0056b3;
+        }
+    </style>
+
+    <button id='toastBtn' class='btn-toast'>Show Warning</button>
+    <div id='toast' class='toast'>Room not found or not available.</div>
+
+    <script>
+        document.getElementById('toastBtn').addEventListener('click', function() {
+            let toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 4000); // auto-hide after 4s
+        });
+    </script>
+    ";
     exit();
 }
+
+// Check if there is an ACTIVE booking for this room
+$bookingStatus = null;
+$bookingQuery = "SELECT status FROM bookings WHERE room_number = ? ORDER BY end_date DESC LIMIT 1";
+$stmtBooking = $conn->prepare($bookingQuery);
+$stmtBooking->bind_param("i", $room_number);
+$stmtBooking->execute();
+$stmtBooking->bind_result($bookingStatus);
+$stmtBooking->fetch();
+$stmtBooking->close();
+
+// Only block if the last booking is still active
+if ($bookingStatus === 'booked' || $bookingStatus === 'checked_in') {
+    echo "
+    <div style='max-width:600px;margin:60px auto;padding:40px 30px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;'>
+        <i class='fas fa-ban fa-3x text-danger mb-3'></i>
+        <h2 class='mb-2'>Check-In Unavailable</h2>
+        <p class='mb-3'>This room is still <strong>occupied</strong> or <strong>reserved</strong>.<br>
+        Please select another room.</p>
+        <a href='receptionist-room.php' class='btn btn-primary mt-2'><i class='fas fa-arrow-left me-2'></i>Back to Rooms</a>
+    </div>
+    ";
+    exit();
+}
+
+// ✅ If last booking was completed/checked_out → room is available
+$conn->query("UPDATE rooms SET status = 'available' WHERE room_number = $room_number");
 
 // Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -45,9 +120,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $room_type = htmlspecialchars(trim($_POST['room_type']));
     $stay_duration = (int)($_POST['stay_duration']);
     $amount_paid = isset($_POST['amount_paid']) && is_numeric($_POST['amount_paid']) 
-    ? (float)$_POST['amount_paid'] 
-    : 0.00;
-    $change = (float)($_POST['change'] ?? 0);
+        ? (float)$_POST['amount_paid'] 
+        : 0.00;
+    $change = max(0, $amount_paid - $total_price);
     $payment_mode = htmlspecialchars(trim($_POST['payment_mode']));
     $gcash_reference = htmlspecialchars(trim($_POST['gcash_ref_id'] ?? ''));
     $user_id = $_SESSION['user_id'];
@@ -415,7 +490,7 @@ $conn->close();
             3: <?php echo (float)$room['price_3hrs']; ?>,
             6: <?php echo (float)$room['price_6hrs']; ?>,
             12: <?php echo (float)$room['price_12hrs']; ?>,
-            24: <?php echo (float)$room['price_24hrs']; ?>
+            24: <?php echo (float)$room['price_24hrs']; ?>,
         };
 
 

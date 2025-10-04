@@ -7,58 +7,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $guest_id = (int)($_POST['guest_id'] ?? 0);
     $action = $_POST['action'];
     
-    if ($action === 'checkout' && $guest_id > 0) {
-        // Get guest information
-        $stmt = $conn->prepare("SELECT * FROM checkins WHERE id = ? AND check_out_date > NOW()");
-        $stmt->bind_param('i', $guest_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $guest = $result->fetch_assoc();
-        $stmt->close();
-        
-        if ($guest) {
-            // Check if payment is sufficient
-            $total_cost = floatval($guest['total_price']);
-            $amount_paid = floatval($guest['amount_paid']);
-            $balance = $total_cost - $amount_paid;
-            
-            if ($balance > 0) {
-                // Payment insufficient - return payment details for additional payment
-                echo json_encode([
-                    'success' => false, 
-                    'payment_required' => true,
-                    'message' => 'Additional payment required',
-                    'payment_details' => [
-                        'guest_id' => $guest_id,
-                        'guest_name' => $guest['guest_name'],
-                        'room_number' => $guest['room_number'],
-                        'total_cost' => number_format($total_cost, 2),
-                        'amount_paid' => number_format($amount_paid, 2),
-                        'balance_due' => number_format($balance, 2),
-                        'balance_amount' => $balance
-                    ]
-                ]);
-            } else {
-                // Payment sufficient - proceed with checkout
-                // Update check-out date to now
-                $stmt = $conn->prepare("UPDATE checkins SET check_out_date = NOW() WHERE id = ?");
-                $stmt->bind_param('i', $guest_id);
-                $stmt->execute();
-                $stmt->close();
-                
-                // Update room status to available
-                $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
-                $stmt->bind_param('i', $guest['room_number']);
-                $stmt->execute();
-                $stmt->close();
-                
-                echo json_encode(['success' => true, 'message' => 'Guest checked out successfully']);
-            }
+if ($action === 'checkout' && $guest_id > 0) {
+    // Fetch guest info first
+    $stmt = $conn->prepare("SELECT * FROM checkins WHERE id = ?");
+    $stmt->bind_param('i', $guest_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $guest = $result->fetch_assoc();
+    $stmt->close();
+
+    if ($guest) {
+        // Check payment
+        $total_cost = floatval($guest['total_price']);
+        $amount_paid = floatval($guest['amount_paid']);
+        $balance = $total_cost - $amount_paid;
+
+        if ($balance > 0) {
+            echo json_encode([
+                'success' => false,
+                'payment_required' => true,
+                'message' => 'Additional payment required',
+                'payment_details' => [
+                    'guest_id' => $guest_id,
+                    'guest_name' => $guest['guest_name'],
+                    'room_number' => $guest['room_number'],
+                    'total_cost' => number_format($total_cost, 2),
+                    'amount_paid' => number_format($amount_paid, 2),
+                    'balance_due' => number_format($balance, 2),
+                    'balance_amount' => $balance
+                ]
+            ]);
         } else {
-            echo json_encode(['success' => false, 'message' => 'Guest not found or already checked out']);
+            // Payment is good → proceed checkout
+            $stmt = $conn->prepare("UPDATE checkins SET status = 'checked_out', check_out_date = NOW() WHERE id = ?");
+            $stmt->bind_param('i', $guest_id);
+            $stmt->execute();
+            $stmt->close();
+
+            $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
+            $stmt->bind_param('i', $guest['room_number']);
+            $stmt->execute();
+            $stmt->close();
+
+            // Update related booking
+            $bkSel = $conn->prepare("SELECT id FROM bookings WHERE guest_name = ? AND room_number = ? AND status NOT IN ('cancelled','completed') ORDER BY start_date DESC LIMIT 1");
+            $bkSel->bind_param("si", $guest['guest_name'], $guest['room_number']);
+            $bkSel->execute();
+            $bkRes = $bkSel->get_result();
+            if ($bkRes && $bkRow = $bkRes->fetch_assoc()) {
+                $booking_id = (int)$bkRow['id'];
+                $bkSel->close();
+                $bkUpd = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
+                $bkUpd->bind_param('i', $booking_id);
+                $bkUpd->execute();
+                $bkUpd->close();
+            } else {
+                $bkSel->close();
+            }
+
+            echo json_encode(['success' => true, 'message' => 'Guest checked out successfully']);
         }
-        exit;
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Guest not found or already checked out']);
     }
+    exit;
+}
+
 
     // Add new action for additional payment
     if ($action === 'add_payment' && $guest_id > 0) {
@@ -294,13 +308,15 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gitarra Apartelle - Guest Management</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link href="style.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gitarra Apartelle - Guest Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+    <link href="style.css" rel="stylesheet">
   <style>
     /* Enhanced Table Styling */
     .table {
@@ -417,45 +433,49 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
       font-size: 24px;
     }
     
-    /* Print-friendly styles */
-    @media print {
-      .sidebar, .search-filter-container, .no-print {
-        display: none !important;
-      }
-      
-      .content {
-        margin-left: 0 !important;
-        width: 100% !important;
-      }
-      
-      .card {
-        box-shadow: none !important;
-        border: 1px solid #ddd !important;
-      }
-      
-      body {
-        background-color: white !important;
-      }
+    .sidebar {
+      width: 250px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
     }
+    .content { margin-left: 265px; padding: 20px; }
+    .card { border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    table th { background: #f8f9fa; }
+    table td, table th { padding: 12px; }
   </style>
 </head>
 <body>
 
 <!-- Sidebar -->
 <div class="sidebar" id="sidebar">
-  <div class="user-info">
-    <a href="receptionist-profile.php" class="text-white text-decoration-none d-flex flex-column align-items-center">
-      <i class="fa-solid fa-user-circle" style="font-size: 60px;"></i>
-      <p class="mt-2 mb-0">Receptionist</p>
-    </a>
+  <div class="user-info mb-4 text-center">
+    <i class="fa-solid fa-user-circle mb-2" style="font-size: 60px;"></i>
+    <h5 class="mb-1">Welcome,</h5>
+    <p id="user-role" class="mb-0">Receptionist</p>
   </div>
-  <a href="receptionist-dash.php"><i class="fa-solid fa-tachometer-alt"></i> Dashboard</a>
-  <a href="receptionist-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
-  <a href="receptionist-guest.php" class="active"><i class="fa-solid fa-users"></i> Guest</a>
-  <a href="receptionist-booking.php"><i class="fa-solid fa-calendar-check"></i> Booking</a>
-  <a href="receptionist-payment.php"><i class="fa-solid fa-money-check-alt"></i> Payment</a>
-  <a href="signin.php"><i class="fa-solid fa-sign-out-alt"></i> Logout</a>
+
+  <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-gauge"></i> Dashboard
+  </a>
+  <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-bed"></i> Rooms
+  </a>
+  <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-users"></i> Guest
+  </a>
+  <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-calendar-check"></i> Booking
+  </a>
+  <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-money-check"></i> Payment
+  </a>
+  <a href="signin.php" class="text-danger">
+    <i class="fa-solid fa-right-from-bracket"></i> Logout
+  </a>
 </div>
+
 
 <!-- Content -->
 <div class="content">
@@ -678,9 +698,9 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
                     <button class="btn btn-sm btn-outline-warning" onclick="extendStay(<?= $guest['id'] ?? 0 ?>)">
                       <i class="fas fa-clock"></i> Extend
                     </button>
-                    <button class="btn btn-sm btn-outline-info" onclick="printReceipt(<?= $guest['id'] ?? 0 ?>)">
-                      <i class="fas fa-receipt"></i> Receipt
-                    </button>
+                        <button class="btn btn-sm btn-outline-info" onclick="printReceipt(<?= $guest['id'] ?? 0 ?>)">
+                          <i class="fas fa-receipt"></i> Receipt
+                        </button>
                   </div>
                 </td>
               </tr>
@@ -701,7 +721,20 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
     </div>
   </div>
 
-  <!-- Guest Check-Out History -->
+<!-- Receipt Modal -->
+<div id="receiptModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999;">
+    <div style="background:#fff; width:320px; margin:5% auto; padding:15px; border-radius:8px; position:relative;">
+        <div id="receiptContent"></div>
+        <div style="margin-top:10px; text-align:center;">
+            <button onclick="window.print()" style="padding:5px 10px; background:#4CAF50; color:#fff; border:none; border-radius:4px;">Print</button>
+            
+            <button onclick="downloadReceipt()" style="padding:5px 10px; background:#2196F3; color:#fff; border:none; border-radius:4px;">Download</button>
+            
+            <button onclick="closeReceipt()" style="padding:5px 10px; background:#999; color:#fff; border:none; border-radius:4px;">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- Guest Check-In History -->
 <div class="card mb-4">
   <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
@@ -713,6 +746,7 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
       </a>
     </div>
   </div>
+
   
   <!-- Search and Filter Controls -->
   <div class="card-body border-bottom">
@@ -761,8 +795,24 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
             <?php while ($row = $history_guests->fetch_assoc()): 
               $checkout_date = new DateTime($row['check_out_date'] ?? 'now');
               $checkin_date = new DateTime($row['check_in_date'] ?? 'now');
-              $is_checked_out = $checkout_date <= new DateTime();
-              $is_active = new DateTime() >= $checkin_date && new DateTime() < $checkout_date;
+              $now_dt = new DateTime();
+              $is_checked_out = $checkout_date <= $now_dt;
+              $is_active = $now_dt >= $checkin_date && $now_dt < $checkout_date;
+
+              // If not active and not checked out by dates, check bookings table for a completed booking
+              if (! $is_checked_out && ! $is_active) {
+                  $bk_guest = $row['guest_name'];
+                  $bk_room = (int)($row['room_number'] ?? 0);
+                  $bkStmt = $conn->prepare("SELECT id FROM bookings WHERE guest_name = ? AND room_number = ? AND status = 'completed' LIMIT 1");
+                  $bkStmt->bind_param("si", $bk_guest, $bk_room);
+                  $bkStmt->execute();
+                  $bkStmt->store_result();
+                  if ($bkStmt->num_rows > 0) {
+                      $is_checked_out = true;
+                      $is_active = false;
+                  }
+                  $bkStmt->close();
+              }
             ?>
             <tr class="<?= $is_active ? 'table-success' : ($is_checked_out ? 'table-light' : '') ?>">
               <td>
@@ -835,7 +885,7 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
               <td class="no-print">
                 <?php if ($is_active): ?>
                   <span class="badge bg-success">
-                    <i class="fas fa-clock me-1"></i>Active
+                    <i class="fas fa-clock me-1"></i>In Use
                   </span>
                 <?php elseif ($is_checked_out): ?>
                   <span class="badge bg-secondary">
@@ -892,9 +942,6 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
   </div>
 </div>
 
-</div>
-</div>
-
 <script>
   document.getElementById("searchInput").addEventListener("input", function() {
     if (this.value === "") {
@@ -917,174 +964,124 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
   setInterval(updateClock, 1000);
   updateClock();
 
-  // Function to check out a guest
-  function checkOutGuest(guestId) {
+// Function to check out a guest
+function checkOutGuest(guestId) {
     if (!guestId) {
-        alert('Invalid guest ID');
+        Swal.fire("Error", "Invalid guest ID", "error");
         return;
     }
-    
-    if (confirm('Are you sure you want to check out this guest?')) {
-        fetch('receptionist-guest.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `action=checkout&guest_id=${guestId}`
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                location.reload();
-            } else if (data.payment_required) {
-                // Show payment form for insufficient payment
-                showPaymentForm(data.payment_details);
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while checking out the guest.');
-        });
-    }
-  }
 
-  function showPaymentForm(paymentDetails) {
-    const modalHtml = `
-        <div class="modal fade" id="paymentModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Additional Payment Required</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-warning">
-                            <strong>Payment Insufficient!</strong><br>
-                            Guest <strong>${paymentDetails.guest_name}</strong> (Room #${paymentDetails.room_number}) needs to pay additional amount.
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-6">
-                                <strong>Total Cost:</strong><br>
-                                <span class="h5 text-primary">₱${paymentDetails.total_cost}</span>
-                            </div>
-                            <div class="col-6">
-                                <strong>Amount Paid:</strong><br>
-                                <span class="h5 text-success">₱${paymentDetails.amount_paid}</span>
-                            </div>
-                        </div>
-                        
-                        <div class="alert alert-danger">
-                            <strong>Balance Due: ₱${paymentDetails.balance_due}</strong>
-                        </div>
-                        
-                        <form id="additionalPaymentForm">
-                            <div class="mb-3">
-                                <label for="additionalAmount" class="form-label">Additional Payment Amount</label>
-                                <input type="number" class="form-control" id="additionalAmount" 
-                                       min="0.01" step="0.01" value="${paymentDetails.balance_amount}" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="paymentMode" class="form-label">Payment Method</label>
-                                <select class="form-select" id="paymentMode" required>
-                                    <option value="cash">Cash</option>
-                                    <option value="gcash">GCash</option>
-                                </select>
-                            </div>
-                            
-                            <div class="mb-3" id="gcashReferenceDiv" style="display: none;">
-                                <label for="gcashReference" class="form-label">GCash Reference Number</label>
-                                <input type="text" class="form-control" id="gcashReference">
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-success" onclick="processAdditionalPayment(${paymentDetails.guest_id})">Add Payment & Checkout</button>
-                    </div>
+    Swal.fire({
+        title: "Confirm Checkout",
+        text: "Are you sure you want to check out this guest?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Yes, check out",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33"
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch("receptionist-guest.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `action=checkout&guest_id=${guestId}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire("Checked Out!", data.message, "success")
+                        .then(() => location.reload());
+                } else if (data.payment_required) {
+                    // If payment is needed, show custom modal or SweetAlert form
+                    Swal.fire({
+                        title: "Payment Required",
+                        html: `
+                            <p>${data.message}</p>
+                            <p><b>Amount Due:</b> ₱${data.payment_details.amount_due}</p>
+                        `,
+                        icon: "info",
+                        confirmButtonText: "Proceed to Payment"
+                    }).then(() => {
+                        showPaymentForm(data.payment_details);
+                    });
+                } else {
+                    Swal.fire("Error", data.message, "error");
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                Swal.fire("Error", "An error occurred while checking out the guest.", "error");
+            });
+        }
+    });
+}
+
+function showPaymentForm(paymentDetails) {
+    Swal.fire({
+        title: "Complete Payment",
+        html: `
+            <div style="text-align:left;">
+                <p><b>Guest:</b> ${paymentDetails.guest_name}</p>
+                <p><b>Room:</b> #${paymentDetails.room_number} (${paymentDetails.room_type})</p>
+                <p><b>Total Due:</b> ₱${parseFloat(paymentDetails.amount_due).toFixed(2)}</p>
+                <div style="margin-top:10px;">
+                    <label for="payment_amount">Enter Payment:</label>
+                    <input type="number" id="payment_amount" class="swal2-input" 
+                           placeholder="Enter amount" 
+                           min="0" step="0.01" 
+                           style="width:80%; text-align:right;" />
+                </div>
+                <div style="margin-top:10px;">
+                    <label for="payment_mode">Payment Method:</label>
+                    <select id="payment_mode" class="swal2-select" style="width:80%;">
+                        <option value="cash">Cash</option>
+                        <option value="gcash">GCash</option>
+                        <option value="card">Card</option>
+                    </select>
                 </div>
             </div>
-        </div>
-    `;
-    
-    // Remove existing modal if any
-    const existingModal = document.getElementById('paymentModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Add modal to body
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // Show/hide GCash reference field based on payment method
-    document.getElementById('paymentMode').addEventListener('change', function() {
-        const gcashDiv = document.getElementById('gcashReferenceDiv');
-        if (this.value === 'gcash') {
-            gcashDiv.style.display = 'block';
-            document.getElementById('gcashReference').required = true;
-        } else {
-            gcashDiv.style.display = 'none';
-            document.getElementById('gcashReference').required = false;
+        `,
+        showCancelButton: true,
+        confirmButtonText: "Submit Payment",
+        cancelButtonText: "Cancel",
+        focusConfirm: false,
+        preConfirm: () => {
+            const amount = document.getElementById("payment_amount").value;
+            const mode = document.getElementById("payment_mode").value;
+
+            if (!amount || parseFloat(amount) <= 0) {
+                Swal.showValidationMessage("Please enter a valid amount.");
+                return false;
+            }
+
+            return { amount, mode };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Process the payment
+            fetch("receptionist-guest.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `action=pay&guest_id=${paymentDetails.guest_id}&amount=${result.value.amount}&mode=${result.value.mode}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire("Payment Successful", data.message, "success")
+                        .then(() => location.reload());
+                } else {
+                    Swal.fire("Error", data.message, "error");
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                Swal.fire("Error", "An error occurred while processing payment.", "error");
+            });
         }
     });
-    
-    // Show modal
-    const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
-    paymentModal.show();
 }
 
-function processAdditionalPayment(guestId) {
-    const additionalAmount = document.getElementById('additionalAmount').value;
-    const paymentMode = document.getElementById('paymentMode').value;
-    const gcashReference = document.getElementById('gcashReference').value;
-    
-    if (!additionalAmount || additionalAmount <= 0) {
-        alert('Please enter a valid payment amount');
-        return;
-    }
-    
-    if (paymentMode === 'gcash' && !gcashReference.trim()) {
-        alert('Please enter GCash reference number');
-        return;
-    }
-    
-    // Process additional payment
-    fetch('receptionist-guest.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `action=add_payment&guest_id=${guestId}&additional_amount=${additionalAmount}&payment_mode=${paymentMode}&gcash_reference=${gcashReference}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(`Payment added successfully!\nNew Amount Paid: ₱${data.new_amount_paid}\nChange: ₱${data.change_amount}`);
-            
-            // Close payment modal
-            const paymentModal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
-            paymentModal.hide();
-            
-            if (data.can_checkout) {
-                // Proceed with checkout
-                proceedWithCheckout(guestId);
-            } else {
-                // Refresh page to show updated payment
-                location.reload();
-            }
-        } else {
-            alert('Error: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while processing payment.');
-    });
-}
 
 function proceedWithCheckout(guestId) {
     fetch('receptionist-guest.php', {
@@ -1108,126 +1105,109 @@ function proceedWithCheckout(guestId) {
         alert('An error occurred while checking out the guest.');
     });
 }  
-  // Function to extend guest stay
-  function extendStay(guestId) {
-      if (!guestId) {
-          alert('Invalid guest ID');
-          return;
-      }
-      
-      if (confirm('Extend stay by 1 hour? Additional charges will apply.')) {
-          fetch('receptionist-guest.php', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded',
-              },
-              body: `action=extend&guest_id=${guestId}`
-          })
-          .then(response => response.json())
-          .then(data => {
-              if (data.success) {
-                  alert(`${data.message}\nNew checkout time: ${data.new_checkout}\nAdditional cost: ₱${data.additional_cost}\nNew total: ₱${data.new_total}`);
-                  location.reload(); // Refresh the page to show updated information
-              } else {
-                  alert('Error: ' + data.message);
-              }
-          })
-          .catch(error => {
-              console.error('Error:', error);
-              alert('An error occurred while extending the stay.');
-          });
-      }
-  }
-  
-  // Function to print guest receipt
-  function printReceipt(guestId) {
-      if (!guestId) {
-          alert('Invalid guest ID');
-          return;
-      }
-      
-      // Fetch guest data for receipt
-      fetch(`get-guest-receipt.php?guest_id=${guestId}`)
-          .then(response => response.json())
-          .then(data => {
-              if (data.success) {
-                  const guest = data.guest;
-                  const receiptContent = `
-                      <div class="text-center mb-4">
-                          <h4 class="mb-1">Gitarra Apartelle</h4>
-                          <p class="text-muted mb-1">123 Main Street, Anytown</p>
-                          <p class="text-muted mb-0">Tel: (123) 456-7890</p>
-                      </div>
-                      
-                      <div class="border-top border-bottom py-3 mb-4">
-                          <div class="row mb-2">
-                              <div class="col-6 text-muted">Receipt #:</div>
-                              <div class="col-6 text-end">GIT-${guest.id}-${new Date().getFullYear()}</div>
-                          </div>
-                          <div class="row mb-2">
-                              <div class="col-6 text-muted">Guest:</div>
-                              <div class="col-6 text-end">${guest.guest_name}</div>
-                          </div>
-                          <div class="row mb-2">
-                              <div class="col-6 text-muted">Room:</div>
-                              <div class="col-6 text-end">#${guest.room_number} (${guest.room_type})</div>
-                          </div>
-                          <div class="row mb-2">
-                              <div class="col-6 text-muted">Check-in:</div>
-                              <div class="col-6 text-end">${new Date(guest.check_in_date).toLocaleDateString()}</div>
-                          </div>
-                          <div class="row">
-                              <div class="col-6 text-muted">Check-out:</div>
-                              <div class="col-6 text-end">${new Date(guest.check_out_date).toLocaleDateString()}</div>
-                          </div>
-                      </div>
-                      
-                      <h5 class="mb-3">Booking Details</h5>
-                      <div class="table-responsive">
-                          <table class="table table-sm">
-                              <tbody>
-                                  <tr>
-                                      <td>Room Charge (${guest.stay_duration} hrs)</td>
-                                      <td class="text-end">₱${parseFloat(guest.total_price).toFixed(2)}</td>
-                                  </tr>
-                                  <tr class="fw-bold">
-                                      <td>Total</td>
-                                      <td class="text-end">₱${parseFloat(guest.total_price).toFixed(2)}</td>
-                                  </tr>
-                                  <tr>
-                                      <td>Amount Paid</td>
-                                      <td class="text-end">₱${parseFloat(guest.amount_paid).toFixed(2)}</td>
-                                  </tr>
-                                  <tr>
-                                      <td>Change</td>
-                                      <td class="text-end">₱${parseFloat(guest.change_amount).toFixed(2)}</td>
-                                  </tr>
-                                  <tr>
-                                      <td>Payment Method</td>
-                                      <td class="text-end">${guest.payment_mode.toUpperCase()}</td>
-                                  </tr>
-                              </tbody>
-                          </table>
-                      </div>
-                      
-                      <div class="text-center mt-4">
-                          <p class="mb-1">Thank you for choosing Gitarra Apartelle!</p>
-                          <p class="text-muted small">This receipt is computer generated and does not require signature.</p>
-                      </div>
-                  `;
-                  
-                  document.getElementById('receiptContent').innerHTML = receiptContent;
-                  const receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
-                  receiptModal.show();
-              } else {
-                  alert('Error loading receipt data');
-              }
-          })
-          .catch(error => {
-              console.error('Error:', error);
-              alert('An error occurred while loading the receipt.');
-          });
-  }
+// Function to extend guest stay
+function extendStay(guestId) {
+    if (!guestId) {
+        Swal.fire("Error", "Invalid guest ID", "error");
+        return;
+    }
+
+    Swal.fire({
+        title: "Extend Stay?",
+        text: "Extend stay by 1 hour? Additional charges will apply.",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Yes, extend",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33"
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch("receptionist-guest.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `action=extend&guest_id=${guestId}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        title: "Stay Extended!",
+                        html: `
+                            <p><b>New checkout time:</b> ${data.new_checkout}</p>
+                            <p><b>Additional cost:</b> ₱${data.additional_cost}</p>
+                            <p><b>New total:</b> ₱${data.new_total}</p>
+                        `,
+                        icon: "success",
+                        confirmButtonText: "OK"
+                    }).then(() => location.reload());
+                } else {
+                    Swal.fire("Error", data.message, "error");
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                Swal.fire("Error", "An error occurred while extending the stay.", "error");
+            });
+        }
+    });
+}
+
+function printReceipt(guestId) {
+    if (!guestId) {
+        alert('Invalid guest ID');
+        return;
+    }
+
+    fetch(`get-guest-receipt.php?guest_id=${guestId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const guest = data.guest;
+
+                // POS style slip content
+                const receiptContent = `
+                    <div style="font-family: monospace; font-size:13px; text-align:center; border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:5px;">
+                        <h4 style="margin:0;">Gitarra Apartelle</h4>
+                        <p style="margin:0;">123 Main Street, Anytown</p>
+                        <p style="margin:0;">Tel: (123) 456-7890</p>
+                    </div>
+
+                    <p style="margin:2px 0; text-align:left;">Receipt #: <span style="float:right;">GIT-${guest.id}-${new Date().getFullYear()}</span></p>
+                    <p style="margin:2px 0; text-align:left;">Guest: <span style="float:right;">${guest.guest_name}</span></p>
+                    <p style="margin:2px 0; text-align:left;">Room: <span style="float:right;">#${guest.room_number} (${guest.room_type ?? 'N/A'})</span></p>
+                    <p style="margin:2px 0; text-align:left;">Check-in: <span style="float:right;">${guest.check_in_date}</span></p>
+                    <p style="margin:2px 0; text-align:left;">Check-out: <span style="float:right;">${guest.check_out_date}</span></p>
+                    
+                    <div style="border-top:1px dashed #000; border-bottom:1px dashed #000; padding:5px 0; margin:8px 0;">
+                        <p style="margin:2px 0; text-align:left;">Room Charge (${guest.stay_duration} hrs)<span style="float:right;">₱${parseFloat(guest.total_price).toFixed(2)}</span></p>
+                        <p style="margin:2px 0; text-align:left; font-weight:bold;">Total<span style="float:right;">₱${parseFloat(guest.total_price).toFixed(2)}</span></p>
+                        <p style="margin:2px 0; text-align:left;">Amount Paid<span style="float:right;">₱${parseFloat(guest.amount_paid).toFixed(2)}</span></p>
+                        <p style="margin:2px 0; text-align:left;">Change<span style="float:right;">₱${parseFloat(guest.change_amount).toFixed(2)}</span></p>
+                        <p style="margin:2px 0; text-align:left;">Payment<span style="float:right;">${guest.payment_mode?.toUpperCase() ?? 'CASH'}</span></p>
+                    </div>
+
+                    <div style="text-align:center; font-size:12px; margin-top:10px;">
+                        <p style="margin:2px 0;">Thank you for choosing Gitarra Apartelle!</p>
+                        <p style="margin:2px 0; font-style:italic;">This receipt is computer-generated.</p>
+                    </div>
+                `;
+
+                document.getElementById('receiptContent').innerHTML = receiptContent;
+                document.getElementById('receiptModal').style.display = 'block';
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error(error);
+            alert('Failed to load receipt data');
+        });
+}
+
+function closeReceipt() {
+    document.getElementById('receiptModal').style.display = 'none';
+}
 
   function proceedWithCheckout(guestId) {
     fetch('receptionist-guest.php', {
@@ -1287,6 +1267,19 @@ function proceedWithCheckout(guestId) {
       const billingModal = new bootstrap.Modal(document.getElementById('billingModal'));
       billingModal.show();
   }
+
+      function downloadReceipt() {
+          const element = document.getElementById('receiptContent');
+          const filename = 'receipt_' + new Date().toISOString().replace(/[:.]/g, '-') + '.pdf';
+
+          html2pdf().set({
+              margin: 0.4,
+              filename: filename,
+              image: { type: 'jpeg', quality: 0.98 },
+              html2canvas: { scale: 2 },
+              jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+          }).from(element).save();
+      }
 </script>
 
 </body>

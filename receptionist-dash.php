@@ -91,6 +91,21 @@ $upcoming_bookings_result = $conn->query("
         body {
             font-family: 'Poppins', sans-serif;
         }
+
+        /* centering the dashboard content */
+        .sidebar {
+            width: 250px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+        }
+
+        .content {
+            margin-left: 265px;
+            max-width: 1400px;
+            margin-right: auto;
+        }
         
         .stat-card {
             border-radius: 10px;
@@ -160,20 +175,34 @@ $upcoming_bookings_result = $conn->query("
     </style>
 </head>
 <body>
-    <div class="sidebar" id="sidebar">
-        <div class="user-info mb-4">
-            <i class="fa-solid fa-user-circle mb-2" style="font-size: 60px;"></i>
-            <h5 class="mb-1">Welcome,</h5>
-            <p id="user-role" class="mb-0">Receptionist</p>
-        </div>
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="user-info mb-4 text-center">
+    <i class="fa-solid fa-user-circle mb-2" style="font-size: 60px;"></i>
+    <h5 class="mb-1">Welcome,</h5>
+    <p id="user-role" class="mb-0">Receptionist</p>
+  </div>
 
-        <a href="receptionist-dash.php" class="active"><i class="fa-solid fa-gauge"></i> Dashboard</a>
-        <a href="receptionist-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
-        <a href="receptionist-guest.php"><i class="fa-solid fa-users"></i> Guest</a>
-        <a href="receptionist-booking.php"><i class="fa-solid fa-calendar-check"></i> Booking</a>
-        <a href="#"><i class="fa-solid fa-money-check"></i> Payment</a>
-        <a href="signin.php" class="mt-auto text-danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
-    </div>
+  <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-gauge"></i> Dashboard
+  </a>
+  <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-bed"></i> Rooms
+  </a>
+  <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-users"></i> Guest
+  </a>
+  <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-calendar-check"></i> Booking
+  </a>
+  <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-money-check"></i> Payment
+  </a>
+  <a href="signin.php" class="text-danger">
+    <i class="fa-solid fa-right-from-bracket"></i> Logout
+  </a>
+</div>
+
 
     <!-- Content -->
     <div class="content p-4">
