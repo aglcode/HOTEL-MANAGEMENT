@@ -31,7 +31,7 @@ if ($keycard) {
         exit;
     } else {
         // ✅ Redirect guest to their personalized dashboard
-        header("Location: http://localhost/HOTEL-MANAGEMENT/guest-dashboard.php?room={$room}&token={$token}");
+        header("Location: http://localhost/gitarra_apartelle/guest-dashboard.php?room={$room}&token={$token}");
         exit;
     }
 } else {

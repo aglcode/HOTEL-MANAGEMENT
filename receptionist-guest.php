@@ -318,6 +318,50 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
     <link href="style.css" rel="stylesheet">
   <style>
+
+    /* === Unified Admin-Style Stats Cards === */
+    body {
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .stat-card {
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      background: #fff;
+    }
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .stat-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-size: 18px;
+    }
+
+    .stat-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #555;
+      margin: 0;
+    }
+
+    .stat-change {
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    .stat-change span {
+      font-size: 12px;
+      color: #888;
+    }
+
     /* Enhanced Table Styling */
     .table {
       border-radius: 8px;
@@ -413,26 +457,6 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
       font-size: 0.9rem;
     }
     
-    .stat-card {
-      border-radius: 10px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      transition: transform 0.3s ease;
-    }
-    
-    .stat-card:hover {
-      transform: translateY(-5px);
-    }
-    
-    .stat-icon {
-      width: 60px;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      font-size: 24px;
-    }
-    
     .sidebar {
       width: 250px;
       position: fixed;
@@ -507,53 +531,51 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
 <?php unset($_SESSION['error_msg']); endif; ?>
 
 <div class="container-fluid px-0">
-  <!-- Statistics Cards -->
-  <div class="row mb-4">
-    <!-- Current Check-ins Card -->
-    <div class="col-md-4 mb-3">
-      <div class="card stat-card h-100">
-        <div class="card-body d-flex align-items-center">
-          <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
-            <i class="fas fa-user-check"></i>
-          </div>
-          <div>
-            <h3 class="fw-bold mb-1"><?= $currently_checked_in ?></h3>
-            <p class="text-muted mb-0">Current Guests</p>
-          </div>
+
+  <!-- STATISTICS CARDS (Admin Style) -->
+<div class="row mb-4">
+  <!-- Current Check-ins -->
+  <div class="col-md-4 mb-3">
+    <div class="card stat-card h-100 p-3">
+      <div class="d-flex justify-content-between align-items-center">
+        <p class="stat-title">Current Guests</p>
+        <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+          <i class="fas fa-user-check"></i>
         </div>
       </div>
-    </div>
-    
-    <!-- Total Bookings Card -->
-    <div class="col-md-4 mb-3">
-      <div class="card stat-card h-100">
-        <div class="card-body d-flex align-items-center">
-          <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
-            <i class="fas fa-calendar-check"></i>
-          </div>
-          <div>
-            <h3 class="fw-bold mb-1"><?= $total_bookings ?></h3>
-            <p class="text-muted mb-0">Total Bookings</p>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Revenue Card -->
-    <div class="col-md-4 mb-3">
-      <div class="card stat-card h-100">
-        <div class="card-body d-flex align-items-center">
-          <div class="stat-icon bg-info bg-opacity-10 text-info me-3">
-            <i class="fas fa-coins"></i>
-          </div>
-          <div>
-            <h3 class="fw-bold mb-1">₱<?= number_format($total_revenue, 2) ?></h3>
-            <p class="text-muted mb-0">Total Revenue</p>
-          </div>
-        </div>
-      </div>
+      <h3 class="fw-bold mb-1"><?= $currently_checked_in ?></h3>
+      <p class="stat-change text-success">+2% <span>from last week</span></p>
     </div>
   </div>
+
+  <!-- Total Bookings -->
+  <div class="col-md-4 mb-3">
+    <div class="card stat-card h-100 p-3">
+      <div class="d-flex justify-content-between align-items-center">
+        <p class="stat-title">Total Bookings</p>
+        <div class="stat-icon bg-success bg-opacity-10 text-success">
+          <i class="fas fa-calendar-check"></i>
+        </div>
+      </div>
+      <h3 class="fw-bold mb-1"><?= $total_bookings ?></h3>
+      <p class="stat-change text-success">+5% <span>overall</span></p>
+    </div>
+  </div>
+
+  <!-- Total Revenue -->
+  <div class="col-md-4 mb-3">
+    <div class="card stat-card h-100 p-3">
+      <div class="d-flex justify-content-between align-items-center">
+        <p class="stat-title">Total Revenue</p>
+        <div class="stat-icon bg-info bg-opacity-10 text-info">
+          <i class="fas fa-coins"></i>
+        </div>
+      </div>
+      <h3 class="fw-bold mb-1">₱<?= number_format($total_revenue, 2) ?></h3>
+      <p class="stat-change text-muted">Updated daily</p>
+    </div>
+  </div>
+</div>
 
   <!-- Quick Actions -->
   <div class="card mb-4">

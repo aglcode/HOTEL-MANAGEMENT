@@ -7,7 +7,7 @@ $room  = 101;
 $token = "321A345D"; 
 
 // Local project base URL
-$baseUrl = "http://localhost/HOTEL-MANAGEMENT";
+$baseUrl = "http://localhost/gitarra_apartelle";
 
 // The URL that will be embedded in the QR code
 $url = "{$baseUrl}/api/unlock.php?room={$room}&token={$token}";

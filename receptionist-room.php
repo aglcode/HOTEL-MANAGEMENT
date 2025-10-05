@@ -149,58 +149,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="style.css" rel="stylesheet">
+
     <style>
-        .stat-card {
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .stat-icon {
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            font-size: 24px;
-        }
-        
-        .room-card {
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-            overflow: hidden;
-        }
-        
-        .room-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .room-card .card-header {
-            font-weight: 600;
-            padding: 12px 15px;
-        }
-        
-        .room-card.available .card-header {
-            background-color: rgba(25, 135, 84, 0.1);
-            color: #198754;
-        }
-        
-        .room-card.booked .card-header {
-            background-color: rgba(255, 193, 7, 0.1);
-            color: #ffc107;
-        }
-        
-        .room-card.maintenance .card-header {
-            background-color: rgba(220, 53, 69, 0.1);
-            color: #dc3545;
-        }
-        
+    body {
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .sidebar {
+        width: 250px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+    }
+
+    .content {
+        margin-left: 265px;
+        padding: 20px;
+        max-width: 1400px;
+        margin-right: auto;
+    }
+
+    /* STAT CARD DESIGN */
+    .stat-card {
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        background: #fff;
+    }
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        font-size: 18px;
+    }
+
+    .stat-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #555;
+        margin: 0;
+    }
+
+    .stat-change {
+        font-size: 13px;
+        margin-top: 6px;
+    }
+
+    .stat-change span {
+        font-size: 12px;
+        color: #888;
+    }
+
+    /* Optional smooth card shadow transition */
+    .card {
+        border: none;
+    }
         .status-badge {
             padding: 5px 10px;
             border-radius: 20px;
@@ -269,7 +281,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     transform: translateY(0);
 }
 
+
+@media (max-width: 768px) {
+    .stat-card {
+        text-align: center;
+    }
+    .stat-icon {
+        margin: 0 auto 10px auto;
+    }
+}
+
     </style>
+
 </head>
 <body>
 <!-- Sidebar -->
@@ -330,68 +353,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     </div>
     <?php unset($_SESSION['error_msg']); endif; ?>
 
-    <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <!-- Total Rooms Card -->
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
-                        <i class="fas fa-door-closed"></i>
-                    </div>
-                    <div>
-                        <h3 class="fw-bold mb-1"><?= $totalRooms ?></h3>
-                        <p class="text-muted mb-0">Total Rooms</p>
-                    </div>
+<!-- STATISTICS CARDS (Admin Style) -->
+<div class="row mb-4">
+    <!-- Total Rooms -->
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Total Rooms</p>
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="fas fa-door-closed"></i>
                 </div>
             </div>
-        </div>
-        
-        <!-- Available Rooms Card -->
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div>
-                        <h3 class="fw-bold mb-1"><?= $availableRooms ?></h3>
-                        <p class="text-muted mb-0">Available Rooms</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Booked Rooms Card -->
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon bg-warning bg-opacity-10 text-warning me-3">
-                        <i class="fas fa-key"></i>
-                    </div>
-                    <div>
-                        <h3 class="fw-bold mb-1"><?= $bookedRooms ?></h3>
-                        <p class="text-muted mb-0">Booked Rooms</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Maintenance Rooms Card -->
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon bg-danger bg-opacity-10 text-danger me-3">
-                        <i class="fas fa-tools"></i>
-                    </div>
-                    <div>
-                        <h3 class="fw-bold mb-1"><?= $maintenanceRooms ?></h3>
-                        <p class="text-muted mb-0">Under Maintenance</p>
-                    </div>
-                </div>
-            </div>
+            <h3 class="fw-bold mb-1"><?= $totalRooms ?></h3>
+            <p class="stat-change text-muted">Updated Today</p>
         </div>
     </div>
+
+    <!-- Available Rooms -->
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Available Rooms</p>
+                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?= $availableRooms ?></h3>
+            <p class="stat-change text-success">+3% <span>from last week</span></p>
+        </div>
+    </div>
+
+    <!-- Booked Rooms -->
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Booked Rooms</p>
+                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                    <i class="fas fa-key"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?= $bookedRooms ?></h3>
+            <p class="stat-change text-danger">-1% <span>this week</span></p>
+        </div>
+    </div>
+
+    <!-- Maintenance Rooms -->
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Under Maintenance</p>
+                <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+                    <i class="fas fa-tools"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?= $maintenanceRooms ?></h3>
+            <p class="stat-change text-muted">Scheduled repairs</p>
+        </div>
+    </div>
+</div>
 
     <!-- Room List -->
     <div class="card mb-4">
