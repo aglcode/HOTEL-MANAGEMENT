@@ -49,9 +49,7 @@ $resultRooms = $conn->query($allRoomsQuery);
 
 $roomOrders = [];
 $orderResult = $conn->query("
-    SELECT room_number, item, status, created_at 
-    FROM orders 
-    ORDER BY created_at DESC
+    SELECT room_number, item_name, status, created_at FROM orders ORDER BY created_at DESC
 ");
 while ($order = $orderResult->fetch_assoc()) {
     $roomOrders[$order['room_number']][] = $order;
@@ -403,12 +401,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         </div>
         <div class="card-body">
             <div class="row">
-                <?php while ($room = $resultRooms->fetch_assoc()): ?>
+                <?php while ($room = $resultRooms->fetch_assoc()): 
+    // 🔔 Fetch pending orders for this room
+    $orderCountQuery = $conn->prepare("
+        SELECT COUNT(*) AS pending_orders 
+        FROM orders 
+        WHERE room_number = ? AND status = 'pending'
+    ");
+    $orderCountQuery->bind_param('i', $room['room_number']);
+    $orderCountQuery->execute();
+    $orderResult = $orderCountQuery->get_result();
+    $orderCount = $orderResult->fetch_assoc()['pending_orders'] ?? 0;
+    $orderCountQuery->close();?>
+                    
                     <div class="col-md-4 mb-3">
                         <div class="card room-card <?= $room['status'] ?>"
                             onclick="cardClicked(event, <?= $room['room_number']; ?>, '<?= $room['status'] ?>')">
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <span>Room #<?= htmlspecialchars($room['room_number']); ?></span>
+                                <div class="d-flex flex-column">
+                                    <span>Room #<?= htmlspecialchars($room['room_number']); ?></span>
+                                    <?php if ($orderCount > 0): ?>
+                                        <span id="order-badge-<?= $room['room_number'] ?>" class="badge bg-danger mt-1">
+                                            <?= $orderCount ?> New <?= $orderCount > 1 ? 'Orders' : 'Order' ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span id="order-badge-<?= $room['room_number'] ?>" class="badge bg-secondary mt-1">
+                                            No Orders
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
                                 <span class="status-badge status-<?= $room['status'] ?>"><?= ucfirst($room['status']) ?></span>
                             </div>
 
@@ -418,7 +439,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                                         <ul class="list-unstyled mb-0">
                                             <?php foreach ($roomOrders[$room['room_number']] as $ord): ?>
                                                 <li>
-                                                    ✅ <?= htmlspecialchars($ord['item']) ?> 
+                                                    ✅ <?= htmlspecialchars($row['item'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
                                                     <small class="text-muted">(<?= date("H:i", strtotime($ord['created_at'])) ?>)</small>
                                                 </li>
                                             <?php endforeach; ?>
@@ -718,6 +739,26 @@ function updateClock() {
 
 setInterval(updateClock, 1000);
 updateClock(); // run once immediately
+
+function refreshOrderBadges() {
+  fetch('fetch_pending_orders.php')
+    .then(res => res.json())
+    .then(data => {
+      for (const [room, count] of Object.entries(data)) {
+        const badge = document.querySelector(`#order-badge-${room}`);
+        if (badge) {
+          badge.textContent = count > 0
+            ? `${count} New ${count > 1 ? 'Orders' : 'Order'}`
+            : 'No Orders';
+          badge.className = count > 0
+            ? 'badge bg-danger mt-1'
+            : 'badge bg-secondary mt-1';
+        }
+      }
+    });
+}
+setInterval(refreshOrderBadges, 5000); // Refresh every 5 seconds
+
 </script>
 </body>
 </html>

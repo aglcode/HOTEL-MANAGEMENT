@@ -1,21 +1,38 @@
 <?php
-// Simulated DB check (replace with real query)
+require_once '../database.php'; // Adjust if needed
+
 $room  = $_GET['room'] ?? '';
 $token = $_GET['token'] ?? '';
+$isScanner = isset($_GET['scanner']); // Optional parameter for hardware
 
-$validRoom  = 101;
-$validToken = "ABC123";
+if (!$room || !$token) {
+    echo "❌ Invalid QR code data.";
+    exit;
+}
 
-// Detect if scanner (expects JSON) or phone (browser)
-$isScanner = isset($_GET['scanner']); // ?scanner=1 will simulate hardware
+// Lookup keycard in the database
+$stmt = $conn->prepare("
+    SELECT k.*, g.name AS guest_name
+    FROM keycards k
+    LEFT JOIN guests g ON k.guest_id = g.id
+    WHERE k.room_number = ? AND k.qr_code = ? 
+      AND k.status = 'active'
+      AND NOW() BETWEEN k.valid_from AND k.valid_to
+");
+$stmt->bind_param('is', $room, $token);
+$stmt->execute();
+$result = $stmt->get_result();
+$keycard = $result->fetch_assoc();
 
-if ($room == $validRoom && $token == $validToken) {
+if ($keycard) {
     if ($isScanner) {
         header('Content-Type: application/json');
         echo json_encode(["status" => "ok", "message" => "Room $room unlocked!"]);
+        exit;
     } else {
-        // Redirect guest to their room website
-        header("Location: /rooms/room.php?room=$room&token=$token");
+        // ✅ Redirect guest to their personalized dashboard
+        header("Location: http://localhost/HOTEL-MANAGEMENT/guest-dashboard.php?room={$room}&token={$token}");
+        exit;
     }
 } else {
     if ($isScanner) {
