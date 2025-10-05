@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Sep 28, 2025 at 02:04 AM
+-- Generation Time: Oct 05, 2025 at 01:27 AM
 -- Server version: 8.4.3
 -- PHP Version: 8.3.16
 
@@ -27,9 +27,6 @@ SET time_zone = "+00:00";
 -- Table structure for table `announcements`
 --
 
-
-CREATE DATABASE IF NOT EXISTS hotel_db;
-
 CREATE TABLE `announcements` (
   `id` int NOT NULL,
   `title` varchar(255) NOT NULL,
@@ -43,7 +40,8 @@ CREATE TABLE `announcements` (
 --
 
 INSERT INTO `announcements` (`id`, `title`, `message`, `created_by`, `created_at`) VALUES
-(18, 'DEV TEST', 'This is a dev test.', 'Admin', '2025-09-26 05:28:53');
+(18, 'DEV TEST', 'This is a dev test.', 'Admin', '2025-09-26 05:28:53'),
+(19, 'tara inom', 'tomorrow', 'Admin', '2025-09-28 04:08:51');
 
 -- --------------------------------------------------------
 
@@ -80,11 +78,9 @@ CREATE TABLE `bookings` (
 --
 
 INSERT INTO `bookings` (`id`, `guest_name`, `email`, `address`, `telephone`, `age`, `num_people`, `room_number`, `duration`, `payment_mode`, `reference_number`, `booking_token`, `amount_paid`, `total_price`, `change_amount`, `start_date`, `end_date`, `status`, `created_at`, `cancellation_reason`, `cancelled_at`) VALUES
-(9, 'Aldrick Dulnuan', NULL, 'Calamba City, Laguna', '09123456789', 21, NULL, '101', '6', 'Cash', '', NULL, 750, 750, NULL, '2025-08-06 13:00:00', '2025-08-06 19:00:00', 'booked', '2025-08-08 11:11:18', NULL, NULL),
-(10, 'Maria', 'calopez@ccc.edu.ph', 'Calamba City, Laguna', '09123456789', 21, 1, '103', '12', '0', '12456542566', 'BK202508083EAAF8', 1100, 1100, 0, '2025-08-08 20:00:00', '2025-08-09 08:00:00', 'cancelled', '2025-08-08 11:14:56', 'The guest didn\'t go at the right time and date', '2025-08-12 17:07:23'),
-(13, 'elvin', 'erreyes@ccc.edu.ph', 'halang', '09761090017', 51, 1, '101', '48', 'Cash', '', 'BK20250811F04207', 130, 120, 10, '2025-08-12 15:15:00', '2025-08-14 15:15:00', 'cancelled', '2025-08-11 07:17:35', 'Didn\'t go at the right time', '2025-08-12 17:19:59'),
-(14, '1211', 'janristyc@gmail.com', '21', '0999999999', 19, 2, '101', '3', '0', '', 'BK20250923935BD3', 400, 400, 0, '2025-09-25 12:47:00', '2025-09-25 15:47:00', 'cancelled', '2025-09-23 04:48:13', 'Automatically cancelled - Guest did not check in within 30 minutes of designated time', '2025-09-26 12:32:30'),
-(15, '2', 'jumpercraft1@gmail.com', '1', '0999999999', 18, 2, '101', '3', '0', '', 'BK2025092610CB58', 400, 400, 0, '2025-09-26 12:40:00', '2025-09-26 15:40:00', 'pending', '2025-09-26 04:40:59', NULL, NULL);
+(34, 'risty', 'janristyc@gmail.com', 'bunggo', '09123456789', 18, 1, '102', '3', 'Cash', '', 'BK20250930532914', 400, 400, 0, '2025-09-30 13:13:00', '2025-09-30 16:13:00', 'completed', '2025-09-30 05:12:53', NULL, NULL),
+(35, 'any', '1@gmail.com', 'bunggo', '09123456789', 18, 2, '104', '3', 'Cash', '', 'BK20251002565297', 400, 400, 0, '2025-10-02 20:33:00', '2025-10-02 23:33:00', 'upcoming', '2025-10-02 12:31:49', NULL, NULL),
+(36, 'Aldrick Dulnuan', '1@gmail.com', 'bunggo', '09123456789', 18, 1, '101', '3', 'Cash', '', 'BK202510054CD622', 400, 400, 0, '2025-10-06 09:14:00', '2025-10-06 12:14:00', 'upcoming', '2025-10-05 01:15:00', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -115,22 +111,11 @@ CREATE TABLE `checkins` (
 --
 
 INSERT INTO `checkins` (`id`, `guest_name`, `address`, `telephone`, `room_number`, `room_type`, `stay_duration`, `total_price`, `amount_paid`, `change_amount`, `payment_mode`, `check_in_date`, `check_out_date`, `gcash_reference`, `receptionist_id`) VALUES
-(34, 'Sean', 'Majada Out, Calamba, Laguna', '09123456789', 102, '', 6, 750.00, 750.00, 50.00, 'cash', '2025-08-01 18:27:40', '2025-08-04 15:38:52', '', 1),
-(35, 'Nami', 'Calamba City, Laguna', '09123456789', 101, '', 3, 400.00, 400.00, 100.00, 'cash', '2025-08-04 12:44:38', '2025-09-25 13:38:01', '', 1),
-(36, 'Loki', 'Calamba City, Laguna', '09123456789', 102, '', 3, 400.00, 400.00, 100.00, 'cash', '2025-08-04 14:54:58', '2025-08-04 15:38:52', '', 2),
-(37, 'Sanji', 'Calamba City, Laguna', '09123456789', 102, '', 3, 400.00, 400.00, 100.00, 'cash', '2025-08-04 15:50:22', '2025-08-04 16:02:23', '', 2),
-(38, 'Jose', 'Calamba City, Laguna', '09123456789', 101, '', 6, 750.00, 750.00, 250.00, 'cash', '2025-08-04 16:03:49', '2025-09-25 13:38:01', '', 2),
-(39, 'Sam', 'Calamba City, Laguna', '09123456789', 101, '', 6, 750.00, 750.00, 250.00, 'cash', '2025-08-06 13:00:46', '2025-09-25 13:38:01', '', NULL),
-(40, 'Jose', 'Calamba City, Laguna', '09123456789', 101, '', 7, 883.33, 750.00, 50.00, 'cash', '2025-08-06 17:16:50', '2025-09-25 13:38:01', '', NULL),
-(41, 'John', 'Calamba City, Laguna', '09123456789', 103, '', 8, 950.00, 750.00, 0.00, 'gcash', '2025-08-07 12:58:29', '2025-08-07 21:58:29', '1634629109226', 2),
-(42, 'Carlo', 'Calamba City, Laguna', '09123456789', 101, '', 7, 883.33, 750.00, 250.00, 'cash', '2025-08-07 13:41:01', '2025-09-25 13:38:01', '', 2),
-(43, 'James', 'Majada Out, Calamba, Laguna', '09123456789', 102, '', 25, 1633.33, 1500.00, 0.00, 'gcash', '2025-08-07 13:41:55', '2025-08-08 14:41:55', '1634629109226', 2),
-(44, 'Maria', 'Calamba City, Laguna', '09123456789', 101, '', 7, 883.33, 750.00, 50.00, 'cash', '2025-08-11 13:27:52', '2025-09-25 13:38:01', '', 2),
-(45, 'Nami', 'Calamba City, Laguna', '09123456789', 101, '', 24, 1500.00, 1500.00, 0.00, 'cash', '2025-08-11 15:42:54', '2025-09-25 13:38:01', '', 2),
-(46, '3', '3', '0999999999', 101, '', 3, 400.00, 400.00, 0.00, 'cash', '2025-09-23 12:55:52', '2025-09-25 13:38:01', '', 2),
-(47, 'Aldrick Dulnuan', '21', '0999999999', 101, '', 3, 400.00, 400.00, 0.00, 'gcash', '2025-09-25 12:24:46', '2025-09-25 13:38:01', '1', 2),
-(48, 'Aldrick Dulnuan', '1', '0999999999', 101, '', 3, 400.00, 400.00, 0.00, 'gcash', '2025-09-25 13:40:03', '2025-09-25 16:40:03', '2', 2),
-(49, '2', '1', '0999999999', 101, '', 3, 400.00, 400.00, 0.00, 'cash', '2025-09-26 12:42:23', '2025-09-26 15:42:23', '', 2);
+(86, 'karen', 'bunggo', '09123456789', 101, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-09-30 13:08:53', '2025-09-30 16:08:56', '', 2),
+(87, 'risty', 'bunggo', '09123456789', 102, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-09-30 13:13:26', '2025-09-30 16:13:56', '', 2),
+(91, 'angelo', 'bunggo', '0999999999', 101, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-02 19:41:08', '2025-10-02 22:41:08', '', 2),
+(92, 'any', 'bunggo', '09123456789', 104, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-02 20:32:13', '2025-10-02 23:32:13', '', 2),
+(93, 'Aldrick Dulnuan', 'bunggo', '09123456789', 101, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-05 09:15:20', '2025-10-05 12:15:20', '', 2);
 
 -- --------------------------------------------------------
 
@@ -188,10 +173,10 @@ CREATE TABLE `keycards` (
   `room_number` int NOT NULL,
   `booking_id` int DEFAULT NULL,
   `guest_id` int DEFAULT NULL,
-  `qr_code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `qr_code` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `valid_from` datetime NOT NULL,
   `valid_to` datetime NOT NULL,
-  `status` enum('active','expired','revoked') COLLATE utf8mb4_unicode_ci DEFAULT 'active'
+  `status` enum('active','expired','revoked') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'active'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -202,8 +187,14 @@ CREATE TABLE `keycards` (
 
 CREATE TABLE `orders` (
   `id` int NOT NULL,
-  `room_number` int NOT NULL,
-  `item` varchar(100) NOT NULL,
+  `room_number` varchar(10) NOT NULL,
+  `category` varchar(50) NOT NULL,
+  `item_name` varchar(100) NOT NULL,
+  `size` varchar(50) DEFAULT NULL,
+  `price` decimal(10,2) NOT NULL,
+  `quantity` int DEFAULT '1',
+  `mode_payment` enum('cash','gcash') NOT NULL,
+  `ref_number` varchar(14) DEFAULT NULL,
   `status` enum('pending','served') DEFAULT 'pending',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -274,10 +265,10 @@ CREATE TABLE `rooms` (
 --
 
 INSERT INTO `rooms` (`id`, `room_number`, `room_type`, `status`, `created_at`, `updated_at`, `price_3hrs`, `price_6hrs`, `price_12hrs`, `price_24hrs`, `price_ot`) VALUES
-(1, 101, 'standard_room', 'booked', '2025-04-26 16:34:08', '2025-09-26 04:42:23', 400.00, 750.00, 1100.00, 1500.00, 120.00),
-(2, 102, 'standard_room', 'available', '2025-04-26 17:37:56', '2025-08-08 11:34:02', 400.00, 750.00, 1100.00, 1500.00, 120.00),
-(10, 103, 'standard_room', 'available', '2025-04-28 16:01:31', '2025-08-08 05:46:13', 300.00, 750.00, 1100.00, 1500.00, 120.00),
-(12, 104, 'standard_room', 'available', '2025-04-29 13:29:43', '2025-05-02 17:18:40', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+(1, 101, 'standard_room', 'booked', '2025-04-26 16:34:08', '2025-10-05 01:15:20', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+(2, 102, 'standard_room', 'available', '2025-04-26 17:37:56', '2025-09-30 08:13:56', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+(10, 103, 'standard_room', 'available', '2025-04-28 16:01:31', '2025-09-28 09:08:16', 300.00, 750.00, 1100.00, 1500.00, 120.00),
+(12, 104, 'standard_room', 'available', '2025-04-29 13:29:43', '2025-10-05 00:16:42', 400.00, 750.00, 1100.00, 1500.00, 120.00),
 (13, 106, 'twin_room', 'available', '2025-05-07 06:15:36', '2025-06-24 04:56:41', 400.00, 750.00, 1100.00, 1500.00, 120.00);
 
 -- --------------------------------------------------------
@@ -303,6 +294,37 @@ CREATE TABLE `staff` (
 INSERT INTO `staff` (`id`, `name`, `age`, `sex`, `address`, `contact_number`, `position`) VALUES
 (3, 'Sung Jin-woo', 20, 'Male', 'Calamba City, Laguna', '09912345678', 'Manager'),
 (4, 'Baki Hanma', 23, 'Male', 'Calamba City, Laguna', '09912345678', 'Receptionist');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `stays`
+--
+
+CREATE TABLE `stays` (
+  `id` int NOT NULL,
+  `guest_name` varchar(100) NOT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `address` text,
+  `telephone` varchar(20) DEFAULT NULL,
+  `age` int DEFAULT NULL,
+  `num_people` int DEFAULT NULL,
+  `room_number` int NOT NULL,
+  `start_date` datetime NOT NULL,
+  `end_date` datetime NOT NULL,
+  `payment_mode` enum('cash','gcash') DEFAULT 'cash',
+  `reference_number` varchar(100) DEFAULT NULL,
+  `total_price` decimal(10,2) DEFAULT NULL,
+  `amount_paid` decimal(10,2) DEFAULT NULL,
+  `change_amount` decimal(10,2) DEFAULT NULL,
+  `status` enum('upcoming','booked','checked_in','completed','cancelled','no_show') DEFAULT 'upcoming',
+  `source` enum('online','walkin') DEFAULT 'walkin',
+  `booking_token` varchar(50) DEFAULT NULL,
+  `cancellation_reason` text,
+  `cancelled_at` datetime DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -462,6 +484,12 @@ ALTER TABLE `staff`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Indexes for table `stays`
+--
+ALTER TABLE `stays`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `stock_logs`
 --
 ALTER TABLE `stock_logs`
@@ -488,19 +516,19 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `announcements`
 --
 ALTER TABLE `announcements`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
 -- AUTO_INCREMENT for table `checkins`
 --
 ALTER TABLE `checkins`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=94;
 
 --
 -- AUTO_INCREMENT for table `complaints`
@@ -555,6 +583,12 @@ ALTER TABLE `rooms`
 --
 ALTER TABLE `staff`
   MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT for table `stays`
+--
+ALTER TABLE `stays`
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `stock_logs`
