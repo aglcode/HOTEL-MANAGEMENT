@@ -4,23 +4,26 @@ include 'phpqrcode/qrlib.php';
 
 // Example room + token (normally generated per booking + stored in DB)
 $room  = 101;
-$token = "ABC123"; 
+$token = "321A345D"; 
 
-// Base domain for your project
-$baseUrl = "http://hotel-management-c.test";
+// Local project base URL
+$baseUrl = "http://localhost/HOTEL-MANAGEMENT";
 
-// The URL encoded inside QR
-$url = $baseUrl . "/api/unlock.php?room={$room}&token={$token}";
+// The URL that will be embedded in the QR code
+$url = "{$baseUrl}/api/unlock.php?room={$room}&token={$token}";
 
-// File path to save QR
+// Directory for saving QR images
 if (!is_dir("qrcodes")) {
     mkdir("qrcodes", 0777, true);
 }
+
 $filePath = "qrcodes/room{$room}.png";
 
-// Generate PNG
+// Generate the QR Code PNG
 QRcode::png($url, $filePath, QR_ECLEVEL_L, 6);
 
-echo "QR code generated for Room {$room}: <br>";
-echo "<img src='$filePath' />";
+echo "<h3>QR Code generated for Room {$room}</h3>";
+echo "<p>Scan this code to open the guest dashboard.</p>";
+echo "<img src='$filePath' style='width:200px;'>";
+echo "<br><br>URL inside QR: <a href='$url'>$url</a>";
 ?>
