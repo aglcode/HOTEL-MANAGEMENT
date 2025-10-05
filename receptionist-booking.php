@@ -909,13 +909,20 @@ $total_pages = ceil($total_records / $limit);
                                     <div class="card-body">
                                         <div class="mb-3">
                                             <label for="roomNumber" class="form-label fw-medium">Select Room *</label>
-                                            <select name="room_number" id="roomNumber" class="form-select" required>
+                                            <select name="room_number" id="roomNumber" class="form-select" required onchange="updatePrice()">
                                                 <option value="">Choose your preferred room</option>
                                                 <?php
-                                                $room_query = "SELECT room_number, room_type FROM rooms WHERE status = 'available'";
+                                                $room_query = "SELECT room_number, room_type, price_3hrs, price_6hrs, price_12hrs, price_24hrs, price_ot FROM rooms WHERE status = 'available'";
                                                 $room_result = $conn->query($room_query);
                                                 while ($room = $room_result->fetch_assoc()) {
-                                                    echo "<option value='{$room['room_number']}'>Room {$room['room_number']} ({$room['room_type']})</option>";
+                                                    echo "<option value='{$room['room_number']}'
+                                                        data-price3='{$room['price_3hrs']}'
+                                                        data-price6='{$room['price_6hrs']}'
+                                                        data-price12='{$room['price_12hrs']}'
+                                                        data-price24='{$room['price_24hrs']}'
+                                                        data-priceOt='{$room['price_ot']}'>
+                                                        Room {$room['room_number']} ({$room['room_type']})
+                                                    </option>";
                                                 }
                                                 ?>
                                             </select>
@@ -1089,168 +1096,202 @@ $total_pages = ceil($total_records / $limit);
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Update clock
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
+<script>
+    // Update clock
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+    
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // --- NEW: Auto update estimated checkout ---
+    function updateCheckoutTime() {
+        const startDateInput = document.getElementById('startDate');
+        const durationSelect = document.querySelector('select[name="duration"]');
+        const endDateInput = document.getElementById('endDate');
+
+        const startDate = new Date(startDateInput.value);
+        const duration = parseInt(durationSelect.value);
+
+        if (!isNaN(startDate.getTime()) && duration > 0) {
+            const endDate = new Date(startDate.getTime() + duration * 60 * 60 * 1000);
+            endDateInput.value = endDate.toLocaleString('en-PH', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                hour12: true 
             });
-            document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            });
+        } else {
+            endDateInput.value = '';
         }
-        
-        setInterval(updateClock, 1000);
-        updateClock();
-        
-        // Update price based on room and duration selection
+    }
+
         function updatePrice() {
-            const roomSelect = document.querySelector('select[name="room_number"]');
-            const durationSelect = document.querySelector('select[name="duration"]');
+            const roomSelect = document.getElementById('roomNumber');
+            const durationSelect = document.getElementById('duration');
             const priceInput = document.getElementById('totalPrice');
-            
-            if (roomSelect.value && durationSelect.value) {
-                const selectedRoom = roomSelect.options[roomSelect.selectedIndex];
-                const duration = durationSelect.value;
-                let price = 0;
-                
-                switch(duration) {
-                    case '3':
-                        price = selectedRoom.dataset.price3;
-                        break;
-                    case '6':
-                        price = selectedRoom.dataset.price6;
-                        break;
-                    case '12':
-                        price = selectedRoom.dataset.price12;
-                        break;
-                    case '24':
-                        price = selectedRoom.dataset.price24;
-                        break;
-                    case '48':
-                        price = selectedRoom.dataset.priceOt;
-                        break;
-                }
-                
-                priceInput.value = parseFloat(price).toFixed(2);
-                calculateChange();
-            } else {
+
+            if (!roomSelect.value || !durationSelect.value) {
                 priceInput.value = '';
+                return;
             }
-        }
-        
-        // Calculate change
-        function calculateChange() {
-            const totalPrice = parseFloat(document.getElementById('totalPrice').value) || 0;
-            const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
-            const paymentMode = document.getElementById('paymentMode').value;
-            let change = 0;
-            if (paymentMode === 'Cash') {
-                change = amountPaid - totalPrice;
+
+            const selectedRoom = roomSelect.options[roomSelect.selectedIndex];
+            const duration = durationSelect.value;
+            let price = 0;
+
+            switch (duration) {
+                case '3':  price = selectedRoom.dataset.price3; break;
+                case '6':  price = selectedRoom.dataset.price6; break;
+                case '12': price = selectedRoom.dataset.price12; break;
+                case '24': price = selectedRoom.dataset.price24; break;
+                case '48': price = selectedRoom.dataset.priceOt; break;
+                default:   price = 0;
             }
-            document.getElementById('changeAmount').value = change >= 0 ? change.toFixed(2) : '0.00';
-        }
-        
-        // Toggle payment fields
-        function togglePaymentFields() {
-            const paymentMode = document.getElementById('paymentMode').value;
-            const gcashSection = document.getElementById('gcashSection');
-            const cashSection = document.getElementById('cashSection');
-            const referenceInput = document.getElementById('referenceNumber');
-            if (paymentMode === 'GCash') {
-                gcashSection.style.display = 'flex';
-                cashSection.style.display = 'none';
-                referenceInput.required = true;
-            } else if (paymentMode === 'Cash') {
-                gcashSection.style.display = 'none';
-                cashSection.style.display = 'flex';
-                referenceInput.required = false;
-                referenceInput.value = '';
-            } else {
-                gcashSection.style.display = 'none';
-                cashSection.style.display = 'none';
-                referenceInput.required = false;
-                referenceInput.value = '';
-            }
+
+            price = parseFloat(price) || 0;
+            priceInput.value = price.toFixed(2);
             calculateChange();
+            updateCheckoutTime();
+        }
+
+    // --- Calculate change ---
+    function calculateChange() {
+        const totalPrice = parseFloat(document.getElementById('totalPrice').value) || 0;
+        const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
+        const paymentMode = document.getElementById('paymentMode').value;
+        let change = 0;
+        if (paymentMode === 'Cash') {
+            change = amountPaid - totalPrice;
+        }
+        document.getElementById('changeAmount').value = change >= 0 ? change.toFixed(2) : '0.00';
+    }
+
+    // --- Toggle payment fields ---
+    function togglePaymentFields() {
+        const paymentMode = document.getElementById('paymentMode').value;
+        const gcashSection = document.getElementById('gcashSection');
+        const cashSection = document.getElementById('cashSection');
+        const referenceInput = document.getElementById('referenceNumber');
+        if (paymentMode === 'GCash') {
+            gcashSection.style.display = 'flex';
+            cashSection.style.display = 'none';
+            referenceInput.required = true;
+        } else if (paymentMode === 'Cash') {
+            gcashSection.style.display = 'none';
+            cashSection.style.display = 'flex';
+            referenceInput.required = false;
+            referenceInput.value = '';
+        } else {
+            gcashSection.style.display = 'none';
+            cashSection.style.display = 'none';
+            referenceInput.required = false;
+            referenceInput.value = '';
+        }
+        calculateChange();
+    }
+
+    // --- Form validation ---
+    function validateForm() {
+        const age = parseInt(document.querySelector('input[name="age"]').value);
+        const paymentMode = document.querySelector('select[name="payment_mode"]').value;
+        const reference = document.querySelector('input[name="reference_number"]').value;
+        const amountPaid = parseFloat(document.querySelector('input[name="amount_paid"]').value);
+        const totalPrice = parseFloat(document.getElementById('totalPrice').value);
+        
+        if (age < 18) {
+            alert('Guest must be at least 18 years old.');
+            return false;
         }
         
-        // Form validation
-        function validateForm() {
-            const age = parseInt(document.querySelector('input[name="age"]').value);
-            const paymentMode = document.querySelector('select[name="payment_mode"]').value;
-            const reference = document.querySelector('input[name="reference_number"]').value;
-            const amountPaid = parseFloat(document.querySelector('input[name="amount_paid"]').value);
-            const totalPrice = parseFloat(document.getElementById('totalPrice').value);
-            
-            if (age < 18) {
-                alert('Guest must be at least 18 years old.');
-                return false;
-            }
-            
-            if (paymentMode === 'GCash' && !reference.trim()) {
-                alert('GCash reference number is required.');
-                return false;
-            }
-            
-            if (amountPaid < totalPrice) {
-                alert('Amount paid cannot be less than total price.');
-                return false;
-            }
-            
-            return true;
+        if (paymentMode === 'GCash' && !reference.trim()) {
+            alert('GCash reference number is required.');
+            return false;
         }
         
-        // Show cancelled bookings details
-        function showCancelledBookings() {
-            const modal = new bootstrap.Modal(document.getElementById('cancelledBookingsModal'));
-            modal.show();
-            
-            // Load cancelled bookings data
-            fetch('get_cancelled_bookings.php')
-                .then(response => response.text())
-                .then(data => {
-                    document.getElementById('cancelledBookingsContent').innerHTML = data;
-                })
-                .catch(error => {
-                    document.getElementById('cancelledBookingsContent').innerHTML = 
-                        '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error loading cancelled bookings.</div>';
-                });
+        if (amountPaid < totalPrice) {
+            alert('Amount paid cannot be less than total price.');
+            return false;
         }
         
-        // View guest details
-        function viewGuestDetails(bookingId) {
-            const modal = new bootstrap.Modal(document.getElementById('guestDetailsModal'));
-            modal.show();
-            
-            // Load guest details data
-            fetch('get_guest_details.php?booking_id=' + bookingId)
-                .then(response => response.text())
-                .then(data => {
-                    document.getElementById('guestDetailsContent').innerHTML = data;
-                })
-                .catch(error => {
-                    document.getElementById('guestDetailsContent').innerHTML = 
-                        '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error loading guest details.</div>';
-                });
-        }
+        return true;
+    }
+
+    // --- Show cancelled bookings ---
+    function showCancelledBookings() {
+        const modal = new bootstrap.Modal(document.getElementById('cancelledBookingsModal'));
+        modal.show();
         
-        // Export data
-        function exportData() {
-            alert('Export functionality to be implemented');
-        }
+        fetch('get_cancelled_bookings.php')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('cancelledBookingsContent').innerHTML = data;
+            })
+            .catch(error => {
+                document.getElementById('cancelledBookingsContent').innerHTML = 
+                    '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error loading cancelled bookings.</div>';
+            });
+    }
+
+    // --- View guest details ---
+    function viewGuestDetails(bookingId) {
+        const modal = new bootstrap.Modal(document.getElementById('guestDetailsModal'));
+        modal.show();
         
-        function cancelBooking(bookingId, guestName) {
-            document.getElementById('bookingIdToCancel').value = bookingId;
-            document.getElementById('guestNameToCancel').textContent = guestName;
-            new bootstrap.Modal(document.getElementById('cancelBookingModal')).show();
+        fetch('get_guest_details.php?booking_id=' + bookingId)
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('guestDetailsContent').innerHTML = data;
+            })
+            .catch(error => {
+                document.getElementById('guestDetailsContent').innerHTML = 
+                    '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error loading guest details.</div>';
+            });
+    }
+
+    // --- Export data ---
+    function exportData() {
+        alert('Export functionality to be implemented');
+    }
+
+    // --- Cancel booking ---
+    function cancelBooking(bookingId, guestName) {
+        document.getElementById('bookingIdToCancel').value = bookingId;
+        document.getElementById('guestNameToCancel').textContent = guestName;
+        new bootstrap.Modal(document.getElementById('cancelBookingModal')).show();
+    }
+
+    // --- Bind event listeners ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const startDateInput = document.getElementById('startDate');
+        const durationSelect = document.querySelector('select[name="duration"]');
+        const roomSelect = document.querySelector('select[name="room_number"]');
+
+        if (startDateInput && durationSelect) {
+            startDateInput.addEventListener('change', updateCheckoutTime);
+            durationSelect.addEventListener('change', updateCheckoutTime);
         }
-    </script>
+
+        if (roomSelect && durationSelect) {
+            roomSelect.addEventListener('change', updatePrice);
+            durationSelect.addEventListener('change', updatePrice);
+        }
+    });
+</script>
+
 </body>
 </html>
