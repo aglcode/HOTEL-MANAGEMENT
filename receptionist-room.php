@@ -460,16 +460,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                                     </div>
                                     <div class="d-flex justify-content-between mt-3">
                                         <form method="POST" action="receptionist-room.php" class="d-inline extend-form">
-                                            <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
-                                            <button type="submit" name="extend" class="btn btn-sm btn-warning">
-                                                <i class="fas fa-clock me-1"></i> Extend
-                                            </button>
+                                        <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
+                                        <input type="hidden" name="extend" value="1">
+                                        <button type="submit" class="btn btn-sm btn-warning">
+                                            <i class="fas fa-clock me-1"></i> Extend
+                                        </button>
                                         </form>
+
                                         <form method="POST" action="receptionist-room.php" class="d-inline checkout-form">
-                                            <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
-                                            <button type="submit" name="checkout" class="btn btn-sm btn-danger">
-                                                <i class="fas fa-sign-out-alt me-1"></i> Check Out
-                                            </button>
+                                        <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
+                                        <input type="hidden" name="checkout" value="1">
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="fas fa-sign-out-alt me-1"></i> Check Out
+                                        </button>
                                         </form>
                                     </div>
                                 <?php elseif ($room['status'] === 'available'): ?>
