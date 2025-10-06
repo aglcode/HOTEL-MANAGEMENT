@@ -278,6 +278,15 @@ body {
             <?php endif; ?>
         </div>
     </div>
+
+    <!-- ✅ Pending Orders Section -->
+        <div class="container mt-5">
+        <h4 class="fw-bold mb-3 text-primary">Pending Orders</h4>
+        <div id="orderContainer" class="row g-4">
+            <!-- Orders will load here -->
+        </div>
+        </div>
+
 </div>
 
 <script>
@@ -287,6 +296,46 @@ function updateClock(){
     document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 setInterval(updateClock,1000);updateClock();
+
+async function fetchOrders() {
+    try {
+      const response = await fetch('fetch_pending_orders.php');
+      const orders = await response.json();
+      const container = document.getElementById('orderContainer');
+      container.innerHTML = '';
+
+      if (orders.length === 0) {
+        container.innerHTML = '<p class="text-muted">No pending orders right now.</p>';
+        return;
+      }
+
+      orders.forEach(order => {
+        const card = document.createElement('div');
+        card.className = 'col-md-4';
+        card.innerHTML = `
+          <div class="card shadow-sm border-0">
+            <div class="card-body">
+              <h5 class="card-title text-primary fw-bold">Room #${order.room_id}</h5>
+              <ul class="list-group list-group-flush mb-3">
+                ${order.items.map(item => `<li class="list-group-item">${item}</li>`).join('')}
+              </ul>
+              <div class="d-flex gap-2">
+                <button class="btn btn-success btn-sm">Mark as Served</button>
+                <button class="btn btn-danger btn-sm">Remove</button>
+              </div>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+    }
+  }
+
+  // Auto-refresh every 5 seconds
+  fetchOrders();
+  setInterval(fetchOrders, 5000);
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

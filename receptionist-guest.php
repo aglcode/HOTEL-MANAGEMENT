@@ -49,6 +49,13 @@ if ($action === 'checkout' && $guest_id > 0) {
             $stmt->execute();
             $stmt->close();
 
+            // ✅ Expire the keycard immediately after checkout
+            $stmt_keycard = $conn->prepare("UPDATE keycards SET status = 'expired' WHERE room_number = ? AND status = 'active'");
+            $stmt_keycard->bind_param('i', $guest['room_number']);
+            $stmt_keycard->execute();
+            $stmt_keycard->close();
+
+
             // Update related booking
             $bkSel = $conn->prepare("SELECT id FROM bookings WHERE guest_name = ? AND room_number = ? AND status NOT IN ('cancelled','completed') ORDER BY start_date DESC LIMIT 1");
             $bkSel->bind_param("si", $guest['guest_name'], $guest['room_number']);
@@ -155,7 +162,13 @@ if ($action === 'checkout' && $guest_id > 0) {
             $stmt->bind_param('sidi', $new_checkout_str, $new_duration, $new_total_price, $guest_id);
             $stmt->execute();
             $stmt->close();
-            
+
+            // ✅ Extend keycard validity time as well
+            $stmt_keycard = $conn->prepare("UPDATE keycards SET valid_to = ?, status = 'active' WHERE room_number = ? ORDER BY id DESC LIMIT 1");
+            $stmt_keycard->bind_param('si', $new_checkout_str, $guest['room_number']);
+            $stmt_keycard->execute();
+            $stmt_keycard->close();
+                        
             echo json_encode([
                 'success' => true, 
                 'message' => 'Stay extended by 1 hour',

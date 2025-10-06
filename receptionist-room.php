@@ -72,6 +72,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $stmt_update->bind_param('si', $new_check_out_date, $room_number);
             $stmt_update->execute();
             $stmt_update->close();
+
+            // ✅ ADD THIS: Extend keycard validity
+            $stmt_k = $conn->prepare("UPDATE keycards SET valid_to = ?, status = 'active' WHERE room_number = ? ORDER BY id DESC LIMIT 1");
+            $stmt_k->bind_param("si", $new_check_out_date, $room_number);
+            $stmt_k->execute();
+            $stmt_k->close();
         }
         $stmt->close();
     }
@@ -126,6 +132,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                 } else {
                     $bkSel->close();
                 }
+
+                // ✅ ADD THIS: Expire keycard upon checkout
+                $stmt_k2 = $conn->prepare("UPDATE keycards SET status='expired' WHERE room_number = ? AND status = 'active'");
+                $stmt_k2->bind_param("i", $room_number);
+                $stmt_k2->execute();
+                $stmt_k2->close();
+
             } else {
                 $sel->close();
             }
@@ -135,6 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     header("Location: receptionist-room.php");
     exit;
 }
+
 ?>
 
 
@@ -420,32 +434,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <div class="d-flex flex-column">
                                     <span>Room #<?= htmlspecialchars($room['room_number']); ?></span>
-                                    <?php if ($orderCount > 0): ?>
-                                        <span id="order-badge-<?= $room['room_number'] ?>" class="badge bg-danger mt-1">
-                                            <?= $orderCount ?> New <?= $orderCount > 1 ? 'Orders' : 'Order' ?>
-                                        </span>
-                                    <?php else: ?>
-                                        <span id="order-badge-<?= $room['room_number'] ?>" class="badge bg-secondary mt-1">
-                                            No Orders
-                                        </span>
-                                    <?php endif; ?>
                                 </div>
                                 <span class="status-badge status-<?= $room['status'] ?>"><?= ucfirst($room['status']) ?></span>
                             </div>
-
-                                <?php if (!empty($roomOrders[$room['room_number']])): ?>
-                                    <div class="mb-3">
-                                        <h6 class="fw-bold">Orders</h6>
-                                        <ul class="list-unstyled mb-0">
-                                            <?php foreach ($roomOrders[$room['room_number']] as $ord): ?>
-                                                <li>
-                                                    ✅ <?= htmlspecialchars($row['item'] ?? '', ENT_QUOTES, 'UTF-8'); ?>
-                                                    <small class="text-muted">(<?= date("H:i", strtotime($ord['created_at'])) ?>)</small>
-                                                </li>
-                                            <?php endforeach; ?>
-                                        </ul>
-                                    </div>
-                                <?php endif; ?>
 
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center mb-3">

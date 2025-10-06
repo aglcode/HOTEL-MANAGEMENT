@@ -1,45 +1,95 @@
 <?php
-require_once '../database.php'; // Adjust if needed
+require_once '../database.php';
+date_default_timezone_set('Asia/Manila');
 
-$room  = $_GET['room'] ?? '';
-$token = $_GET['token'] ?? '';
-$isScanner = isset($_GET['scanner']); // Optional parameter for hardware
+// ===============================
+// Step 1: Read and validate inputs
+// ===============================
+$room  = isset($_GET['room']) ? intval($_GET['room']) : 0;
+$token = isset($_GET['token']) ? trim($_GET['token']) : '';
 
-if (!$room || !$token) {
-    echo "❌ Invalid QR code data.";
+if ($room <= 0 || $token === '') {
+    showError("❌ Missing room or token.");
     exit;
 }
 
-// Lookup keycard in the database
+// ===============================
+// Step 2: Fetch keycard & room data
+// ===============================
 $stmt = $conn->prepare("
-    SELECT k.*, g.name AS guest_name
+    SELECT k.*, r.status AS room_status
     FROM keycards k
-    LEFT JOIN guests g ON k.guest_id = g.id
-    WHERE k.room_number = ? AND k.qr_code = ? 
-      AND k.status = 'active'
-      AND NOW() BETWEEN k.valid_from AND k.valid_to
+    JOIN rooms r ON k.room_number = r.room_number
+    WHERE k.qr_code = ? AND k.room_number = ?
+    ORDER BY k.id DESC LIMIT 1
 ");
-$stmt->bind_param('is', $room, $token);
+$stmt->bind_param("si", $token, $room);
 $stmt->execute();
-$result = $stmt->get_result();
-$keycard = $result->fetch_assoc();
+$res = $stmt->get_result();
+$keycard = $res->fetch_assoc();
+$stmt->close();
 
-if ($keycard) {
-    if ($isScanner) {
-        header('Content-Type: application/json');
-        echo json_encode(["status" => "ok", "message" => "Room $room unlocked!"]);
-        exit;
-    } else {
-        // ✅ Redirect guest to their personalized dashboard
-        header("Location: http://localhost/HOTEL-MANAGEMENT/guest-dashboard.php?room={$room}&token={$token}");
-        exit;
-    }
-} else {
-    if ($isScanner) {
-        header('Content-Type: application/json');
-        echo json_encode(["status" => "denied"]);
-    } else {
-        echo "❌ Invalid or expired keycard.";
-    }
+if (!$keycard) {
+    showError("❌ Invalid keycard. Please contact front desk.");
+    exit;
+}
+
+// ===============================
+// Step 3: Room status determines access
+// ===============================
+if ($keycard['room_status'] === 'available') {
+    showError("❌ Room is currently available. No active guest session.");
+    exit;
+}
+
+// ✅ If room is occupied but keycard expired → reactivate it automatically
+if ($keycard['room_status'] !== 'available' && $keycard['status'] !== 'active') {
+    $stmt2 = $conn->prepare("UPDATE keycards SET status = 'active' WHERE id = ?");
+    $stmt2->bind_param("i", $keycard['id']);
+    $stmt2->execute();
+    $stmt2->close();
+    $keycard['status'] = 'active';
+}
+
+// ===============================
+// Step 4: Valid room → grant access
+// ===============================
+session_start();
+$_SESSION['qr_token'] = $token;
+$_SESSION['room_number'] = $room;
+
+// Optional: fetch guest name for dashboard
+$stmt3 = $conn->prepare("
+    SELECT guest_name 
+    FROM checkins 
+    WHERE room_number = ? 
+    ORDER BY id DESC LIMIT 1
+");
+$stmt3->bind_param("i", $room);
+$stmt3->execute();
+$res = $stmt3->get_result();
+if ($res && $res->num_rows > 0) {
+    $ci = $res->fetch_assoc();
+    $_SESSION['guest_name'] = $ci['guest_name'];
+}
+$stmt3->close();
+
+// Redirect guest to dashboard
+header("Location: /HOTEL-MANAGEMENT/guest-dashboard.php");
+exit;
+
+// ===============================
+// Helper: display error nicely
+// ===============================
+function showError($message) {
+    echo "<div style='
+        font-family:Poppins, sans-serif;
+        text-align:center;
+        color:red;
+        padding:50px;
+    '>
+        <h2>$message</h2>
+        <a href='/HOTEL-MANAGEMENT/index.php' style='color:#007bff;text-decoration:none;'>Return to Home</a>
+    </div>";
 }
 ?>
