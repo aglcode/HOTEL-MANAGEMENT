@@ -316,6 +316,8 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+        <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
   <style>
 
@@ -799,7 +801,7 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
   <div class="card-body p-0">
     <?php if ($history_guests->num_rows > 0): ?>
       <div class="table-responsive">
-        <table class="table table-hover mb-0">
+        <table id="historyTable" class="table table-hover mb-0">
           <thead class="table-light">
             <tr>
               <th>Guest Information</th>
@@ -964,6 +966,13 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
   </div>
 </div>
 
+<!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
 <script>
   document.getElementById("searchInput").addEventListener("input", function() {
     if (this.value === "") {
@@ -971,6 +980,7 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
       window.location.href = "receptionist-guest.php?filter=<?= $filter ?>";
     }
   });
+
 
   // Update clock
   function updateClock() {
@@ -1302,6 +1312,55 @@ function closeReceipt() {
               jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
           }).from(element).save();
       }
+
+  // DATA Table
+$(document).ready(function() {
+  var table = $('#historyTable').DataTable({
+    paging: true,
+    lengthChange: false,
+    searching: false,
+    ordering: true,
+    info: true,
+    autoWidth: false,
+    responsive: true,
+    pageLength: 5,
+    language: {
+      search: "_INPUT_",
+      searchPlaceholder: "Search records...",
+      info: "Showing _START_ to _END_ of _TOTAL_ records",
+      infoEmpty: "No records available",
+      emptyTable: "<i class='fas fa-history fa-3x text-muted mb-3'></i><p class='mb-0'>No history found</p>",
+      paginate: {
+        first: "«",
+        previous: "‹",
+        next: "›",
+        last: "»"
+      }
+    },
+    columnDefs: [
+      { orderable: false, targets: [0, 8] }
+    ],
+
+    dom: '<"top"f>t<"bottom"ip><"clear">'
+  });
+
+
+  const pagination = $('#historyTable_paginate').detach();
+  const info = $('#historyTable_info').detach();
+
+
+setTimeout(() => {
+  const scrollPos = window.pageYOffset; // Save current scroll position
+  
+  $('.card-footer.bg-light .row').after(
+    $('<div class="d-flex justify-content-between align-items-center mt-3 flex-wrap">')
+      .append(info)
+      .append(pagination)
+  );
+  
+  window.scrollTo(0, scrollPos); // Restore scroll position
+}, 200);
+});
 </script>
 
 </body>

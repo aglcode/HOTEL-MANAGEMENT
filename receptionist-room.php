@@ -148,6 +148,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
 
     <style>
@@ -239,14 +241,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             font-weight: 600;
         }
         
-        .table-responsive {
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        
-        .table th {
-            font-weight: 600;
-        }
         
     .sidebar {
       width: 250px;
@@ -279,6 +273,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0);
+}
+
+.table thead th {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  padding: 0.75rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.table th.sorting {
+  cursor: pointer;
+  position: relative;
+}
+
+.table th.sorting_asc::after,
+.table th.sorting_desc::after {
+  content: '';
+  position: absolute;
+  right: 0.5rem;
+  font-size: 0.7em;
+  color: #6c757d;
+}
+
+.table th.sorting_asc::after { content: '↑'; }
+.table th.sorting_desc::after { content: '↓'; }
+
+.table td {
+  padding: 0.75rem;
+  vertical-align: middle;
+  font-size: 0.875rem;
+  color: #4a5568;
+}
+
+.table .badge {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border: 1px solid;
+  transition: all 0.2s ease;
+}
+
+.bg-blue-100 { background-color: #ebf8ff; }
+.text-blue-800 { color: #2b6cb0; }
+.border-blue-200 { border-color: #bee3f8; }
+.bg-info-100 { background-color: #e6f7ff; }
+.text-info-800 { color: #2b6cb0; }
+.border-info-200 { border-color: #bee3f8; }
+.bg-gray-100 { background-color: #f7fafc; }
+.text-gray-800 { color: #2d3748; }
+.border-gray-200 { border-color: #edf2f7; }
+.bg-green-100 { background-color: #f0fff4; }
+.text-green-800 { color: #2f855a; }
+.border-green-200 { border-color: #c6f6d5; }
+.bg-amber-100 { background-color: #fffaf0; }
+.text-amber-800 { color: #975a16; }
+.border-amber-200 { border-color: #fed7aa; }
+
+.table-hover tbody tr:hover {
+  background-color: #f8f9fa;
+  transition: background-color 0.15s ease;
 }
 
 
@@ -508,13 +562,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
 
     <!-- Booking Summary Table -->
     <div class="card mb-4">
-    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+    <div class="card-header text-black d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0">Booking Summary</h5>
-        <i class="fas fa-calendar-check"></i>
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+        <!-- Custom dropdown and search -->
+        <div id="customBookingLengthMenu"></div>
+        <input id="bookingSearchInput" type="text" class="form-control form-control-sm" placeholder="Search bookings..." style="width: 200px;">
+        </div>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table id="bookingSummaryTable" class="table table-hover mb-0">
                 <thead class="table-light">
                     <tr>
                         <th>Guest Name</th>
@@ -642,6 +700,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     </div>
 </div>
 </div>
+
+<!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
 function toggleSidebar() {
@@ -777,6 +842,69 @@ function refreshOrderBadges() {
     });
 }
 setInterval(refreshOrderBadges, 5000); // Refresh every 5 seconds
+
+// DATA TABLE
+$(document).ready(function() {
+  var bookingSummary = $('#bookingSummaryTable').DataTable({
+    paging: true,
+    lengthChange: true,
+    searching: true,
+    ordering: true,
+    info: true,
+    autoWidth: false,
+    responsive: true,
+    pageLength: 5,
+    lengthMenu: [5, 10, 25, 50, 100],
+    dom: 'rt<"row mt-3"<"col-sm-5"i><"col-sm-7"p>>', // no header controls here
+    language: {
+      emptyTable: "<i class='fas fa-calendar-times fa-3x text-muted mb-3'></i><p class='mb-0'>No bookings found</p>",
+      info: "Showing _START_ to _END_ of _TOTAL_ bookings",
+      infoEmpty: "No entries available",
+      infoFiltered: "(filtered from _MAX_ total bookings)",
+      lengthMenu: "Show _MENU_ bookings",
+      paginate: {
+        first: "«",
+        last: "»",
+        next: "›",
+        previous: "‹"
+      }
+    }
+  });
+
+  // === Custom Length Dropdown ===
+  bookingSummary.on('init', function () {
+    var lengthSelect = $('#bookingSummaryTable_length select')
+      .addClass('form-select form-select-sm')
+      .css('width', '80px');
+
+    $('#customBookingLengthMenu').html(
+      '<label class="d-flex align-items-center gap-2 mb-0 text-white">' +
+        '<span>Show</span>' +
+        lengthSelect.prop('outerHTML') +
+        '<span>bookings</span>' +
+      '</label>'
+    );
+
+    $('#bookingSummaryTable_length').hide();
+  });
+
+  // === Custom Search ===
+  $('#bookingSearchInput').on('keyup', function() {
+    bookingSummary.search(this.value).draw();
+  });
+
+  // === Sorting Icons ===
+  bookingSummary.on('order.dt', function() {
+    $('th.sorting', bookingSummary.table().header()).removeClass('sorting_asc sorting_desc');
+    bookingSummary.columns().every(function(index) {
+      var order = bookingSummary.order()[0];
+      if (order[0] === index) {
+        $('th:eq(' + index + ')', bookingSummary.table().header())
+          .addClass(order[1] === 'asc' ? 'sorting_asc' : 'sorting_desc');
+      }
+    });
+  });
+});
 
 </script>
 </body>
