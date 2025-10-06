@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'database.php';
+date_default_timezone_set('Asia/Manila');
 
 // =========================
 // Validate QR access or session
@@ -13,6 +14,49 @@ if (empty($room) || empty($token)) {
         <h3>❌ Access Denied</h3>
         <p>Missing or invalid access token. Please scan your room QR code again.</p>
     </div>');
+}
+
+// =========================
+// Check room + keycard status
+// =========================
+$stmt = $conn->prepare("
+    SELECT 
+        k.id AS key_id,
+        k.status AS key_status,
+        r.status AS room_status
+    FROM keycards k
+    JOIN rooms r ON k.room_number = r.room_number
+    WHERE k.room_number = ? AND k.qr_code = ?
+    LIMIT 1
+");
+$stmt->bind_param("is", $room, $token);
+$stmt->execute();
+$res = $stmt->get_result();
+$info = $res->fetch_assoc();
+$stmt->close();
+
+if (!$info) {
+    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+        <h3>❌ Invalid QR</h3>
+        <p>Invalid or missing keycard record. Please contact the front desk.</p>
+    </div>');
+}
+
+// If room is available → block access
+if ($info['room_status'] === 'available') {
+    session_destroy();
+    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+        <h3>❌ Access Denied</h3>
+        <p>This room has been checked out. Please contact the front desk.</p>
+    </div>');
+}
+
+// If room is occupied but keycard expired → reactivate automatically
+if ($info['room_status'] !== 'available' && $info['key_status'] !== 'active') {
+    $stmt2 = $conn->prepare("UPDATE keycards SET status = 'active' WHERE id = ?");
+    $stmt2->bind_param("i", $info['key_id']);
+    $stmt2->execute();
+    $stmt2->close();
 }
 
 // =========================
@@ -31,9 +75,8 @@ $stmt = $conn->prepare("
     LEFT JOIN bookings b ON k.room_number = b.room_number
     LEFT JOIN rooms r ON k.room_number = r.room_number
     WHERE k.room_number = ? 
-      AND k.qr_code = ? 
-      AND k.status = 'active'
-      AND NOW() BETWEEN k.valid_from AND k.valid_to
+      AND k.qr_code = ?
+    LIMIT 1
 ");
 $stmt->bind_param("is", $room, $token);
 $stmt->execute();
@@ -81,6 +124,7 @@ autoCancelOverdueBookings($conn);
 // =========================
 $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY created_at DESC LIMIT 5");
 ?>
+
 
 
 <!DOCTYPE html>
