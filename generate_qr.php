@@ -34,8 +34,6 @@ if ($keycard && !empty($keycard['qr_code'])) {
 } else {
     // Generate a new permanent token (once)
     $token = strtoupper(bin2hex(random_bytes(4)));
-// Local project base URL
-$baseUrl = "http://localhost/gitarra_apartelle";
 
     // Insert or update into keycards table
     $stmt2 = $conn->prepare("
@@ -65,15 +63,6 @@ if (!file_exists($filePath)) {
     QRcode::png($url, $filePath, QR_ECLEVEL_L, 6);
 }
 
-// ===============================
-// 5️⃣ Display QR info
-// ===============================
-echo "<div style='font-family:Poppins,sans-serif;text-align:center;padding:40px;'>";
-echo "<h2>🏨 Permanent QR Code for Room {$room}</h2>";
-echo "<p>This QR code will never change. It will automatically activate only when the room is occupied.</p>";
-echo "<img src='{$filePath}' alt='QR Code' style='width:250px;border:4px solid #ccc;border-radius:10px;'><br><br>";
-echo "<p><b>Scan to access:</b><br><a href='{$url}' target='_blank'>{$url}</a></p>";
-echo "</div>";
 
 $logoPath = "Image/logo.jpg"; 
 ?>
