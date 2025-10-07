@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'database.php';
+date_default_timezone_set('Asia/Manila');
 
 // =========================
 // Validate QR access or session
@@ -16,18 +17,66 @@ if (empty($room) || empty($token)) {
 }
 
 // =========================
-// Validate QR token in DB
+// Check room + keycard status
 // =========================
 $stmt = $conn->prepare("
-    SELECT k.*, g.name AS guest_name, b.start_date, b.end_date, r.room_type, b.status AS booking_status
+    SELECT 
+        k.id AS key_id,
+        k.status AS key_status,
+        r.status AS room_status
+    FROM keycards k
+    JOIN rooms r ON k.room_number = r.room_number
+    WHERE k.room_number = ? AND k.qr_code = ?
+    LIMIT 1
+");
+$stmt->bind_param("is", $room, $token);
+$stmt->execute();
+$res = $stmt->get_result();
+$info = $res->fetch_assoc();
+$stmt->close();
+
+if (!$info) {
+    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+        <h3>❌ Invalid QR</h3>
+        <p>Invalid or missing keycard record. Please contact the front desk.</p>
+    </div>');
+}
+
+// If room is available → block access
+if ($info['room_status'] === 'available') {
+    session_destroy();
+    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+        <h3>❌ Access Denied</h3>
+        <p>This room has been checked out. Please contact the front desk.</p>
+    </div>');
+}
+
+// If room is occupied but keycard expired → reactivate automatically
+if ($info['room_status'] !== 'available' && $info['key_status'] !== 'active') {
+    $stmt2 = $conn->prepare("UPDATE keycards SET status = 'active' WHERE id = ?");
+    $stmt2->bind_param("i", $info['key_id']);
+    $stmt2->execute();
+    $stmt2->close();
+}
+
+// =========================
+// Validate QR token in DB (fetch guest info)
+// =========================
+$stmt = $conn->prepare("
+    SELECT 
+        k.*, 
+        g.name AS guest_name, 
+        b.start_date, 
+        b.end_date, 
+        r.room_type, 
+        b.status AS booking_status
     FROM keycards k
     LEFT JOIN guests g ON k.guest_id = g.id
     LEFT JOIN bookings b ON k.room_number = b.room_number
     LEFT JOIN rooms r ON k.room_number = r.room_number
     WHERE k.room_number = ? 
-      AND k.qr_code = ? 
-      AND k.status = 'active'
-      AND NOW() BETWEEN k.valid_from AND k.valid_to
+      AND k.qr_code = ?
+    LIMIT 1
 ");
 $stmt->bind_param("is", $room, $token);
 $stmt->execute();
@@ -48,8 +97,8 @@ $_SESSION['qr_token'] = $guestInfo['qr_code'];
 // Extract guest info
 $guest_name = $guestInfo['guest_name'] ?? 'Guest';
 $room_type  = $guestInfo['room_type'] ?? 'Standard Room';
-$check_in   = date('F j, Y g:i A', strtotime($guestInfo['start_date'] ?? 'now'));
-$check_out  = date('F j, Y g:i A', strtotime($guestInfo['end_date'] ?? '+1 day'));
+$check_in   = !empty($guestInfo['start_date']) ? date('F j, Y g:i A', strtotime($guestInfo['start_date'])) : 'N/A';
+$check_out  = !empty($guestInfo['end_date'])   ? date('F j, Y g:i A', strtotime($guestInfo['end_date']))   : 'N/A';
 $status     = ucfirst($guestInfo['booking_status'] ?? 'Pending');
 
 // =========================
@@ -75,6 +124,7 @@ autoCancelOverdueBookings($conn);
 // =========================
 $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY created_at DESC LIMIT 5");
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
