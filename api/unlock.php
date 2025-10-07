@@ -91,5 +91,25 @@ function showError($message) {
         <h2>$message</h2>
         <a href='/HOTEL-MANAGEMENT/index.php' style='color:#007bff;text-decoration:none;'>Return to Home</a>
     </div>";
+$result = $stmt->get_result();
+$keycard = $result->fetch_assoc();
+
+if ($keycard) {
+    if ($isScanner) {
+        header('Content-Type: application/json');
+        echo json_encode(["status" => "ok", "message" => "Room $room unlocked!"]);
+        exit;
+    } else {
+        // ✅ Redirect guest to their personalized dashboard
+        header("Location: http://localhost/gitarra_apartelle/guest-dashboard.php?room={$room}&token={$token}");
+        exit;
+    }
+} else {
+    if ($isScanner) {
+        header('Content-Type: application/json');
+        echo json_encode(["status" => "denied"]);
+    } else {
+        echo "❌ Invalid or expired keycard.";
+    }
 }
 ?>

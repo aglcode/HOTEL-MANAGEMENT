@@ -162,59 +162,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
+
     <style>
-        .stat-card {
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .stat-icon {
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            font-size: 24px;
-        }
-        
-        .room-card {
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-            overflow: hidden;
-        }
-        
-        .room-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .room-card .card-header {
-            font-weight: 600;
-            padding: 12px 15px;
-        }
-        
-        .room-card.available .card-header {
-            background-color: rgba(25, 135, 84, 0.1);
-            color: #198754;
-        }
-        
-        .room-card.booked .card-header {
-            background-color: rgba(255, 193, 7, 0.1);
-            color: #ffc107;
-        }
-        
-        .room-card.maintenance .card-header {
-            background-color: rgba(220, 53, 69, 0.1);
-            color: #dc3545;
-        }
-        
+    body {
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .sidebar {
+        width: 250px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+    }
+
+    .content {
+        margin-left: 265px;
+        padding: 20px;
+        max-width: 1400px;
+        margin-right: auto;
+    }
+
+    /* STAT CARD DESIGN */
+    .stat-card {
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        background: #fff;
+    }
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        font-size: 18px;
+    }
+
+    .stat-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #555;
+        margin: 0;
+    }
+
+    .stat-change {
+        font-size: 13px;
+        margin-top: 6px;
+    }
+
+    .stat-change span {
+        font-size: 12px;
+        color: #888;
+    }
+
+    /* Optional smooth card shadow transition */
+    .card {
+        border: none;
+    }
         .status-badge {
             padding: 5px 10px;
             border-radius: 20px;
@@ -241,14 +255,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             font-weight: 600;
         }
         
-        .table-responsive {
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        
-        .table th {
-            font-weight: 600;
-        }
         
     .sidebar {
       width: 250px;
@@ -283,7 +289,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     transform: translateY(0);
 }
 
+.table thead th {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  padding: 0.75rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.table th.sorting {
+  cursor: pointer;
+  position: relative;
+}
+
+.table th.sorting_asc::after,
+.table th.sorting_desc::after {
+  content: '';
+  position: absolute;
+  right: 0.5rem;
+  font-size: 0.7em;
+  color: #6c757d;
+}
+
+.table th.sorting_asc::after { content: '↑'; }
+.table th.sorting_desc::after { content: '↓'; }
+
+.table td {
+  padding: 0.75rem;
+  vertical-align: middle;
+  font-size: 0.875rem;
+  color: #4a5568;
+}
+
+.table .badge {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border: 1px solid;
+  transition: all 0.2s ease;
+}
+
+.bg-blue-100 { background-color: #ebf8ff; }
+.text-blue-800 { color: #2b6cb0; }
+.border-blue-200 { border-color: #bee3f8; }
+.bg-info-100 { background-color: #e6f7ff; }
+.text-info-800 { color: #2b6cb0; }
+.border-info-200 { border-color: #bee3f8; }
+.bg-gray-100 { background-color: #f7fafc; }
+.text-gray-800 { color: #2d3748; }
+.border-gray-200 { border-color: #edf2f7; }
+.bg-green-100 { background-color: #f0fff4; }
+.text-green-800 { color: #2f855a; }
+.border-green-200 { border-color: #c6f6d5; }
+.bg-amber-100 { background-color: #fffaf0; }
+.text-amber-800 { color: #975a16; }
+.border-amber-200 { border-color: #fed7aa; }
+
+.table-hover tbody tr:hover {
+  background-color: #f8f9fa;
+  transition: background-color 0.15s ease;
+}
+
+
+@media (max-width: 768px) {
+    .stat-card {
+        text-align: center;
+    }
+    .stat-icon {
+        margin: 0 auto 10px auto;
+    }
+}
+
     </style>
+
 </head>
 <body>
 <!-- Sidebar -->
@@ -344,68 +421,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     </div>
     <?php unset($_SESSION['error_msg']); endif; ?>
 
-    <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <!-- Total Rooms Card -->
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
-                        <i class="fas fa-door-closed"></i>
-                    </div>
-                    <div>
-                        <h3 class="fw-bold mb-1"><?= $totalRooms ?></h3>
-                        <p class="text-muted mb-0">Total Rooms</p>
-                    </div>
+<!-- STATISTICS CARDS (Admin Style) -->
+<div class="row mb-4">
+    <!-- Total Rooms -->
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Total Rooms</p>
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="fas fa-door-closed"></i>
                 </div>
             </div>
-        </div>
-        
-        <!-- Available Rooms Card -->
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div>
-                        <h3 class="fw-bold mb-1"><?= $availableRooms ?></h3>
-                        <p class="text-muted mb-0">Available Rooms</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Booked Rooms Card -->
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon bg-warning bg-opacity-10 text-warning me-3">
-                        <i class="fas fa-key"></i>
-                    </div>
-                    <div>
-                        <h3 class="fw-bold mb-1"><?= $bookedRooms ?></h3>
-                        <p class="text-muted mb-0">Booked Rooms</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Maintenance Rooms Card -->
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon bg-danger bg-opacity-10 text-danger me-3">
-                        <i class="fas fa-tools"></i>
-                    </div>
-                    <div>
-                        <h3 class="fw-bold mb-1"><?= $maintenanceRooms ?></h3>
-                        <p class="text-muted mb-0">Under Maintenance</p>
-                    </div>
-                </div>
-            </div>
+            <h3 class="fw-bold mb-1"><?= $totalRooms ?></h3>
+            <p class="stat-change text-muted">Updated Today</p>
         </div>
     </div>
+
+    <!-- Available Rooms -->
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Available Rooms</p>
+                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?= $availableRooms ?></h3>
+            <p class="stat-change text-success">+3% <span>from last week</span></p>
+        </div>
+    </div>
+
+    <!-- Booked Rooms -->
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Booked Rooms</p>
+                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                    <i class="fas fa-key"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?= $bookedRooms ?></h3>
+            <p class="stat-change text-danger">-1% <span>this week</span></p>
+        </div>
+    </div>
+
+    <!-- Maintenance Rooms -->
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card h-100 p-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="stat-title">Under Maintenance</p>
+                <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+                    <i class="fas fa-tools"></i>
+                </div>
+            </div>
+            <h3 class="fw-bold mb-1"><?= $maintenanceRooms ?></h3>
+            <p class="stat-change text-muted">Scheduled repairs</p>
+        </div>
+    </div>
+</div>
 
     <!-- Room List -->
     <div class="card mb-4">
@@ -483,13 +556,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
 
     <!-- Booking Summary Table -->
     <div class="card mb-4">
-    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+    <div class="card-header text-black d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0">Booking Summary</h5>
-        <i class="fas fa-calendar-check"></i>
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+        <!-- Custom dropdown and search -->
+        <div id="customBookingLengthMenu"></div>
+        <input id="bookingSearchInput" type="text" class="form-control form-control-sm" placeholder="Search bookings..." style="width: 200px;">
+        </div>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table id="bookingSummaryTable" class="table table-hover mb-0">
                 <thead class="table-light">
                     <tr>
                         <th>Guest Name</th>
@@ -617,6 +694,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     </div>
 </div>
 </div>
+
+<!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
 function toggleSidebar() {
@@ -752,6 +836,69 @@ function refreshOrderBadges() {
     });
 }
 setInterval(refreshOrderBadges, 5000); // Refresh every 5 seconds
+
+// DATA TABLE
+$(document).ready(function() {
+  var bookingSummary = $('#bookingSummaryTable').DataTable({
+    paging: true,
+    lengthChange: true,
+    searching: true,
+    ordering: true,
+    info: true,
+    autoWidth: false,
+    responsive: true,
+    pageLength: 5,
+    lengthMenu: [5, 10, 25, 50, 100],
+    dom: 'rt<"row mt-3"<"col-sm-5"i><"col-sm-7"p>>', // no header controls here
+    language: {
+      emptyTable: "<i class='fas fa-calendar-times fa-3x text-muted mb-3'></i><p class='mb-0'>No bookings found</p>",
+      info: "Showing _START_ to _END_ of _TOTAL_ bookings",
+      infoEmpty: "No entries available",
+      infoFiltered: "(filtered from _MAX_ total bookings)",
+      lengthMenu: "Show _MENU_ bookings",
+      paginate: {
+        first: "«",
+        last: "»",
+        next: "›",
+        previous: "‹"
+      }
+    }
+  });
+
+  // === Custom Length Dropdown ===
+  bookingSummary.on('init', function () {
+    var lengthSelect = $('#bookingSummaryTable_length select')
+      .addClass('form-select form-select-sm')
+      .css('width', '80px');
+
+    $('#customBookingLengthMenu').html(
+      '<label class="d-flex align-items-center gap-2 mb-0 text-white">' +
+        '<span>Show</span>' +
+        lengthSelect.prop('outerHTML') +
+        '<span>bookings</span>' +
+      '</label>'
+    );
+
+    $('#bookingSummaryTable_length').hide();
+  });
+
+  // === Custom Search ===
+  $('#bookingSearchInput').on('keyup', function() {
+    bookingSummary.search(this.value).draw();
+  });
+
+  // === Sorting Icons ===
+  bookingSummary.on('order.dt', function() {
+    $('th.sorting', bookingSummary.table().header()).removeClass('sorting_asc sorting_desc');
+    bookingSummary.columns().every(function(index) {
+      var order = bookingSummary.order()[0];
+      if (order[0] === index) {
+        $('th:eq(' + index + ')', bookingSummary.table().header())
+          .addClass(order[1] === 'asc' ? 'sorting_asc' : 'sorting_desc');
+      }
+    });
+  });
+});
 
 </script>
 </body>
