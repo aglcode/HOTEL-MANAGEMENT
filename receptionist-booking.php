@@ -276,133 +276,258 @@ $total_pages = ceil($total_records / $limit);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link href="style.css" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Poppins', sans-serif;
-        }
-        
-        /* Enhanced Table Styling */
-        .table {
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-        }
-        
-        .table th {
-            background-color: #f8f9fa;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 0.5px;
-            color: #495057;
-            border-bottom: 2px solid #dee2e6;
-        }
-        
-        .table td {
-            vertical-align: middle;
-            padding: 0.75rem 1rem;
-            border-color: #f0f0f0;
-        }
-        
-        .table tbody tr:hover {
-            background-color: rgba(0, 123, 255, 0.03);
-        }
-        
-        .table-responsive {
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        
-        /* Status Badge Styling */
-        .badge-status {
-            padding: 0.5rem 0.75rem;
-            border-radius: 50px;
-            font-weight: 500;
-            font-size: 0.75rem;
-        }
-        
-        /* Search and Filter Controls */
-        .search-filter-container {
-            background-color: #fff;
-            border-radius: 10px;
-            padding: 1rem;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            margin-bottom: 1.5rem;
-        }
-        
-        /* Card Styling */
-        .card {
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
-        }
-        
-        .card:hover {
-            transform: translateY(-2px);
-        }
-        
-        .stat-icon {
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            font-size: 24px;
-        }
-        
-        /* Guest Avatar */
-        .guest-avatar {
-            width: 40px;
-            height: 40px;
-            background-color: #e9ecef;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            color: #6c757d;
-            margin-right: 1rem;
-        }
-        
-        /* Booking Token */
-        .booking-token {
-            background-color: #e8f5e9;
-            border: 2px dashed #4caf50;
-            border-radius: 8px;
-            padding: 0.5rem;
-            text-align: center;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            font-size: 0.8rem;
-            color: #2e7d32;
-        }
-        
-        /* Clickable card cursor */
-        .clickable-card {
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        
-        .clickable-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-        }
-        
-    .sidebar {
-      width: 250px;
-      position: fixed;
-      top: 0;
-      left: 0;
-      height: 100vh;
-    }
-    .content { margin-left: 265px; padding: 20px; }
-    .card { border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    table th { background: #f8f9fa; }
-    table td, table th { padding: 12px; }
-    </style>
+<style>
+/* === Unified Admin-Style Stats Cards === */
+body {
+  font-family: 'Poppins', sans-serif;
+  overflow-x: hidden; /* Prevent horizontal scrollbar */
+  background-color: #f9fafb;
+}
+
+/* STAT CARD DESIGN */
+.stat-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  background: #fff;
+  cursor: default;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* CLICKABLE CARD EFFECT */
+.clickable-card {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.clickable-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.1);
+}
+
+/* ICON BOX */
+.stat-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+/* TEXT STYLES */
+.stat-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+  margin: 0;
+}
+
+.stat-change {
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.stat-change span {
+  font-size: 12px;
+  color: #888;
+}
+
+/* Smooth hover shadow transition */
+.card {
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Sidebar & Layout */
+.sidebar {
+  width: 250px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+}
+
+.content {
+  margin-left: 265px;
+  padding: 20px;
+  max-width: calc(100% - 265px);
+  overflow-x: hidden;
+}
+
+/* === Table Styling === */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+#bookingTable {
+  width: 100% !important;
+  margin: 0 auto;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+table th {
+  background: #f8f9fa;
+  color: #333;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 14px 10px;
+}
+
+table td {
+  padding: 14px 10px;
+  vertical-align: middle;
+}
+
+.dataTables_wrapper .dataTables_paginate .pagination {
+    margin: 0;
+}
+
+.dataTables_wrapper .dataTables_info {
+    padding: 0.75rem;
+}
+
+.dataTables_wrapper .dataTables_paginate {
+    padding-right: 15px; 
+}
+#bookingList table {
+  table-layout: fixed;
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+#bookingList th, 
+#bookingList td {
+  padding: 8px 8px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Center all columns */
+#bookingList th,
+#bookingList td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Guest Details — center content and allow wrapping */
+#bookingList th:nth-child(2),
+#bookingList td:nth-child(2) {
+  text-align: center;
+  white-space: normal !important; /* allow multiple lines */
+  overflow: visible !important;   /* don't clip content */
+  word-break: break-word;         /* break long text (like emails) */
+}
+
+/* Optional: Make guest info look cleaner */
+#bookingList td:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.3;
+}
+
+
+/* Status Badge Styling */
+.badge-status {
+  padding: 0.5rem 0.75rem;
+  border-radius: 50px;
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+
+/* Search and Filter Controls */
+.search-filter-container {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 1rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.5rem;
+}
+
+/* Guest Avatar */
+.guest-avatar {
+  width: 40px;
+  height: 40px;
+  background-color: #e9ecef;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: #6c757d;
+  margin-right: 1rem;
+}
+
+/* Booking Token */
+.booking-token {
+  background-color: #e8f5e9;
+  border: 2px dashed #4caf50;
+  border-radius: 8px;
+  padding: 0.5rem;
+  text-align: center;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  font-size: 0.8rem;
+  color: #2e7d32;
+}
+
+/* Prevent overflow from containers */
+html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wrapper {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.row {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 992px) {
+  .content {
+    margin-left: 0;
+    padding: 15px;
+  }
+
+  #bookingTable th,
+  #bookingTable td {
+    font-size: 0.9rem;
+  }
+
+  .table-responsive {
+    border-radius: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .stat-card {
+    text-align: center;
+  }
+  .stat-icon {
+    margin: 0 auto 10px auto;
+  }
+}
+</style>
+
+
 </head>
 <body>
     <!-- Sidebar -->
@@ -466,66 +591,61 @@ $total_pages = ceil($total_records / $limit);
         </div>
         <?php unset($_SESSION['error_msg']); endif; ?>
         
-        <!-- Statistics Cards -->
+        <!-- STATISTICS CARDS (Admin Style) -->
         <div class="row mb-4">
-            <!-- Upcoming Bookings Card -->
+            <!-- Upcoming Bookings -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-info bg-opacity-10 text-info me-3">
+                <div class="card stat-card h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <p class="stat-title">Upcoming Bookings</p>
+                        <div class="stat-icon bg-info bg-opacity-10 text-info">
                             <i class="fas fa-clock"></i>
                         </div>
-                        <div>
-                            <h3 class="fw-bold mb-1"><?php echo $upcoming_bookings; ?></h3>
-                            <p class="text-muted mb-0">Upcoming Bookings</p>
-                        </div>
                     </div>
+                    <h3 class="fw-bold mb-1"><?= $upcoming_bookings ?></h3>
+                    <p class="stat-change text-muted">Next 7 days</p>
                 </div>
             </div>
-            
-            <!-- Active Bookings Card -->
+
+            <!-- Active Bookings -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
+                <div class="card stat-card h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <p class="stat-title">Active Bookings</p>
+                        <div class="stat-icon bg-success bg-opacity-10 text-success">
                             <i class="fas fa-calendar-day"></i>
                         </div>
-                        <div>
-                            <h3 class="fw-bold mb-1"><?php echo $active_bookings; ?></h3>
-                            <p class="text-muted mb-0">Active Bookings</p>
-                        </div>
                     </div>
+                    <h3 class="fw-bold mb-1"><?= $active_bookings ?></h3>
+                    <p class="stat-change text-success">+4% <span>from yesterday</span></p>
                 </div>
             </div>
-            
-            <!-- Total Bookings Card -->
+
+            <!-- Total Bookings -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card h-100">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+                <div class="card stat-card h-100 p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <p class="stat-title">Total Bookings</p>
+                        <div class="stat-icon bg-primary bg-opacity-10 text-primary">
                             <i class="fas fa-calendar-check"></i>
                         </div>
-                        <div>
-                            <h3 class="fw-bold mb-1"><?php echo $total_bookings; ?></h3>
-                            <p class="text-muted mb-0">Total Bookings</p>
-                        </div>
                     </div>
+                    <h3 class="fw-bold mb-1"><?= $total_bookings ?></h3>
+                    <p class="stat-change text-success">+5% <span>overall</span></p>
                 </div>
             </div>
-            
-            <!-- Cancelled Bookings Card (Clickable) -->
+
+            <!-- Cancelled Bookings (Clickable) -->
             <div class="col-md-3 mb-3">
-                <div class="card stat-card h-100 clickable-card" onclick="showCancelledBookings()">
-                    <div class="card-body d-flex align-items-center">
-                        <div class="stat-icon bg-danger bg-opacity-10 text-danger me-3">
+                <div class="card stat-card h-100 p-3 clickable-card" onclick="showCancelledBookings()">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <p class="stat-title">Cancelled Bookings</p>
+                        <div class="stat-icon bg-danger bg-opacity-10 text-danger">
                             <i class="fas fa-times-circle"></i>
                         </div>
-                        <div>
-                            <h3 class="fw-bold mb-1"><?php echo $cancelled_bookings; ?></h3>
-                            <p class="text-muted mb-0">Cancelled Bookings</p>
-                            <small class="text-muted">Click to view details</small>
-                        </div>
                     </div>
+                    <h3 class="fw-bold mb-1"><?= $cancelled_bookings ?></h3>
+                    <p class="stat-change text-muted">Click to view details</p>
                 </div>
             </div>
         </div>
@@ -589,31 +709,56 @@ $total_pages = ceil($total_records / $limit);
             </form>
         </div>
         
-        <!-- Booking List Section -->
-        <div class="card mb-4" id="bookingList">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Booking List</h5>
-                <span class="badge bg-light text-primary rounded-pill"><?= $total_records ?> Total Bookings</span>
-            </div>
-            <div class="card-body p-0">
-                <!-- Bookings Table -->
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Guest Details</th>
-                                <th>Room Info</th>
-                                <th>Duration</th>
-                                <th>Check-in</th>
-                                <th>Check-out</th>
-                                <th>Payment</th>
-                                <th>Token</th>
-                                <th>Status</th>
-                                <th class="no-print">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+<!-- Booking List Section -->
+<div class="card mb-4" id="bookingList">
+  <div class="card-header bg-light d-flex justify-content-between align-items-center p-3">
+    <div>
+      <h2 class="h5 mb-0 text-gray-900">
+        <i class="fas fa-calendar-check me-2 text-primary"></i>Booking List
+      </h2>
+      <p class="text-sm text-gray-600 mt-1"><?= $total_records ?> total bookings</p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <!-- Show Entries -->
+      <div id="customBookingLengthMenu"></div>
+
+      <!-- Search -->
+      <div class="position-relative">
+        <input type="text" class="form-control ps-4" id="bookingSearchInput" placeholder="Search bookings..." style="width: 200px;">
+        <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-gray-400"></i>
+      </div>
+
+      <!-- Filter by Status -->
+      <select class="form-select" id="bookingFilterSelect" style="width: 150px;">
+        <option value="">Filter Status</option>
+        <option value="Upcoming">Upcoming</option>
+        <option value="Active">Active</option>
+        <option value="In Use">In Use</option>
+        <option value="Completed">Completed</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table id="bookingTable" class="table table-hover align-middle mb-0" style="width:100%;">
+        <thead class="bg-gray-50 border-bottom border-gray-200">
+          <tr>
+            <th class="sorting px-4 py-3">#</th>
+            <th class="sorting px-4 py-3">Guest Details</th>
+            <th class="sorting px-4 py-3">Room Info</th>
+            <th class="sorting px-4 py-3">Duration</th>
+            <th class="sorting px-4 py-3">Check-in</th>
+            <th class="sorting px-4 py-3">Check-out</th>
+            <th class="sorting px-4 py-3">Payment</th>
+            <th class="sorting px-4 py-3">Token</th>
+            <th class="sorting px-4 py-3">Status</th>
+            <th class="sorting px-4 py-3 text-center no-print">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
                             <?php
                             if ($result->num_rows > 0) {
                                 $index = $offset + 1;
@@ -700,150 +845,64 @@ $total_pages = ceil($total_records / $limit);
                                     }
                             ?>
                             <tr>
-                                <td class="fw-semibold"><?= $index++ ?></td>
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="guest-avatar">
-                                            <?= strtoupper(substr($row['guest_name'], 0, 1)) ?>
-                                        </div>
-                                        <div>
-                                            <div class="fw-semibold"><?= htmlspecialchars($row['guest_name']) ?></div>
-                                            <div class="small text-muted">
-                                                <i class="fas fa-phone me-1"></i><?= htmlspecialchars($row['telephone']) ?>
-                                            </div>
-                                            <?php if (!empty($row['email'])): ?>
-                                            <div class="small text-muted">
-                                                <i class="fas fa-envelope me-1"></i><?= htmlspecialchars($row['email']) ?>
-                                            </div>
-                                            <?php endif; ?>
-                                            <div class="small text-muted">
-                                                <i class="fas fa-users me-1"></i><?= $row['num_people'] ?> guest(s), Age: <?= $row['age'] ?>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="fw-semibold">Room <?= htmlspecialchars($row['room_number']) ?></div>
-                                    <div class="small text-muted"><?= htmlspecialchars($row['room_type'] ?? 'Standard') ?></div>
-                                </td>
-                                <td>
-                                    <span class="badge bg-info"><?= htmlspecialchars($row['duration']) ?> Hours</span>
-                                </td>
-                                <td>
-                                    <div class="fw-semibold"><?= date('M d, Y', strtotime($row['start_date'])) ?></div>
-                                    <div class="small text-muted"><?= date('h:i A', strtotime($row['start_date'])) ?></div>
-                                </td>
-                                <td>
-                                    <div class="fw-semibold"><?= date('M d, Y', strtotime($row['end_date'])) ?></div>
-                                    <div class="small text-muted"><?= date('h:i A', strtotime($row['end_date'])) ?></div>
-                                </td>
-                                <td>
-                                    <div class="fw-semibold">₱<?= number_format($row['total_price'], 2) ?></div>
-                                    <div class="small text-muted">
-                                        <?= htmlspecialchars($row['payment_mode']) ?>
-                                        <?php if ($row['payment_mode'] === 'GCash' && !empty($row['reference_number'])): ?>
-                                            <br><small>Ref: <?= htmlspecialchars($row['reference_number']) ?></small>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="small text-success">
-                                        Paid: ₱<?= number_format($row['amount_paid'], 2) ?>
-                                        <?php if ($row['change_amount'] > 0): ?>
-                                            <br>Change: ₱<?= number_format($row['change_amount'], 2) ?>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                                <td>
-                                    <?php if (!empty($row['booking_token'])): ?>
-                                        <div class="booking-token" title="Booking Token">
-                                            <?= htmlspecialchars($row['booking_token']) ?>
-                                        </div>
-                                        <?php if (!empty($row['email'])): ?>
-                                            <div class="small text-success mt-1">
-                                                <i class="fas fa-envelope-check"></i> Emailed
-                                            </div>
-                                        <?php endif; ?>
-                                    <?php else: ?>
-                                        <span class="text-muted">No token</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <span class="badge <?= $status_class ?>"><?= $status_text ?></span>
-                                    <?php if ($row['status'] === 'cancelled' && !empty($row['cancellation_reason'])): ?>
-                                        <br><small class="text-muted" title="<?= htmlspecialchars($row['cancellation_reason']) ?>">Reason: <?= htmlspecialchars(substr($row['cancellation_reason'], 0, 20)) ?>...</small>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="no-print">
-                                    <?php if ($status_text !== 'Completed'): ?>
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="viewGuestDetails(<?= $row['id'] ?>)" title="View Guest Details">
-                                            <i class="fas fa-user"></i>
-                                        </button>
-                                        <?php if ($row['status'] !== 'cancelled'): ?>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="cancelBooking(<?= $row['id'] ?>, '<?= htmlspecialchars($row['guest_name']) ?>')" title="Cancel Booking">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                        <?php endif; ?>
-                                    </div>
-                                    <?php else: ?>
-                                    <span class="text-muted small">No actions available</span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                            <?php 
-                                endwhile; 
-                            } else {
-                                echo "<tr><td colspan='10'><div class='text-center py-5'><i class='fas fa-calendar-times fa-3x text-muted mb-3'></i><h5>No bookings found</h5><p class='text-muted'>Try adjusting your search filters or create a new booking</p></div></td></tr>";
-                            }
-                            ?>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <!-- Pagination -->
-                <?php if ($total_pages > 1): ?>
-                <div class="p-3">
-                    <nav>
-                        <ul class="pagination justify-content-center mb-0">
-                            <?php if ($page > 1): ?>
-                            <li class="page-item">
-                                <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page - 1])) ?>">
-                                    <i class="fas fa-chevron-left"></i>
-                                </a>
-                            </li>
-                            <?php endif; ?>
-                            
-                            <?php 
-                            $start_page = max(1, $page - 2);
-                            $end_page = min($total_pages, $start_page + 4);
-                            if ($end_page - $start_page < 4) {
-                                $start_page = max(1, $end_page - 4);
-                            }
-                            
-                            for ($i = $start_page; $i <= $end_page; $i++): 
-                            ?>
-                            <li class="page-item <?= $i == $page ? 'active' : '' ?>">
-                                <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>">
-                                    <?= $i ?>
-                                </a>
-                            </li>
-                            <?php endfor; ?>
-                            
-                            <?php if ($page < $total_pages): ?>
-                            <li class="page-item">
-                                <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page + 1])) ?>">
-                                    <i class="fas fa-chevron-right"></i>
-                                </a>
-                            </li>
-                            <?php endif; ?>
-                        </ul>
-                    </nav>
-                </div>
+                                 <td><?= $index++ ?></td>
+            <td class="text-center align-middle">
+            <div class="guest-info">
+                <div class="fw-semibold mb-1"><?= htmlspecialchars($row['guest_name']) ?></div>
+                <div class="small text-muted"><i class="fas fa-phone me-1"></i><?= htmlspecialchars($row['telephone']) ?></div>
+                <?php if (!empty($row['email'])): ?>
+                <div class="small text-muted"><i class="fas fa-envelope me-1"></i><?= htmlspecialchars($row['email']) ?></div>
                 <?php endif; ?>
+                <div class="small text-muted"><i class="fas fa-users me-1"></i><?= $row['num_people'] ?> guest(s), Age: <?= $row['age'] ?></div>
             </div>
-        </div>
+            </td>
+
+            <td>
+              <div class="fw-semibold">Room <?= htmlspecialchars($row['room_number']) ?></div>
+              <div class="small text-muted"><?= htmlspecialchars($row['room_type'] ?? 'Standard') ?></div>
+            </td>
+            <td><span class="badge bg-info"><?= htmlspecialchars($row['duration']) ?> Hours</span></td>
+            <td>
+              <div class="fw-semibold"><?= date('M d, Y', strtotime($row['start_date'])) ?></div>
+              <div class="small text-muted"><?= date('h:i A', strtotime($row['start_date'])) ?></div>
+            </td>
+            <td>
+              <div class="fw-semibold"><?= date('M d, Y', strtotime($row['end_date'])) ?></div>
+              <div class="small text-muted"><?= date('h:i A', strtotime($row['end_date'])) ?></div>
+            </td>
+            <td>
+              <div class="fw-semibold">₱<?= number_format($row['total_price'], 2) ?></div>
+              <div class="small text-muted"><?= htmlspecialchars($row['payment_mode']) ?></div>
+              <div class="small text-success">Paid: ₱<?= number_format($row['amount_paid'], 2) ?></div>
+            </td>
+            <td><?= !empty($row['booking_token']) ? htmlspecialchars($row['booking_token']) : '<span class="text-muted">No token</span>' ?></td>
+            <td><span class="badge <?= $status_class ?>"><?= $status_text ?></span></td>
+            <td class="text-center">
+              <?php if ($status_text !== 'Completed'): ?>
+              <div class="d-flex justify-content-center gap-2">
+                <button class="btn btn-sm btn-outline-primary" onclick="viewGuestDetails(<?= $row['id'] ?>)" title="View"><i class="fas fa-user"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="cancelBooking(<?= $row['id'] ?>, '<?= htmlspecialchars($row['guest_name']) ?>')" title="Cancel"><i class="fas fa-times"></i></button>
+              </div>
+              <?php else: ?>
+                <span class="text-muted small">No actions</span>
+              <?php endif; ?>
+            </td>
+          </tr>
+          <?php endwhile; } else { ?>
+          <tr><td colspan="10" class="text-center py-5">
+            <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+            <h5>No bookings found</h5>
+            <p class="text-muted">Try adjusting your search filters or create a new booking</p>
+          </td></tr>
+          <?php } ?>
+        </tbody>
+      </table>
     </div>
+  </div>
+</div>
 
 <!-- Booking Modal -->
+
 <div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content shadow-lg rounded-4 overflow-hidden">
@@ -1040,11 +1099,14 @@ $total_pages = ceil($total_records / $limit);
 
 
     <!-- Cancel Booking Modal -->
+
     <div class="modal fade" id="cancelBookingModal" tabindex="-1" aria-labelledby="cancelBookingModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title" id="cancelBookingModalLabel">
+
+
     <!-- Cancelled Bookings Modal -->
     <div class="modal fade" id="cancelledBookingsModal" tabindex="-1" aria-labelledby="cancelledBookingsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -1096,6 +1158,11 @@ $total_pages = ceil($total_records / $limit);
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script>
     // Update clock
     function updateClock() {
@@ -1291,6 +1358,71 @@ $total_pages = ceil($total_records / $limit);
             durationSelect.addEventListener('change', updatePrice);
         }
     });
+
+    // DATA TABLES
+// ✅ Ensure jQuery and DataTables JS are loaded before this
+$(document).ready(function () {
+  var bookingTable = $('#bookingTable').DataTable({
+    paging: true,
+    lengthChange: false,
+    searching: false,
+    ordering: true,
+    info: true,
+    autoWidth: false,
+    responsive: true,
+    pageLength: 5,
+    lengthMenu: [5, 10, 25, 50, 100],
+
+    // ✅ Improved DOM layout (pagination now visible & aligned)
+    dom:
+      '<"top d-flex justify-content-between align-items-center mb-3"lf>' +
+      'rt' +
+      '<"bottom d-flex justify-content-between align-items-center mt-3"ip>',
+
+    language: {
+      emptyTable:
+        "<div class='text-center py-4'>" +
+        "<i class='fas fa-calendar-times fa-3x text-muted mb-2'></i><br>" +
+        "<span>No bookings found</span></div>",
+      info: "Showing _START_ to _END_ of _TOTAL_ bookings",
+      infoEmpty: "No entries available",
+      infoFiltered: "(filtered from _MAX_ total bookings)",
+      paginate: {
+        first: "«",
+        last: "»",
+        next: "›",
+        previous: "‹",
+      },
+    },
+  });
+
+  // ✅ Move built-in length dropdown into your custom area
+  bookingTable.on('init', function () {
+    var lengthSelect = $('#bookingTable_length select')
+      .addClass('form-select form-select-sm')
+      .css('width', '80px');
+
+    // Add dropdown to your custom menu container
+    $('#customBookingLengthMenu').html(
+      '<label class="d-flex align-items-center gap-2 mb-0">' +
+        '<span>Show</span>' +
+        lengthSelect.prop('outerHTML') +
+        '<span>bookings</span>' +
+      '</label>'
+    );
+
+    // Hide default DataTables length control to avoid duplication
+    $('#bookingTable_length').hide();
+  });
+
+
+  // ✅ Filter by status (column index 8)
+  $('#bookingFilterSelect').on('change', function () {
+    bookingTable.column(8).search(this.value).draw();
+  });
+});
+
+
 </script>
 
 </body>

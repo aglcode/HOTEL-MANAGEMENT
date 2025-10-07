@@ -33,6 +33,6 @@
 * Added loading and success modals for forgot and reset password
 * Added reset token in database
 * Added reset password validation
+* RESET PASSWORD mail UI
 * RESET PASSWORD FINISHED -----------------------------------------------------
-  - pending // Reset Password mail template UI
 * SIGN IN UI changed
