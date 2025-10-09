@@ -10,10 +10,12 @@ $room  = $_GET['room'] ?? ($_SESSION['room_number'] ?? null);
 $token = $_GET['token'] ?? ($_SESSION['qr_token'] ?? null);
 
 if (empty($room) || empty($token)) {
-    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
-        <h3>❌ Access Denied</h3>
-        <p>Missing or invalid access token. Please scan your room QR code again.</p>
-    </div>');
+    die('
+        <div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+            <h3>❌ Access Denied</h3>
+            <p>Missing or invalid access token. Please scan your room QR code again.</p>
+        </div>
+    ');
 }
 
 // =========================
@@ -21,34 +23,38 @@ if (empty($room) || empty($token)) {
 // =========================
 $stmt = $conn->prepare("
     SELECT 
-        k.id AS key_id,
-        k.status AS key_status,
+        k.id AS key_id, 
+        k.status AS key_status, 
         r.status AS room_status
-    FROM keycards k
-    JOIN rooms r ON k.room_number = r.room_number
-    WHERE k.room_number = ? AND k.qr_code = ?
+    FROM keycards k 
+    JOIN rooms r ON k.room_number = r.room_number 
+    WHERE k.room_number = ? AND k.qr_code = ? 
     LIMIT 1
 ");
 $stmt->bind_param("is", $room, $token);
 $stmt->execute();
-$res = $stmt->get_result();
+$res  = $stmt->get_result();
 $info = $res->fetch_assoc();
 $stmt->close();
 
 if (!$info) {
-    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
-        <h3>❌ Invalid QR</h3>
-        <p>Invalid or missing keycard record. Please contact the front desk.</p>
-    </div>');
+    die('
+        <div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+            <h3>❌ Invalid QR</h3>
+            <p>Invalid or missing keycard record. Please contact the front desk.</p>
+        </div>
+    ');
 }
 
 // If room is available → block access
 if ($info['room_status'] === 'available') {
     session_destroy();
-    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
-        <h3>❌ Access Denied</h3>
-        <p>This room has been checked out. Please contact the front desk.</p>
-    </div>');
+    die('
+        <div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+            <h3>❌ Access Denied</h3>
+            <p>This room has been checked out. Please contact the front desk.</p>
+        </div>
+    ');
 }
 
 // If room is occupied but keycard expired → reactivate automatically
@@ -74,8 +80,7 @@ $stmt = $conn->prepare("
     LEFT JOIN guests g ON k.guest_id = g.id
     LEFT JOIN bookings b ON k.room_number = b.room_number
     LEFT JOIN rooms r ON k.room_number = r.room_number
-    WHERE k.room_number = ? 
-      AND k.qr_code = ?
+    WHERE k.room_number = ? AND k.qr_code = ?
     LIMIT 1
 ");
 $stmt->bind_param("is", $room, $token);
@@ -84,10 +89,12 @@ $guestInfo = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$guestInfo) {
-    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
-        <h3>❌ Invalid or Expired QR Code</h3>
-        <p>Your session has expired. Please contact the front desk.</p>
-    </div>');
+    die('
+        <div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+            <h3>❌ Invalid or Expired QR Code</h3>
+            <p>Your session has expired. Please contact the front desk.</p>
+        </div>
+    ');
 }
 
 // Save session for continuity
@@ -97,14 +104,19 @@ $_SESSION['qr_token']    = $guestInfo['qr_code'];
 // Extract guest info
 $guest_name = $guestInfo['guest_name'] ?? 'Guest';
 $room_type  = $guestInfo['room_type'] ?? 'Standard Room';
-$check_in   = !empty($guestInfo['start_date']) ? date('F j, Y g:i A', strtotime($guestInfo['start_date'])) : 'N/A';
-$check_out  = !empty($guestInfo['end_date'])   ? date('F j, Y g:i A', strtotime($guestInfo['end_date']))   : 'N/A';
+$check_in   = !empty($guestInfo['start_date']) 
+    ? date('F j, Y g:i A', strtotime($guestInfo['start_date'])) 
+    : 'N/A';
+$check_out  = !empty($guestInfo['end_date']) 
+    ? date('F j, Y g:i A', strtotime($guestInfo['end_date'])) 
+    : 'N/A';
 $status     = ucfirst($guestInfo['booking_status'] ?? 'Pending');
 
 // =========================
 // Auto-cancel overdue bookings (simplified)
 // =========================
-function autoCancelOverdueBookings($conn) {
+function autoCancelOverdueBookings($conn)
+{
     try {
         $cutoffTime = date('Y-m-d H:i:s', strtotime('-30 minutes'));
         $conn->query("
@@ -125,8 +137,6 @@ autoCancelOverdueBookings($conn);
 $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY created_at DESC LIMIT 5");
 ?>
 
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -137,6 +147,8 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="style.css" rel="stylesheet">
     <style>
@@ -302,6 +314,13 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
   <!-- ==================== MENU CARD ==================== -->
   <div class="card shadow-lg border-0 p-1 my-4">
     <div class="card-body">
+    
+    <!-- ==================== VIEW ORDER BUTTON ==================== -->
+    <div class="d-flex justify-content-end mt-1 mb-1">
+      <button class="btn btn-primary rounded-pill px-4" id="viewOrderBtn">
+        <i class="bi bi-eye"></i> View Order
+      </button>
+    </div>
 
       <!-- ==================== FOOD MENU ==================== -->
       <div class="menu-category food">
@@ -756,46 +775,64 @@ document.addEventListener("DOMContentLoaded", () => {
       const card = button.closest(".card");
       if (!card) return;
 
+      // Extract item info
       const titleEl = card.querySelector("h5.card-title, .card-title, h5");
       const itemName = titleEl ? titleEl.textContent.trim() : "Item";
 
       const priceEl = card.querySelector("p.text-muted, .card-body p");
       const priceText = priceEl ? priceEl.textContent.trim() : "";
 
-      const rawSegments = priceText.split(/\||\n|,/).map(s => s.trim()).filter(Boolean);
+      // Parse price options
+      const rawSegments = priceText
+        .split(/\||\n|,/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
       const options = [];
       const priceRegex = /(?:([A-Za-z0-9().\s\-]+?)\s*)?₱\s*([\d,]+(?:\.\d+)?)/;
 
       rawSegments.forEach(seg => {
         const m = seg.match(priceRegex);
         if (m) {
-          options.push({ label: (m[1] || "Unit").trim(), price: parseFloat(m[2].replace(/,/g, "")) });
+          options.push({
+            label: (m[1] || "Unit").trim(),
+            price: parseFloat(m[2].replace(/,/g, ""))
+          });
         }
       });
+
       if (options.length === 0) options.push({ label: "Unit", price: 0 });
 
-      // ================= SWEETALERT FORM =================
+      // ================= SWEETALERT ORDER FORM =================
       let html = `
         <div style="text-align:left;display:flex;flex-direction:column;gap:15px;">
 
           <!-- Size / Variant -->
-          ${options.length > 1 ? `
-            <div>
-              <label style="font-weight:600;display:block;margin-bottom:5px;">⚙️ Size / Variant</label>
-              <select id="sizeSelect" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;">
-                ${options.map((opt, i) => `<option value="${i}">${escapeHtml(opt.label)} — ₱${opt.price.toFixed(2)}</option>`).join("")}
-              </select>
-            </div>` 
-          : `<p><strong>Price:</strong> ₱${options[0].price.toFixed(2)}</p>`}
+          ${
+            options.length > 1
+              ? `
+                <div>
+                  <label style="font-weight:600;display:block;margin-bottom:5px;">⚙️ Size / Variant</label>
+                  <select id="sizeSelect" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;">
+                    ${options
+                      .map(
+                        (opt, i) =>
+                          `<option value="${i}">${escapeHtml(opt.label)} — ₱${opt.price.toFixed(2)}</option>`
+                      )
+                      .join("")}
+                  </select>
+                </div>`
+              : `<p><strong>Price:</strong> ₱${options[0].price.toFixed(2)}</p>`
+          }
 
           <!-- Quantity -->
           <div>
             <label style="font-weight:600;display:block;margin-bottom:5px;">🔢 Quantity</label>
-            <input id="qty" type="number" min="1" value="1" 
+            <input id="qty" type="number" min="1" value="1"
               style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;">
           </div>
 
-          <div id="totalDisplay" 
+          <div id="totalDisplay"
                style="font-weight:bold;background:#f8f9fa;padding:10px;border-radius:8px;text-align:center;">
             Total: ₱${options[0].price.toFixed(2)}
           </div>
@@ -810,14 +847,14 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
 
           <!-- GCash Info -->
-          <div id="gcashDetails" 
-               style="display:none;background:#222222;color:white;padding:15px;border-radius:10px;margin-top:5px;">
+          <div id="gcashDetails"
+               style="display:none;background:#222;color:white;padding:15px;border-radius:10px;margin-top:5px;">
             <p style="margin:0 0 10px 0;font-weight:600;">📱 GCash Payment Information</p>
             <p style="margin:0 0 5px 0;">📞 <strong>Account Number:</strong> 09171234567</p>
             <p style="margin:0 0 10px 0;">👤 <strong>Account Name:</strong> Juan Dela Cruz</p>
 
             <label for="refNumber" style="font-weight:600;display:block;margin-bottom:5px;">🔢 Enter Reference Number</label>
-            <input id="refNumber" type="text" 
+            <input id="refNumber" type="text"
               placeholder="Enter 12–14 digit Ref No."
               maxlength="14"
               style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;">
@@ -829,14 +866,13 @@ document.addEventListener("DOMContentLoaded", () => {
         title: `Order ${escapeHtml(itemName)}`,
         html,
         showCancelButton: true,
-        confirmButtonText: "Confirm Order",
-        confirmButtonColor: "#222222",
+        confirmButtonText: "Add Order",
         cancelButtonText: "Cancel",
+        confirmButtonColor: "#222",
         cancelButtonColor: "#dc3545",
         focusConfirm: false,
-        customClass: {
-          popup: "swal2-rounded swal2-large"
-        },
+        customClass: { popup: "swal2-rounded swal2-large" },
+
         didOpen: () => {
           const qtyInput = document.getElementById("qty");
           const sizeSelect = document.getElementById("sizeSelect");
@@ -853,72 +889,202 @@ document.addEventListener("DOMContentLoaded", () => {
 
           qtyInput.addEventListener("input", updateTotal);
           if (sizeSelect) sizeSelect.addEventListener("change", updateTotal);
-
           modePayment.addEventListener("change", () => {
             gcashDetails.style.display = modePayment.value === "gcash" ? "block" : "none";
           });
         },
-preConfirm: () => {
-  const qty = Math.max(1, parseInt(document.getElementById("qty").value) || 1);
-  const idx = document.getElementById("sizeSelect") ? parseInt(document.getElementById("sizeSelect").value) : 0;
-  const mode_payment = document.getElementById("modePayment").value;
-  const ref_number = document.getElementById("refNumber") ? document.getElementById("refNumber").value.trim() : null;
-  const chosen = options[idx];
-  const total = qty * chosen.price;
 
-  if (mode_payment === "gcash" && !/^[0-9]{12,14}$/.test(ref_number)) {
-    Swal.showValidationMessage("Please enter a valid 12–14 digit GCash reference number.");
-    return false;
-  }
+        preConfirm: () => {
+          const qty = Math.max(1, parseInt(document.getElementById("qty").value) || 1);
+          const idx = document.getElementById("sizeSelect")
+            ? parseInt(document.getElementById("sizeSelect").value)
+            : 0;
+          const mode_payment = document.getElementById("modePayment").value;
+          const ref_number = document.getElementById("refNumber")?.value.trim() || null;
+          const chosen = options[idx];
+          const total = qty * chosen.price;
 
-  return {
-    item_name: itemName,
-    category: "Food",
-    size: chosen.label,
-    // ✅ SAVE the TOTAL price (price × quantity)
-    price: total,
-    quantity: qty,
-    total: total, // optional (if you want separate field)
-    mode_payment: mode_payment,
-    ref_number: mode_payment === "gcash" ? ref_number : null
-  };
-}
+          if (mode_payment === "gcash" && !/^[0-9]{12,14}$/.test(ref_number)) {
+            Swal.showValidationMessage("Please enter a valid 12–14 digit GCash reference number.");
+            return false;
+          }
+
+          return {
+            item_name: itemName,
+            size: chosen.label,
+            price: total,
+            quantity: qty,
+            total,
+            mode_payment,
+            ref_number: mode_payment === "gcash" ? ref_number : null
+          };
+        }
       }).then(result => {
         if (result.isConfirmed && result.value) {
           const orderData = result.value;
-          fetch("guest_add_order.php", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
-                room_number: roomNumber,
-                category: category,
-                item_name: itemName,
-                size: size,
-                price: price,
-                quantity: quantity,
-                mode_payment: paymentMode, // should be 'cash' or 'gcash'
-                ref_number: referenceNumber
+
+          // 🟡 Add confirmation prompt before saving
+          Swal.fire({
+            title: "Confirm Order?",
+            html: `
+              <div style="
+                font-family: 'Courier New', monospace;
+                text-align: left;
+                background: #fff;
+                border: 2px dashed #ccc;
+                border-radius: 10px;
+                padding: 15px 20px;
+                max-width: 320px;
+                margin: 10px auto;
+                color: #222;
+              ">
+                <p style="text-align:center; font-weight:bold; margin:0 0 10px;">🧾 Order Confirmation</p>
+                <hr style="border:none; border-top:1px dashed #ccc; margin:10px 0;">
+                <p><strong>Item:</strong> ${escapeHtml(orderData.item_name)}</p>
+                <p><strong>Variant:</strong> ${orderData.size !== "Unit" ? escapeHtml(orderData.size) : "N/A"}</p>
+                <p><strong>Quantity:</strong> ${orderData.quantity}</p>
+                <p><strong>Payment:</strong> ${orderData.mode_payment.toUpperCase()}</p>
+                ${
+                  orderData.mode_payment === "gcash"
+                    ? `<p><strong>GCash Ref #:</strong> ${escapeHtml(orderData.ref_number)}</p>`
+                    : ""
+                }
+                <hr style="border:none; border-top:2px dashed #000; margin:12px 0;">
+                <p style="font-size:1.2em; font-weight:bold; text-align:right; color:#28a745;">
+                  Total: ₱${orderData.total.toFixed(2)}
+                </p>
+              </div>
+              <p style="font-size:0.9em; color:#555; text-align:center; margin-top:10px;">
+                Please confirm your order before proceeding.
+              </p>
+            `,
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Yes, Confirm Order",
+            cancelButtonText: "Cancel",
+            confirmButtonColor: "#28a745",
+            cancelButtonColor: "#6c757d",
+            allowOutsideClick: false,
+            allowEscapeKey: false
+          }).then(confirmRes => {
+            if (!confirmRes.isConfirmed) return; // ❌ Do nothing if user cancels
+
+            // ✅ Proceed with fetch only after confirmation
+            fetch("guest_add_order.php", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(orderData)
             })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === "success") {
-                Swal.fire("Success", data.message, "success");
-            } else {
-                Swal.fire("Error", data.message, "error");
-            }
-        })
-        .catch(err => Swal.fire("Error", "Server error. Please try again later.", "error"));
+              .then(res => res.json())
+              .then(async response => {
+                if (response.success) {
+                  const swalInstance = Swal.mixin({
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showCancelButton: true,
+                    cancelButtonText: "Download Receipt",
+                    confirmButtonText: "Done",
+                    cancelButtonColor: "#bb2020",
+                    confirmButtonColor: "#181a18"
+                  });
+
+                  const htmlReceipt = `
+                    <div id="receipt-content" style="
+                      display:flex;
+                      flex-direction:column;
+                      align-items:center;
+                      text-align:center;
+                      gap:10px;
+                      font-family:'Courier New', monospace;
+                    ">
+                      <img src="image/logo-light.png" 
+                           alt="Apartelle Logo" 
+                           style="width:80px;height:auto;margin-top:15px;margin-bottom:5px;">
+                      <h3 style="margin:5px 0;color:#111;font-weight:700;letter-spacing:1px;">ORDER RECEIPT</h3>
+
+                      <div style="
+                        background:#fff;
+                        border:2px dashed #ccc;
+                        border-radius:10px;
+                        padding:15px 20px;
+                        width:100%;
+                        max-width:320px;
+                        text-align:left;
+                        color:#222;
+                      ">
+                        <p style="margin:0 0 10px;text-align:center;font-weight:bold;">
+                          🧾 Order Summary
+                        </p>
+                        <hr style="border:none;border-top:1px dashed #ccc;margin:10px 0;">
+                        <p><strong>Item:</strong> ${escapeHtml(orderData.item_name)}</p>
+                        <p><strong>Variant:</strong> ${orderData.size !== "Unit" ? escapeHtml(orderData.size) : "N/A"}</p>
+                        <p><strong>Quantity:</strong> ${orderData.quantity}</p>
+                        <p><strong>Payment Mode:</strong> ${orderData.mode_payment.toUpperCase()}</p>
+                        ${
+                          orderData.mode_payment === "gcash"
+                            ? `<p><strong>GCash Ref #:</strong> ${escapeHtml(orderData.ref_number)}</p>`
+                            : ""
+                        }
+                        <hr style="border:none;border-top:2px dashed #000;margin:12px 0;">
+                        <p style="font-size:1.2em;font-weight:bold;text-align:right;color:#28a745;">
+                          Total: ₱${orderData.total.toFixed(2)}
+                        </p>
+                      </div>
+                      <p style="font-size:0.85em;color:#555;margin-top:15px;">
+                        Thank you for ordering at <strong>Gitarra Apartelle</strong>!<br>
+                        Please wait while we process your request.
+                      </p>
+                    </div>
+                  `;
+
+                  const popupResult = await swalInstance.fire({
+                    title: "✅ Order Confirmed!",
+                    html: htmlReceipt,
+                    icon: "success",
+                    background: "#fdfdfd",
+                    customClass: { popup: "swal2-rounded swal2-large" }
+                  });
+
+                  // 🧾 Handle Receipt Download
+                  if (popupResult.dismiss === Swal.DismissReason.cancel) {
+                    const receiptElement = document.getElementById("receipt-content");
+                    const canvas = await html2canvas(receiptElement, { scale: 2, useCORS: true });
+                    const imgData = canvas.toDataURL("image/png");
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF({ orientation: "p", unit: "px", format: "a6" });
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+                    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, imgHeight);
+                    pdf.save(`receipt_${Date.now()}.pdf`);
+                    return;
+                  }
+
+                  // ✅ Reload on Done
+                  if (popupResult.isConfirmed) {
+                    window.location.reload();
+                  }
+                } else {
+                  Swal.fire("❌ Error", response.message || "Failed to save order.", "error");
+                }
+              })
+              .catch(() => Swal.fire("Error", "Server error. Please try again later.", "error"));
+          });
         }
       });
     });
   });
 
+  // Simple HTML escape
   function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+    return String(str).replace(/[&<>"']/g, s =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[s])
+    );
   }
 });
 </script>

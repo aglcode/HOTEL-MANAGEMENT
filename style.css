@@ -8,13 +8,29 @@ body {
 .sidebar {
     width: 280px;
     height: 100vh;
-    background: linear-gradient(180deg, #1a237e, #0d47a1);
+    background: linear-gradient(180deg, #222222, #0f0f0f);
     color: white;
     position: fixed;
     padding-top: 20px;
     transition: all 0.3s ease-in-out;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
     z-index: 1000;
+}
+.sidebar-logo {
+  position: absolute;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+.sidebar-logo img {
+  width: 120px;
+  opacity: 0.9;
+  transition: 0.3s ease;
+}
+.sidebar-logo img:hover {
+  opacity: 1;
+  transform: scale(1.05);
 }
 .sidebar .user-info {
     text-align: center;
