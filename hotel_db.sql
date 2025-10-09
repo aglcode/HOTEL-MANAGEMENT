@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Oct 05, 2025 at 01:27 AM
+-- Generation Time: Oct 09, 2025 at 03:54 AM
 -- Server version: 8.4.3
 -- PHP Version: 8.3.16
 
@@ -40,8 +40,7 @@ CREATE TABLE `announcements` (
 --
 
 INSERT INTO `announcements` (`id`, `title`, `message`, `created_by`, `created_at`) VALUES
-(18, 'DEV TEST', 'This is a dev test.', 'Admin', '2025-09-26 05:28:53'),
-(19, 'tara inom', 'tomorrow', 'Admin', '2025-09-28 04:08:51');
+(18, 'DEV TEST', 'This is a dev test.', 'Admin', '2025-09-26 05:28:53');
 
 -- --------------------------------------------------------
 
@@ -78,9 +77,7 @@ CREATE TABLE `bookings` (
 --
 
 INSERT INTO `bookings` (`id`, `guest_name`, `email`, `address`, `telephone`, `age`, `num_people`, `room_number`, `duration`, `payment_mode`, `reference_number`, `booking_token`, `amount_paid`, `total_price`, `change_amount`, `start_date`, `end_date`, `status`, `created_at`, `cancellation_reason`, `cancelled_at`) VALUES
-(34, 'risty', 'janristyc@gmail.com', 'bunggo', '09123456789', 18, 1, '102', '3', 'Cash', '', 'BK20250930532914', 400, 400, 0, '2025-09-30 13:13:00', '2025-09-30 16:13:00', 'completed', '2025-09-30 05:12:53', NULL, NULL),
-(35, 'any', '1@gmail.com', 'bunggo', '09123456789', 18, 2, '104', '3', 'Cash', '', 'BK20251002565297', 400, 400, 0, '2025-10-02 20:33:00', '2025-10-02 23:33:00', 'upcoming', '2025-10-02 12:31:49', NULL, NULL),
-(36, 'Aldrick Dulnuan', '1@gmail.com', 'bunggo', '09123456789', 18, 1, '101', '3', 'Cash', '', 'BK202510054CD622', 400, 400, 0, '2025-10-06 09:14:00', '2025-10-06 12:14:00', 'upcoming', '2025-10-05 01:15:00', NULL, NULL);
+(41, 'ryan', 'jumpercraft1@gmail.com', 'bunggo', '09123456123', 18, 2, '101', '3', 'Cash', '', 'BK20251009519A0B', 400, 400, 0, '2025-10-09 11:54:00', '2025-10-09 14:54:00', 'upcoming', '2025-10-09 03:53:09', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -111,11 +108,8 @@ CREATE TABLE `checkins` (
 --
 
 INSERT INTO `checkins` (`id`, `guest_name`, `address`, `telephone`, `room_number`, `room_type`, `stay_duration`, `total_price`, `amount_paid`, `change_amount`, `payment_mode`, `check_in_date`, `check_out_date`, `gcash_reference`, `receptionist_id`) VALUES
-(86, 'karen', 'bunggo', '09123456789', 101, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-09-30 13:08:53', '2025-09-30 16:08:56', '', 2),
-(87, 'risty', 'bunggo', '09123456789', 102, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-09-30 13:13:26', '2025-09-30 16:13:56', '', 2),
-(91, 'angelo', 'bunggo', '0999999999', 101, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-02 19:41:08', '2025-10-02 22:41:08', '', 2),
-(92, 'any', 'bunggo', '09123456789', 104, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-02 20:32:13', '2025-10-02 23:32:13', '', 2),
-(93, 'Aldrick Dulnuan', 'bunggo', '09123456789', 101, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-05 09:15:20', '2025-10-05 12:15:20', '', 2);
+(109, '1211', 'bunggo', '09123456789', 101, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-09 11:34:30', '2025-10-09 11:52:34', '', 2),
+(110, 'ryan', 'bunggo', '09123456789', 101, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-09 11:53:23', '2025-10-09 14:53:23', '', 2);
 
 -- --------------------------------------------------------
 
@@ -178,6 +172,13 @@ CREATE TABLE `keycards` (
   `valid_to` datetime NOT NULL,
   `status` enum('active','expired','revoked') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'active'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `keycards`
+--
+
+INSERT INTO `keycards` (`id`, `room_number`, `booking_id`, `guest_id`, `qr_code`, `valid_from`, `valid_to`, `status`) VALUES
+(5, 101, NULL, NULL, '316D7F5F', '2025-10-07 22:23:57', '2035-10-07 22:23:57', 'expired');
 
 -- --------------------------------------------------------
 
@@ -265,8 +266,8 @@ CREATE TABLE `rooms` (
 --
 
 INSERT INTO `rooms` (`id`, `room_number`, `room_type`, `status`, `created_at`, `updated_at`, `price_3hrs`, `price_6hrs`, `price_12hrs`, `price_24hrs`, `price_ot`) VALUES
-(1, 101, 'standard_room', 'booked', '2025-04-26 16:34:08', '2025-10-05 01:15:20', 400.00, 750.00, 1100.00, 1500.00, 120.00),
-(2, 102, 'standard_room', 'available', '2025-04-26 17:37:56', '2025-09-30 08:13:56', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+(1, 101, 'standard_room', 'booked', '2025-04-26 16:34:08', '2025-10-09 03:53:23', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+(2, 102, 'standard_room', 'available', '2025-04-26 17:37:56', '2025-10-05 15:14:06', 400.00, 750.00, 1100.00, 1500.00, 120.00),
 (10, 103, 'standard_room', 'available', '2025-04-28 16:01:31', '2025-09-28 09:08:16', 300.00, 750.00, 1100.00, 1500.00, 120.00),
 (12, 104, 'standard_room', 'available', '2025-04-29 13:29:43', '2025-10-05 00:16:42', 400.00, 750.00, 1100.00, 1500.00, 120.00),
 (13, 106, 'twin_room', 'available', '2025-05-07 06:15:36', '2025-06-24 04:56:41', 400.00, 750.00, 1100.00, 1500.00, 120.00);
@@ -522,13 +523,13 @@ ALTER TABLE `announcements`
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=42;
 
 --
 -- AUTO_INCREMENT for table `checkins`
 --
 ALTER TABLE `checkins`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=94;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=111;
 
 --
 -- AUTO_INCREMENT for table `complaints`
@@ -552,13 +553,13 @@ ALTER TABLE `guests`
 -- AUTO_INCREMENT for table `keycards`
 --
 ALTER TABLE `keycards`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `payments`
