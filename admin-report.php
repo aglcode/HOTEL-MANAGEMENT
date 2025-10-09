@@ -117,86 +117,87 @@ $conn->close();
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
 
    <style>
-    body {
-      background-color: #f8f9fa;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      padding: 0;
-    }
+  body {
+    background-color: #f8f9fa;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
 
-    .content {
-      padding: 30px;
-    }
+  .content {
+    padding: 30px;
+  }
 
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-    }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+  }
 
-    .header h2 {
-      font-weight: bold;
-      margin: 0;
-    }
+  .header h2 {
+    font-weight: bold;
+    margin: 0;
+  }
 
-    .clock-box {
-      text-align: right;
-      color: #212529;
-    }
+  .clock-box {
+    text-align: right;
+    color: #212529;
+  }
 
-    /* Stack cards vertically */
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 20px;
-    }
+  /* Stack cards vertically */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
 
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-      padding: 20px;
-    }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    padding: 20px;
+  }
 
-    .card h5 {
-      display: flex;
-      align-items: center;
-      font-weight: bold;
-      margin-bottom: 8px;
-    }
+  .card h5 {
+    display: flex;
+    align-items: center;
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
 
-    .card h5 i {
-      margin-right: 8px;
-      font-size: 1.2rem;
-    }
+  .card h5 i {
+    margin-right: 8px;
+    font-size: 1.2rem;
+  }
 
-    .card p.description {
-      color: #6c757d;
-      margin-bottom: 20px;
-    }
+  .card p.description {
+    color: #6c757d;
+    margin-bottom: 20px;
+  }
 
-    .summary-grid {
+  .summary-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 15px;
     margin-top: 20px;
-    }
+  }
 
-    .summary-box {
+  .summary-box {
     display: flex;
     align-items: center;
     background: #f8f9fa;
     padding: 16px;
     border-radius: 10px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    }
+  }
 
-    .summary-icon {
+  .summary-icon {
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -206,68 +207,199 @@ $conn->close();
     font-size: 18px;
     margin-right: 12px;
     color: #fff;
-    }
+  }
 
-    .summary-icon.blue {
+  .summary-icon.blue {
     background: #0d6efd; /* Blue */
-    }
+  }
 
-    .summary-icon.green {
+  .summary-icon.green {
     background: #198754; /* Bootstrap green */
-    }
-    .summary-text {
-    flex: 1;
-    }
+  }
 
-    .summary-text span {
+  .summary-text {
+    flex: 1;
+  }
+
+  .summary-text span {
     display: block;
     font-size: 0.9rem;
     color: #6c757d;
-    }
+  }
 
-    .summary-text strong {
+  .summary-text strong {
     font-size: 1.2rem;
     color: #000;
-    }
+  }
 
-    .footer {
-      text-align: center;
-      font-size: 0.85rem;
-      color: #6c757d;
-      margin-top: 30px;
-    }
+  .footer {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 30px;
+  }
 
-            /* centering the dashboard content */
-    .sidebar {
-       width: 250px;
-       position: fixed;
-       top: 0;
-       left: 0;
-       height: 100vh;
-    }
+  /* === Sidebar Container === */
+  .sidebar {
+    width: 260px;
+    height: 100vh;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 0;
+    font-family: 'Inter', sans-serif;
+  }
 
-    .content {
-        margin-left: 265px;
-        max-width: 1400px;
-        margin-right: auto;
-    }
+  /* === Logo / Header === */
+  .sidebar h4 {
+    text-align: center;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 30px;
+  }
+
+  /* === User Info Section === */
+  .user-info {
+    text-align: center;
+    background: #f9fafb;
+    border-radius: 10px;
+    padding: 15px;
+    margin: 0 20px 25px 20px;
+  }
+
+  .user-info i {
+    font-size: 30px;
+    color: #6b7280;
+    margin-bottom: 5px;
+  }
+
+  .user-info p {
+    margin: 0;
+    font-size: 14px;
+    color: #6b7280;
+  }
+
+  .user-info h6 {
+    margin: 0;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  /* === Sidebar Navigation === */
+  .nav-links {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 10px;
+  }
+
+  .nav-links a {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 16px;
+    font-weight: 500;
+    color: #374151;
+    text-decoration: none;
+    padding: 12px 18px;
+    border-radius: 8px;
+    margin: 4px 10px;
+    transition: all 0.2s ease;
+  }
+
+  .nav-links a i {
+    font-size: 19px;
+    color: #374151;
+    transition: color 0.2s ease;
+  }
+
+  /* Hover state — icon & text both turn black */
+  .nav-links a:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+
+  .nav-links a:hover i {
+    color: #111827;
+  }
+
+  /* Active state — white text & icon on dark background */
+  .nav-links a.active {
+    background: #111827;
+    color: #fff;
+  }
+
+  .nav-links a.active i {
+    color: #fff;
+  }
+
+  /* === Sign Out === */
+  .signout {
+    border-top: 1px solid #e5e7eb;
+    padding: 15px 20px 0;
+  }
+
+  .signout a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #dc2626;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 15px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  /* Hover effect — same feel as the other links */
+  .signout a:hover {
+    background: #f3f4f6;
+    color: #dc2626;
+  }
+
+  .signout a:hover i {
+    color: #dc2626;
+  }
+
+  /* === Main Content Offset === */
+  .content {
+    margin-left: 270px;
+    padding: 30px;
+    max-width: 1400px;
+  }
   </style>
 </head>
 <body>
 
-<div class="sidebar" id="sidebar">
-        <div class="user-info">
-            <i class="fa-solid fa-user-circle"></i>
-            <p id="user-role">Admin</p>
-        </div>
-        <a href="admin-dashboard.php"><i class="fa-solid fa-gauge"></i> Dashboard</a>
-  <a href="admin-user.php"><i class="fa-solid fa-users"></i> Users</a>
-  <a href="admin-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
-  <a href="admin-report.php" class="active"><i class="fa-solid fa-chart-line"></i> Reports</a>
-  <a href="admin-supplies.php"><i class="fa-solid fa-boxes-stacked"></i> Supplies</a>
-  <a href="admin-inventory.php"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
-  <a href="admin-logout.php" class="mt-auto text-danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+   <!-- Sidebar -->
+  <div class="sidebar">
+    <h4>Gitarra Apartelle</h4>
+
+    <div class="user-info">
+      <i class="fa-solid fa-user-circle"></i>
+      <p>Welcome Admin</p>
+      <h6>Admin</h6>
     </div>
+
+    <div class="nav-links">
+      <a href="admin-dashboard.php"><i class="fa-solid fa-border-all"></i> Dashboard</a>
+      <a href="admin-user.php"><i class="fa-solid fa-users"></i> Users</a>
+      <a href="admin-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
+      <a href="admin-report.php" class="active"><i class="fa-solid fa-file-lines"></i> Reports</a>
+      <a href="admin-supplies.php"><i class="fa-solid fa-cube"></i> Supplies</a>
+      <a href="admin-inventory.php"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
+    </div>
+
+    <div class="signout">
+      <a href="admin-logout.php"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+    </div>
+  </div>
+
 
   <div class="content p-4">
     <div class="header">

@@ -118,9 +118,8 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
     <!-- DataTables CSS -->
     <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
-</head>
 
-<style>
+    <style>
 .stat-card {
     border-radius: 12px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.05);
@@ -258,20 +257,139 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
   color: #dc2626; /* red-600 */
 }
 
-        /* centering the dashboard content */
-        .sidebar {
-            width: 250px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100vh;
-        }
+  /* === Sidebar Container === */
+  .sidebar {
+    width: 260px;
+    height: 100vh;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 0;
+    font-family: 'Inter', sans-serif;
+  }
 
-        .content {
-            margin-left: 265px;
-            max-width: 1400px;
-            margin-right: auto;
-        }
+  /* === Logo / Header === */
+  .sidebar h4 {
+    text-align: center;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 30px;
+  }
+
+  /* === User Info Section === */
+  .user-info {
+    text-align: center;
+    background: #f9fafb;
+    border-radius: 10px;
+    padding: 15px;
+    margin: 0 20px 25px 20px;
+  }
+
+  .user-info i {
+    font-size: 30px;
+    color: #6b7280;
+    margin-bottom: 5px;
+  }
+
+  .user-info p {
+    margin: 0;
+    font-size: 14px;
+    color: #6b7280;
+  }
+
+  .user-info h6 {
+    margin: 0;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  /* === Sidebar Navigation === */
+  .nav-links {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 10px;
+  }
+
+  .nav-links a {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 16px;
+    font-weight: 500;
+    color: #374151;
+    text-decoration: none;
+    padding: 12px 18px;
+    border-radius: 8px;
+    margin: 4px 10px;
+    transition: all 0.2s ease;
+  }
+
+  .nav-links a i {
+    font-size: 19px;
+    color: #374151;
+    transition: color 0.2s ease;
+  }
+
+  /* Hover state — icon & text both turn black */
+  .nav-links a:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+
+  .nav-links a:hover i {
+    color: #111827;
+  }
+
+  /* Active state — white text & icon on dark background */
+  .nav-links a.active {
+    background: #111827;
+    color: #fff;
+  }
+
+  .nav-links a.active i {
+    color: #fff;
+  }
+
+  /* === Sign Out === */
+  .signout {
+    border-top: 1px solid #e5e7eb;
+    padding: 15px 20px 0;
+  }
+
+  .signout a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #dc2626;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 15px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  /* Hover effect — same feel as the other links */
+  .signout a:hover {
+    background: #f3f4f6;
+    color: #dc2626;
+  }
+
+  .signout a:hover i {
+    color: #dc2626;
+  }
+
+  /* === Main Content Offset === */
+  .content {
+    margin-left: 270px;
+    padding: 30px;
+    max-width: 1400px;
+  }
 
         /* Card styling */
 #addRoomForm.card {
@@ -368,23 +486,32 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
     }
 }
 </style>
-
+</head>
 
 <body>
-    <div class="sidebar" id="sidebar">
-        <div class="user-info mb-4">
-            <i class="fa-solid fa-user-circle mb-2"></i>
-            <h5 class="mb-1">Welcome,</h5>
-            <p id="user-role" class="mb-0">Admin</p>
-        </div>
-        <a href="admin-dashboard.php"><i class="fa-solid fa-gauge"></i> Dashboard</a>
-        <a href="admin-user.php"><i class="fa-solid fa-users"></i> Users</a>
-        <a href="admin-room.php" class="active"><i class="fa-solid fa-bed"></i> Rooms</a>
-        <a href="admin-report.php"><i class="fa-solid fa-chart-line"></i> Reports</a>
-        <a href="admin-supplies.php"><i class="fa-solid fa-boxes-stacked"></i> Supplies</a>
-        <a href="admin-inventory.php"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
-        <a href="admin-logout.php" class="mt-auto text-danger"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+   <!-- Sidebar -->
+  <div class="sidebar">
+    <h4>Gitarra Apartelle</h4>
+
+    <div class="user-info">
+      <i class="fa-solid fa-user-circle"></i>
+      <p>Welcome Admin</p>
+      <h6>Admin</h6>
     </div>
+
+    <div class="nav-links">
+      <a href="admin-dashboard.php"><i class="fa-solid fa-border-all"></i> Dashboard</a>
+      <a href="admin-user.php"><i class="fa-solid fa-users"></i> Users</a>
+      <a href="admin-room.php" class="active"><i class="fa-solid fa-bed"></i> Rooms</a>
+      <a href="admin-report.php"><i class="fa-solid fa-file-lines"></i> Reports</a>
+      <a href="admin-supplies.php"><i class="fa-solid fa-cube"></i> Supplies</a>
+      <a href="admin-inventory.php"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
+    </div>
+
+    <div class="signout">
+      <a href="admin-logout.php"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+    </div>
+  </div>
 
     <div class="content p-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -507,14 +634,14 @@ document.addEventListener("DOMContentLoaded", () => {
       <!-- Room Number -->
       <div class="col-12">
         <label for="room_number" class="form-label fw-semibold">Room Number *</label>
-        <input type="text" name="room_number" class="form-control" 
+        <input type="text" id="room_number" name="room_number" class="form-control" 
                value="<?php echo isset($room_to_edit) ? $room_to_edit['room_number'] : ''; ?>" required>
       </div>
 
       <!-- Room Type + Status -->
       <div class="col-md-6">
         <label for="room_type" class="form-label fw-semibold">Room Type *</label>
-        <select name="room_type" class="form-select" required>
+        <select id="room_type" name="room_type" class="form-select" required>
           <!-- your PHP options untouched -->
           <option value="single" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'single' ? 'selected' : ''; ?>>Single Room</option>
           <option value="presidential_suite" <?php echo isset($room_to_edit) && $room_to_edit['room_type'] == 'presidential_suite' ? 'selected' : ''; ?>>Presidential Suite</option> 
@@ -543,7 +670,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       <div class="col-md-6">
         <label for="status" class="form-label fw-semibold">Status *</label>
-        <select name="status" class="form-select" required>
+        <select id="status" name="status" class="form-select" required>
           <option value="available" <?php echo isset($room_to_edit) && $room_to_edit['status'] == 'available' ? 'selected' : ''; ?>>Available</option>
           <option value="maintenance" <?php echo isset($room_to_edit) && $room_to_edit['status'] == 'maintenance' ? 'selected' : ''; ?>>Maintenance</option>
         </select>
