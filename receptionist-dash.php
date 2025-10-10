@@ -283,8 +283,7 @@ body {
     <!-- ✅ Pending Orders Section -->
         <div class="container mt-5">
         <h4 class="fw-bold mb-3 text-primary">Pending Orders</h4>
-        <div id="orderContainer" class="row g-4">
-            <!-- Orders will load here -->
+        <div id="order-list" class="mt-3">Loading pending orders...</div>
         </div>
         </div>
 
@@ -299,44 +298,95 @@ function updateClock(){
 setInterval(updateClock,1000);updateClock();
 
 async function fetchOrders() {
-    try {
-      const response = await fetch('fetch_pending_orders.php');
-      const orders = await response.json();
-      const container = document.getElementById('orderContainer');
-      container.innerHTML = '';
+  const container = document.getElementById('order-list');
+  container.innerHTML = "Loading pending orders...";
 
-      if (orders.length === 0) {
-        container.innerHTML = '<p class="text-muted">No pending orders right now.</p>';
-        return;
-      }
+  try {
+    const res = await fetch('fetch_pending_orders.php');
+    const data = await res.json();
 
-      orders.forEach(order => {
-        const card = document.createElement('div');
-        card.className = 'col-md-4';
-        card.innerHTML = `
-          <div class="card shadow-sm border-0">
-            <div class="card-body">
-              <h5 class="card-title text-primary fw-bold">Room #${order.room_id}</h5>
-              <ul class="list-group list-group-flush mb-3">
-                ${order.items.map(item => `<li class="list-group-item">${item}</li>`).join('')}
-              </ul>
-              <div class="d-flex gap-2">
-                <button class="btn btn-success btn-sm">Mark as Served</button>
-                <button class="btn btn-danger btn-sm">Remove</button>
-              </div>
-            </div>
-          </div>
-        `;
-        container.appendChild(card);
-      });
-    } catch (err) {
-      console.error('Error fetching orders:', err);
+    if (Object.keys(data).length === 0) {
+      container.innerHTML = `<p class="text-center text-muted">No pending orders right now.</p>`;
+      return;
     }
-  }
 
-  // Auto-refresh every 5 seconds
-  fetchOrders();
-  setInterval(fetchOrders, 5000);
+    let html = '';
+    for (const [room, orders] of Object.entries(data)) {
+      html += `
+        <div class="card shadow-sm mb-4">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Room ${room}</h5>
+            <span>${orders.length} Pending Order(s)</span>
+          </div>
+          <div class="card-body p-0">
+            <table class="table mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Item</th>
+                  <th>Category</th>
+                  <th>Size</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                  <th>Payment</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+      `;
+      orders.forEach(o => {
+        html += `
+          <tr>
+            <td>${o.item_name}</td>
+            <td>${o.category}</td>
+            <td>${o.size || '-'}</td>
+            <td>${o.quantity}</td>
+            <td>${o.price}</td>
+            <td>${o.mode_payment}</td>
+            <td>
+              <button class="btn btn-success btn-sm" onclick="markServed(${o.id})">
+                Mark Served
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      html += `
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = `<p class="text-danger">Error loading orders.</p>`;
+  }
+}
+
+async function markServed(orderId) {
+  if (!confirm("Mark this order as served?")) return;
+
+  const formData = new FormData();
+  formData.append("order_id", orderId);
+
+  const res = await fetch('update_order_status.php', {
+    method: 'POST',
+    body: formData
+  });
+
+  const result = await res.json();
+  if (result.success) {
+    alert("Order marked as served!");
+    fetchOrders(); // Refresh list
+  } else {
+    alert("Failed to update order status.");
+  }
+}
+
+fetchOrders();
+setInterval(fetchOrders, 8000); // auto-refresh every 8 seconds
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
