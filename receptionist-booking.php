@@ -1212,39 +1212,44 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 </div>
 
 
-    <!-- Cancel Booking Modal -->
-
-    <div class="modal fade" id="cancelBookingModal" tabindex="-1" aria-labelledby="cancelBookingModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="cancelBookingModalLabel">
-
-
-    <!-- Cancelled Bookings Modal -->
-    <div class="modal fade" id="cancelledBookingsModal" tabindex="-1" aria-labelledby="cancelledBookingsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="cancelledBookingsModalLabel">
-                        <i class="fas fa-times-circle me-2"></i>Cancelled Bookings Details
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="cancelledBookingsContent">
-                        <div class="text-center">
-                            <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
-                            <p class="mt-2">Loading cancelled bookings...</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
+<!-- Cancel Booking Modal (complete) -->
+<div class="modal fade" id="cancelBookingModal" tabindex="-1" aria-labelledby="cancelBookingModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" id="cancelBookingForm" onsubmit="return confirm('Are you sure you want to cancel this booking?');">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="cancelBookingModalLabel"><i class="fas fa-times-circle me-2"></i>Cancel Booking</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
+        <div class="modal-body">
+          <input type="hidden" name="booking_id" id="bookingIdToCancel" value="">
+          <div class="mb-3">
+            <label class="form-label fw-medium">Guest</label>
+            <div class="fw-semibold" id="guestNameToCancel">—</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="cancellationReason" class="form-label fw-medium">Cancellation Reason *</label>
+            <textarea name="cancellation_reason" id="cancellationReason" class="form-control" rows="4" placeholder="Reason for cancellation" required></textarea>
+          </div>
+
+          <div class="alert alert-warning small">
+            Cancelling a booking will set its status to <strong>Cancelled</strong>. This action can be reviewed in the Cancelled Bookings panel.
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+          <!-- name="delete_booking" is how your PHP block detects a cancellation POST -->
+          <button type="submit" name="delete_booking" class="btn btn-danger">Confirm Cancel</button>
+        </div>
+      </form>
     </div>
+  </div>
+</div>
+
+<!-- End Cancel Booking Modal -->
+
 
     <!-- Guest Details Modal -->
     <div class="modal fade" id="guestDetailsModal" tabindex="-1" aria-labelledby="guestDetailsModalLabel" aria-hidden="true">
