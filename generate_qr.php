@@ -49,7 +49,7 @@ if ($keycard && !empty($keycard['qr_code'])) {
 // ===============================
 // 4️⃣ Generate the QR code (only one per room)
 // ===============================
-$baseUrl = "http://localhost/HOTEL-MANAGEMENT";
+$baseUrl = "http://localhost/gitarra_apartelle";
 $url = "{$baseUrl}/api/unlock.php?room={$room}&token={$token}";
 
 if (!is_dir("qrcodes")) {

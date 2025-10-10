@@ -75,7 +75,7 @@ if ($res && $res->num_rows > 0) {
 $stmt3->close();
 
 // Redirect guest to dashboard
-header("Location: /HOTEL-MANAGEMENT/guest-dashboard.php");
+header("Location: /gitarra_apartelle/guest-dashboard.php");
 exit;
 
 // ===============================
@@ -89,7 +89,7 @@ function showError($message) {
         padding:50px;
     '>
         <h2>$message</h2>
-        <a href='/HOTEL-MANAGEMENT/index.php' style='color:#007bff;text-decoration:none;'>Return to Home</a>
+        <a href='/gitarra_apartelle/index.php' style='color:#007bff;text-decoration:none;'>Return to Home</a>
     </div>";
 }
 ?>
