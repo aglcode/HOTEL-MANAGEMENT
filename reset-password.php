@@ -124,7 +124,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['password'], $_POST['c
       width: 70px;
       height: 70px;
       border-radius: 50%;
-      background: #eef4ff;
+      background: #FADEDA;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -132,7 +132,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['password'], $_POST['c
     }
     .icon-circle i {
       font-size: 28px;
-      color: #2563eb;
+      color: #871D2B;
     }
     h4 { font-weight: 700; margin-bottom: .5rem; }
     .form-control {
@@ -149,12 +149,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['password'], $_POST['c
       color: #374151;
       border: none;
     }
-    .btn-secondary:hover { background: #e5e7eb; }
+    .btn-secondary:hover { background: #e5e7eb; color: #FF5457; }
     .btn-primary {
-      background: #2563eb;
+      background: #871D2B;
       border: none;
     }
-    .btn-primary:hover { background: #1e4ed8; }
+    .btn-primary:hover { background: #FF5457; }
     .eye-btn {
       position: absolute;
       right: 10px;

@@ -135,22 +135,22 @@ if (isset($_POST['login'])) {
       color: #6c757d;
     }
     .btn-primary {
-      background: #2563eb;
+      background: #871D2B;
       border: none;
       border-radius: 12px;
       padding: .75rem;
       font-weight: 600;
       font-size: 1rem;
-      box-shadow: 0 4px 10px rgba(37,99,235,0.3);
+      box-shadow: 0 4px 10px rgba(235, 37, 83, 0.3);
       transition: 0.3s;
     }
     .btn-primary:hover {
-      background: #1e4ed8;
+      background: #FF5457;
     }
     .forgot-link {
       font-size: 0.9rem;
       text-decoration: none;
-      color: #2563eb;
+      color: #871D2B;
     }
     .forgot-link:hover {
       text-decoration: underline;

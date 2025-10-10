@@ -156,7 +156,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       width: 70px;
       height: 70px;
       border-radius: 50%;
-      background: #eef4ff;
+      background: #FADEDA;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -164,7 +164,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     .icon-circle i {
       font-size: 28px;
-      color: #2563eb;
+      color: #871D2B;
     }
     h4 {
       font-weight: 700;
@@ -186,13 +186,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
     .btn-secondary:hover {
       background: #e5e7eb;
+      color: #FF5457;
     }
     .btn-primary {
-      background: #2563eb;
+      background: #871D2B;
       border: none;
     }
     .btn-primary:hover {
-      background: #1e4ed8;
+      background: #FF5457;
     }
     .close-btn {
       position: absolute;
