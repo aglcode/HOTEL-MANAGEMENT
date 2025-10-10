@@ -280,13 +280,139 @@ $total_pages = ceil($total_records / $limit);
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link href="style.css" rel="stylesheet">
 <style>
-/* === Unified Admin-Style Stats Cards === */
-body {
+    
+/* === Sidebar Navigation === */
+.sidebar {
+  width: 260px;
+  height: 100vh;
+  background: #fff;
+  border-right: 1px solid #e5e7eb;
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
   font-family: 'Poppins', sans-serif;
-  overflow-x: hidden; /* Prevent horizontal scrollbar */
-  background-color: #f9fafb;
 }
 
+/* === Header === */
+.sidebar h4 {
+  text-align: center;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 30px;
+}
+
+/* === User Info === */
+.user-info {
+  text-align: center;
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 15px;
+  margin: 0 20px 25px 20px;
+}
+
+.user-info i {
+  font-size: 40px;
+  color: #6b7280;
+  margin-bottom: 5px;
+}
+
+.user-info p {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.user-info h6 {
+  margin: 0;
+  font-weight: 600;
+  color: #111827;
+}
+
+.nav-links {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 10px;
+}
+
+.nav-links a {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+  text-decoration: none;
+  padding: 12px 18px;
+  border-radius: 8px;
+  margin: 4px 10px;
+  transition: all 0.2s ease;
+}
+
+.nav-links a i {
+  font-size: 19px;
+  color: #374151;
+  transition: color 0.2s ease;
+}
+
+/* Hover state — icon & text both turn black */
+.nav-links a:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.nav-links a:hover i {
+  color: #111827;
+}
+
+/* Active state — white text & icon on dark background */
+.nav-links a.active {
+  background: #871D2B;
+  color: #fff;
+}
+
+.nav-links a.active i {
+  color: #fff;
+}
+
+/* === Sign Out === */
+.signout {
+  border-top: 1px solid #e5e7eb;
+  padding: 15px 20px 0;
+}
+
+.signout a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #dc2626;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 15px;
+  padding: 10px 15px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+/* Hover effect — same feel as other links */
+.signout a:hover {
+  background: #f3f4f6;
+  color: #dc2626;
+}
+
+.signout a:hover i {
+  color: #dc2626;
+}
+
+/* === Main Content Offset === */
+.content {
+  margin-left: 270px;
+  padding: 30px;
+  max-width: 1400px;
+}
 /* STAT CARD DESIGN */
 .stat-card {
   border-radius: 12px;
@@ -345,22 +471,6 @@ body {
   border: none;
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-/* Sidebar & Layout */
-.sidebar {
-  width: 250px;
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
-}
-
-.content {
-  margin-left: 265px;
-  padding: 20px;
-  max-width: calc(100% - 265px);
-  overflow-x: hidden;
 }
 
 /* === Table Styling === */
@@ -530,33 +640,37 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 
 </head>
 <body>
-    <!-- Sidebar -->
 <!-- Sidebar -->
 <div class="sidebar" id="sidebar">
-  <div class="user-info mb-4 text-center">
-    <i class="fa-solid fa-user-circle mb-2" style="font-size: 60px;"></i>
-    <h5 class="mb-1">Welcome,</h5>
-    <p id="user-role" class="mb-0">Receptionist</p>
+  <h4>Gitarra Apartelle</h4>
+
+  <div class="user-info">
+    <i class="fa-solid fa-user-circle"></i>
+    <p>Welcome</p>
+    <h6>Receptionist</h6>
   </div>
 
-  <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-gauge"></i> Dashboard
-  </a>
-  <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-bed"></i> Rooms
-  </a>
-  <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-users"></i> Guest
-  </a>
-  <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-calendar-check"></i> Booking
-  </a>
-  <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-money-check"></i> Payment
-  </a>
-  <a href="signin.php" class="text-danger">
-    <i class="fa-solid fa-right-from-bracket"></i> Logout
-  </a>
+  <div class="nav-links">
+    <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-gauge"></i> Dashboard
+    </a>
+    <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-bed"></i> Rooms
+    </a>
+    <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-users"></i> Guests
+    </a>
+    <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-calendar-check"></i> Booking
+    </a>
+    <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-money-check"></i> Payment
+    </a>
+  </div>
+
+  <div class="signout">
+    <a href="signin.php"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+  </div>
 </div>
 
 

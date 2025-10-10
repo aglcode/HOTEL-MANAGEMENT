@@ -290,7 +290,7 @@ try {
 
     /* Active state — white text & icon on dark background */
     .nav-links a.active {
-    background: #111827;
+    background: #871D2B;
     color: #fff;
     }
 
