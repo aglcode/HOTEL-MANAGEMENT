@@ -78,8 +78,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $stmt_k->bind_param("si", $new_check_out_date, $room_number);
             $stmt_k->execute();
             $stmt_k->close();
+            
+            header("Location: receptionist-room.php?success=extended");
+            exit;
+        } else {
+            // ❌ No record found
+            header("Location: receptionist-room.php?error=no_checkin");
+            exit;
         }
-        $stmt->close();
     }
 
     if (isset($_POST['checkout'])) {
@@ -145,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         }
     }
 
-    header("Location: receptionist-room.php");
+        header("Location: receptionist-room.php?success=checked_out");
     exit;
 }
 
@@ -675,6 +681,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         </div>
     </div>
 
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+  <?php if (isset($_GET['success'])): ?>
+    <div id="roomToastSuccess" class="toast fade text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-check-circle me-2"></i>
+          <?php
+            if ($_GET['success'] === 'extended') echo "Room extended successfully!";
+            elseif ($_GET['success'] === 'checked_out') echo "Guest checked out successfully!";
+          ?>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+
+  <?php if (isset($_GET['error'])): ?>
+    <div id="roomToastError" class="toast fade text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          <?php
+            if ($_GET['error'] === 'no_checkin') echo "No active check-in found for this room.";
+            else echo "Action failed. Please try again.";
+          ?>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+</div>
+
     <!-- Booking Summary Table -->
     <div class="card mb-4">
     <div class="card-header text-white bg-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -824,6 +862,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
+
+document.addEventListener("DOMContentLoaded", function() {
+  const successToast = document.getElementById("roomToastSuccess");
+  const errorToast = document.getElementById("roomToastError");
+
+  if (successToast) new bootstrap.Toast(successToast, { delay: 3000 }).show();
+  if (errorToast) new bootstrap.Toast(errorToast, { delay: 3000 }).show();
+});
+
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const toggleIcon = document.getElementById('sidebar-toggle');

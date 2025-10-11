@@ -29,6 +29,7 @@ $total_bookings = $conn->query("SELECT COUNT(*) AS t FROM checkins")->fetch_asso
 $available_rooms_count = $conn->query("SELECT COUNT(*) AS a FROM rooms WHERE status='available'")->fetch_assoc()['a'] ?? 0;
 $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY created_at DESC");
 $announcement_count = $announcements_result ? $announcements_result->num_rows : 0;
+
 $available_rooms_result = $conn->query("SELECT room_number, room_type FROM rooms WHERE status='available' ORDER BY room_number");
 $upcoming_bookings_result = $conn->query("
     SELECT b.*, r.room_type 
@@ -242,6 +243,30 @@ $upcoming_bookings_result = $conn->query("
     align-items: center;
     justify-content: center;
 }
+
+.order-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.order-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.room-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #871D2B 0%, #a82836 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
 </style>
 
 </head> 
@@ -286,29 +311,33 @@ $upcoming_bookings_result = $conn->query("
 
     <!-- STATISTICS CARDS (same style as admin) -->
     <div class="row mb-4">
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card h-100 p-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <p class="stat-title">Current Check-ins</p>
-                    <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="fas fa-user-check"></i></div>
-                </div>
-                <h3 class="fw-bold mb-1"><?= $current_checkins ?></h3>
-                <p class="stat-change text-success">+2% <span>from last week</span></p>
-            </div>
-        </div>
+      <div class="col-md-3 mb-3" style="cursor: pointer;">
+          <div class="card stat-card h-100 p-3" data-bs-toggle="collapse" data-bs-target="#currentCheckinsList">
+              <div class="d-flex justify-content-between align-items-center">
+                  <p class="stat-title">Current Check-ins</p>
+                  <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                      <i class="fas fa-user-check"></i>
+                  </div>
+              </div>
+              <h3 class="fw-bold mb-1"><?= $current_checkins ?></h3>
+              <p class="stat-change text-muted">Click to view</p>
+          </div>
+      </div>
 
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card h-100 p-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <p class="stat-title">Total Bookings</p>
-                    <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="fas fa-calendar-check"></i></div>
-                </div>
-                <h3 class="fw-bold mb-1"><?= $total_bookings ?></h3>
-                <p class="stat-change text-success">+5% <span>overall</span></p>
-            </div>
-        </div>
+      <div class="col-md-3 mb-3" style="cursor: pointer;">
+          <div class="card stat-card h-100 p-3" data-bs-toggle="collapse" data-bs-target="#totalBookingsList">
+              <div class="d-flex justify-content-between align-items-center">
+                  <p class="stat-title">Total Bookings</p>
+                  <div class="stat-icon bg-success bg-opacity-10 text-success">
+                      <i class="fas fa-calendar-check"></i>
+                  </div>
+              </div>
+              <h3 class="fw-bold mb-1"><?= $total_bookings ?></h3>
+              <p class="stat-change text-muted">Click to view</p>
+          </div>
+      </div>
 
-        <div class="col-md-3 mb-3">
+        <div class="col-md-3 mb-3" style="cursor: pointer;">
             <div class="card stat-card h-100 p-3" data-bs-toggle="collapse" data-bs-target="#availableRoomsList">
                 <div class="d-flex justify-content-between align-items-center">
                     <p class="stat-title">Available Rooms</p>
@@ -319,7 +348,7 @@ $upcoming_bookings_result = $conn->query("
             </div>
         </div>
 
-        <div class="col-md-3 mb-3">
+        <div class="col-md-3 mb-3" style="cursor: pointer;">
             <div class="card stat-card h-100 p-3" data-bs-toggle="collapse" data-bs-target="#announcementList">
                 <div class="d-flex justify-content-between align-items-center">
                     <p class="stat-title">Announcements</p>
@@ -331,10 +360,75 @@ $upcoming_bookings_result = $conn->query("
         </div>
     </div>
 
+    <!--- Checkins List -------------->
+    <div class="collapse mb-4" id="currentCheckinsList">
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white"><h5 class="mb-0">Current Check-ins</h5></div>
+        <div class="card-body p-0">
+            <?php
+            $current_checkins_result = $conn->query("
+                SELECT guest_name, room_number, check_in_date, check_out_date 
+                FROM checkins 
+                WHERE NOW() BETWEEN check_in_date AND check_out_date
+                ORDER BY check_in_date DESC
+            ");
+            ?>
+            <?php if ($current_checkins_result && $current_checkins_result->num_rows > 0): ?>
+                <?php while($row = $current_checkins_result->fetch_assoc()): ?>
+                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                        <div>
+                            <strong><?= htmlspecialchars($row['guest_name']) ?></strong> — Room <?= htmlspecialchars($row['room_number']) ?><br>
+                            <small class="text-muted">
+                                <?= date('M d, Y h:i A', strtotime($row['check_in_date'])) ?> to 
+                                <?= date('M d, Y h:i A', strtotime($row['check_out_date'])) ?>
+                            </small>
+                        </div>
+                        <span class="badge bg-primary">Checked In</span>
+                    </div>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <div class="text-center p-4 text-muted">No guests currently checked in.</div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<!-- Total Bookings List -->
+<div class="collapse mb-4" id="totalBookingsList">
+    <div class="card shadow-sm">
+        <div class="card-header text-white" style="background-color: #871D2B;"><h5 class="mb-0">Total Bookings</h5></div>
+        <div class="card-body p-0">
+            <?php
+            $bookings_result = $conn->query("
+                SELECT guest_name, room_number, check_in_date, check_out_date 
+                FROM checkins 
+                ORDER BY check_in_date DESC
+                LIMIT 20
+            ");
+            ?>
+            <?php if ($bookings_result && $bookings_result->num_rows > 0): ?>
+                <?php while($row = $bookings_result->fetch_assoc()): ?>
+                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                        <div>
+                            <strong><?= htmlspecialchars($row['guest_name']) ?></strong> — Room <?= htmlspecialchars($row['room_number']) ?><br>
+                            <small class="text-muted">
+                                <?= date('M d, Y', strtotime($row['check_in_date'])) ?> → <?= date('M d, Y', strtotime($row['check_out_date'])) ?>
+                            </small>
+                        </div>
+                        <span class="badge bg-success">Booking</span>
+                    </div>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <div class="text-center p-4 text-muted">No bookings found.</div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
     <!-- Available Rooms List -->
     <div class="collapse mb-4" id="availableRoomsList">
         <div class="card shadow-sm">
-            <div class="card-header bg-info text-white"><h5 class="mb-0">Available Rooms</h5></div>
+            <div class="card-header bg-dark text-white"><h5 class="mb-0">Available Rooms</h5></div>
             <div class="card-body p-0">
                 <?php if ($available_rooms_result->num_rows > 0): while($room = $available_rooms_result->fetch_assoc()): ?>
                 <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
@@ -351,7 +445,7 @@ $upcoming_bookings_result = $conn->query("
     <!-- Announcements List -->
     <div class="collapse mb-4" id="announcementList">
         <div class="card shadow-sm">
-            <div class="card-header bg-warning text-white"><h5 class="mb-0">Recent Announcements</h5></div>
+            <div class="card-header text-white" style="background-color: #871D2B;"><h5 class="mb-0">Recent Announcements</h5></div>
             <div class="card-body p-0">
                 <?php if ($announcements_result && $announcements_result->num_rows > 0): while($row = $announcements_result->fetch_assoc()): ?>
                 <div class="announcement-item p-3 border-bottom">
@@ -408,11 +502,34 @@ $upcoming_bookings_result = $conn->query("
     </div>
 
     <!-- ✅ Pending Orders Section -->
-        <div class="container mt-5">
-        <h4 class="fw-bold mb-3 text-dark">Pending Orders</h4>
-        <div id="order-list" class="mt-3">Loading pending orders...</div>
+<div class="container mt-5">
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Pending Orders</h5>
         </div>
+        <div class="card-body">
+            <div id="order-list">Loading pending orders...</div>
         </div>
+    </div>
+</div>
+
+<!-- Receipt Modal -->
+<div class="modal fade" id="receiptModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="bg-dark text-white modal-header">
+        <h5 class="modal-title">Room Receipt</h5>
+      </div>
+      <div class="modal-body" id="receiptContent">
+        <p class="text-center text-muted">Loading receipt...</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button class="btn btn-dark" id="printReceiptBtn"><i class="fas fa-print me-1"></i> Print</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 </div>
 
@@ -424,96 +541,208 @@ function updateClock(){
 }
 setInterval(updateClock,1000);updateClock();
 
-async function fetchOrders() {
-  const container = document.getElementById('order-list');
-  container.innerHTML = "Loading pending orders...";
+let previousData = null;
+let orderInterval;
+
+async function fetchOrders(forceUpdate = false) {
+  const container = document.getElementById("order-list");
 
   try {
-    const res = await fetch('fetch_pending_orders.php');
+    const res = await fetch("fetch_pending_orders.php");
     const data = await res.json();
 
-    if (Object.keys(data).length === 0) {
-      container.innerHTML = `<p class="text-center text-muted">No pending orders right now.</p>`;
-      return;
-    }
+    // 🧩 Compare with previous data
+    const dataChanged = JSON.stringify(data) !== JSON.stringify(previousData);
 
-    let html = '';
-    for (const [room, orders] of Object.entries(data)) {
+    if (forceUpdate || dataChanged) {
+      console.log("🔄 Data changed, updating UI...");
+      previousData = data; // store new data
+      renderOrders(data);
+    } else {
+      console.log("✅ No change detected, keeping UI as is.");
+    }
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = `
+      <div class="text-center py-4 text-danger">
+        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+        <p>Error loading orders.</p>
+      </div>
+    `;
+  }
+}
+
+// 🧱 Move your rendering HTML part to a new function
+function renderOrders(data) {
+  const container = document.getElementById("order-list");
+
+  if (!data || Object.keys(data).length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-4 text-muted">
+        <i class="fas fa-clipboard-check fa-2x mb-2"></i>
+        <p>No pending orders right now.</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '<div class="row g-3">';
+
+  for (const [room, orders] of Object.entries(data)) {
+    const allServed = orders.every(o => o.status === "served");
+    const pendingCount = orders.filter(o => o.status === "pending").length;
+
+    html += `
+      <div class="col-md-6 col-lg-4">
+        <div class="card order-card h-100">
+          <div class="card-body">
+            <div class="d-flex align-items-center mb-3">
+              <div class="room-avatar me-3">${room}</div>
+              <div>
+                <h6 class="mb-0">Room ${room}</h6>
+                <small class="text-muted">
+                  ${allServed ? "All Orders Served" : `Pending Orders: ${pendingCount}`}
+                </small>
+              </div>
+            </div>
+            <div class="accordion" id="accordion-${room}">
+    `;
+
+    orders.forEach((o, index) => {
       html += `
-        <div class="card shadow-sm mb-4">
-          <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Room ${room}</h5>
-            <span>${orders.length} Pending Order(s)</span>
-          </div>
-          <div class="card-body p-0">
-            <table class="table mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th>Item</th>
-                  <th>Category</th>
-                  <th>Size</th>
-                  <th>Qty</th>
-                  <th>Price</th>
-                  <th>Payment</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-      `;
-      orders.forEach(o => {
-        html += `
-          <tr>
-            <td>${o.item_name}</td>
-            <td>${o.category}</td>
-            <td>${o.size || '-'}</td>
-            <td>${o.quantity}</td>
-            <td>${o.price}</td>
-            <td>${o.mode_payment}</td>
-            <td>
-              <button class="btn btn-success btn-sm" onclick="markServed(${o.id})">
-                Mark Served
-              </button>
-            </td>
-          </tr>
-        `;
-      });
-      html += `
-              </tbody>
-            </table>
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="heading-${room}-${index}">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+              data-bs-target="#collapse-${room}-${index}" aria-expanded="false">
+              ${o.item_name} (${o.quantity}) - 
+              <span class="ms-1 badge ${o.status === "served" ? "bg-success" : "bg-warning text-dark"}">${o.status}</span>
+            </button>
+          </h2>
+          <div id="collapse-${room}-${index}" class="accordion-collapse collapse"
+            data-bs-parent="#accordion-${room}">
+            <div class="accordion-body">
+              <div class="d-flex justify-content-between"><span>Category:</span><span>${o.category}</span></div>
+              ${o.size ? `<div class="d-flex justify-content-between"><span>Size:</span><span>${o.size}</span></div>` : ''}
+              <div class="d-flex justify-content-between"><span>Payment:</span><span class="badge bg-info">${o.mode_payment}</span></div>
+              <div class="d-flex justify-content-between mt-2"><span>Price:</span><span class="text-success fw-bold">₱${parseFloat(o.price).toFixed(2)}</span></div>
+            </div>
           </div>
         </div>
       `;
-    }
+    });
 
-    container.innerHTML = html;
-  } catch (err) {
-    console.error(err);
-    container.innerHTML = `<p class="text-danger">Error loading orders.</p>`;
+    html += `
+            </div>
+            <hr>
+            <div class="d-flex flex-column gap-2 mt-3">
+              ${!allServed ? `
+                <button class="btn btn-success w-100" id="serve-btn-${room}" onclick="markAllServed('${room}')">
+                  <i class="fas fa-check me-1"></i> Mark All Served
+                </button>
+                <button class="btn btn-outline-secondary w-100 d-none" id="print-btn-${room}" onclick="printReceipt('${room}')">
+                  <i class="fas fa-print me-1"></i> Print Receipt
+                </button>
+              ` : `
+                <button class="btn btn-secondary w-100" disabled>
+                  <i class="fas fa-check me-1"></i> All Served ✔
+                </button>
+                <button class="btn btn-outline-secondary w-100" id="print-btn-${room}" onclick="printReceipt('${room}')">
+                  <i class="fas fa-print me-1"></i> Print Receipt
+                </button>
+              `}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
   }
+
+  html += '</div>';
+  container.innerHTML = html;
 }
 
-async function markServed(orderId) {
-  if (!confirm("Mark this order as served?")) return;
+
+// mark all orders for a room as served
+async function markAllServed(roomNumber) {
+  if (!confirm(`Mark all orders in Room ${roomNumber} as served?`)) return;
 
   const formData = new FormData();
-  formData.append("order_id", orderId);
+  formData.append("room_number", roomNumber);
 
-  const res = await fetch('update_order_status.php', {
-    method: 'POST',
-    body: formData
-  });
+  const serveBtn = document.getElementById(`serve-btn-${roomNumber}`);
+  const printBtn = document.getElementById(`print-btn-${roomNumber}`);
 
-  const result = await res.json();
-  if (result.success) {
-    alert("Order marked as served!");
-    fetchOrders(); // Refresh list
-  } else {
-    alert("Failed to update order status.");
+  serveBtn.disabled = true;
+  serveBtn.textContent = "Updating...";
+
+  try {
+    const res = await fetch('update_order_status.php', {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
+      // Update UI state
+      serveBtn.classList.remove("btn-success");
+      serveBtn.classList.add("btn-secondary");
+      serveBtn.textContent = "All Served ✔";
+      printBtn.classList.remove("d-none"); // show Print Receipt
+
+      // Pause auto-refresh temporarily to keep the print button visible
+      clearInterval(orderInterval);
+      setTimeout(() => {
+        fetchOrders();
+        orderInterval = setInterval(fetchOrders, 8000);
+      }, 5000); // 5 seconds pause
+    } else {
+      alert("Failed to update order status.");
+      serveBtn.disabled = false;
+      serveBtn.textContent = "Mark All Served";
+    }
+  } catch (err) {
+    console.error(err);
+    alert("An error occurred while updating the order.");
+    serveBtn.disabled = false;
+    serveBtn.textContent = "Mark All Served";
   }
 }
 
-fetchOrders();
-setInterval(fetchOrders, 8000); // auto-refresh every 8 seconds
+
+// print receipt for a room
+async function printReceipt(roomNumber) {
+  const modal = new bootstrap.Modal(document.getElementById("receiptModal"));
+  const receiptContent = document.getElementById("receiptContent");
+  const printBtn = document.getElementById("printReceiptBtn");
+
+  // Show modal immediately (with loading text)
+  receiptContent.innerHTML = `<p class="text-center text-muted">Loading receipt...</p>`;
+  modal.show();
+
+  try {
+    const res = await fetch(`print_receipt.php?room_number=${roomNumber}`);
+    const html = await res.text();
+
+    // Inject the receipt HTML into the modal body
+    receiptContent.innerHTML = html;
+
+    // Bind print event
+    printBtn.onclick = () => {
+      const printWindow = window.open("", "_blank");
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.print();
+    };
+
+  } catch (error) {
+    console.error(error);
+    receiptContent.innerHTML = `<div class="text-center text-danger">Failed to load receipt.</div>`;
+  }
+}
+
+fetchOrders(true);
+orderInterval = setInterval(fetchOrders, 8000);
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
