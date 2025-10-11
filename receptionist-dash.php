@@ -368,7 +368,7 @@ $upcoming_bookings_result = $conn->query("
 
     <!-- Upcoming Bookings -->
     <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white"><h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Upcoming Bookings (Next 7 Days)</h5></div>
+        <div class="card-header text-white" style="background-color: #871D2B;"><h5 class="mb-0"><i class="fas fa-calendar-alt me-2" ></i>Upcoming Bookings (Next 7 Days)</h5></div>
         <div class="card-body">
             <?php if ($upcoming_bookings_result->num_rows > 0): ?>
             <div class="row g-3">
@@ -409,7 +409,7 @@ $upcoming_bookings_result = $conn->query("
 
     <!-- ✅ Pending Orders Section -->
         <div class="container mt-5">
-        <h4 class="fw-bold mb-3 text-primary">Pending Orders</h4>
+        <h4 class="fw-bold mb-3 text-dark">Pending Orders</h4>
         <div id="order-list" class="mt-3">Loading pending orders...</div>
         </div>
         </div>
@@ -441,7 +441,7 @@ async function fetchOrders() {
     for (const [room, orders] of Object.entries(data)) {
       html += `
         <div class="card shadow-sm mb-4">
-          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Room ${room}</h5>
             <span>${orders.length} Pending Order(s)</span>
           </div>

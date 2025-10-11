@@ -620,9 +620,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <!-- Add/Edit Room Form -->
 <div class="card shadow-sm border-0 mb-4" id="addRoomForm">
-  <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-    <h5 class="mb-0 fw-semibold">
-      <i class="fas fa-bed text-primary me-2"></i>
+  <div class="card-header border-0 d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
+    <h5 class="mb-0 fw-semibold text-white">
+      <i class="fas fa-bed text-white me-2"></i>
       <?php echo isset($room_to_edit) ? "Edit Room" : "Add New Room"; ?>
     </h5>
   </div>
@@ -722,7 +722,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <!-- Buttons -->
       <div class="col-12 d-flex justify-content-end gap-2 mt-3">
         <button type="submit" name="<?php echo isset($room_to_edit) ? 'edit_room' : 'add_room'; ?>" 
-                class="btn btn-primary">
+                class="btn text-white" style="background-color: #871D2B;">
           <?php echo isset($room_to_edit) ? 'Update Room' : 'Add Room'; ?>
         </button>
       </div>
@@ -733,10 +733,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <!-- Room Table -->
 <div class="card">
-  <div class="card-header bg-light d-flex justify-content-between align-items-center p-3">
+  <div class="card-header bg-dark d-flex justify-content-between align-items-center p-3">
     <div>
-      <h2 class="h5 mb-0 text-gray-900">Room List</h2>
-      <p class="text-sm text-gray-600 mt-1"><?php echo $result->num_rows; ?> total rooms</p>
+      <h2 class="h5 mb-0 text-white">Room List</h2>
+      <p class="text-sm text-white mt-1"><?php echo $result->num_rows; ?> total rooms</p>
     </div>
     <div class="d-flex align-items-center gap-2">
       <!-- Show Rooms -->
@@ -843,8 +843,8 @@ document.addEventListener("DOMContentLoaded", () => {
       <!-- Header -->
       <div class="modal-header border-bottom">
         <div class="d-flex align-items-center">
-          <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
-            <i class="fas fa-bed text-primary"></i>
+          <div class="rounded-circle bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
+            <i class="fas fa-bed text-dark"></i>
           </div>
           <div>
             <h5 class="modal-title fw-bold mb-0" id="editRoomModalLabel">Edit Room</h5>
@@ -927,7 +927,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <!-- Footer -->
       <div class="modal-footer border-top">
         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-        <button type="submit" form="editRoomForm" name="edit_room" class="btn btn-primary text-white">
+        <button type="submit" form="editRoomForm" name="edit_room" class="btn btn-dark text-white">
           <i class="fas fa-save me-1"></i> Update Room
         </button>
       </div>

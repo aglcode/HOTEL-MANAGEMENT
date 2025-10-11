@@ -773,7 +773,7 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
         </select>
       </div>
       <div class="col-md-4 d-flex">
-        <button type="submit" class="btn btn-primary me-2 flex-grow-1">
+        <button type="submit" class="btn btn-dark me-2 flex-grow-1">
           <i class="fas fa-filter me-2"></i>Apply Filters
         </button>
         <a href="receptionist-guest.php" class="btn btn-outline-secondary flex-grow-1">
@@ -785,9 +785,9 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
 
   <!-- Currently Checked-In Guests Section -->
   <div class="card mb-4">
-    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+    <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
       <h5 class="mb-0"><i class="fas fa-user-check me-2"></i>Currently Checked-In Guests</h5>
-      <span class="badge bg-light text-primary rounded-pill"><?= $current_guests->num_rows ?> Active Guests</span>
+      <span class="badge bg-light text-dark rounded-pill"><?= $current_guests->num_rows ?> Active Guests</span>
     </div>
     <div class="card-body p-0">
       <?php if ($current_guests->num_rows > 0): ?>
@@ -903,10 +903,10 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
 
 <!-- Guest Check-In History -->
 <div class="card mb-4">
-  <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+  <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
     <h5 class="mb-0"><i class="fas fa-history me-2"></i>Guest Check-In History</h5>
     <div class="d-flex align-items-center">
-      <span class="badge bg-light text-info rounded-pill me-2"><?= $history_guests->num_rows ?> Records</span>
+      <span class="badge bg-light text-dark rounded-pill me-2"><?= $history_guests->num_rows ?> Records</span>
       <a href="?export=csv&search=<?= urlencode($search) ?>&filter=<?= $filter ?>" class="btn btn-sm btn-light">
         <i class="fas fa-download me-1"></i>Export CSV
       </a>
@@ -1108,6 +1108,22 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
   </div>
 </div>
 
+<!-- Toast container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+  <?php if (isset($_GET['success']) && $_GET['success'] === 'checkedin'): ?>
+    <div id="checkinSuccessToast" class="toast align-items-center text-bg-success border-0 fade" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-check-circle me-2"></i>
+          Guest checked in successfully!
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+</div>
+
+
 <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1116,6 +1132,16 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
+
+  // toast 
+  document.addEventListener("DOMContentLoaded", () => {
+  const successToast = document.getElementById("checkinSuccessToast");
+  if (successToast) {
+    const toast = new bootstrap.Toast(successToast);
+    toast.show();
+  }
+});
+
   document.getElementById("searchInput").addEventListener("input", function() {
     if (this.value === "") {
       // Keep the current filter when clearing search

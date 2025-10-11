@@ -813,7 +813,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                     </select>
                 </div>
                 <div class="col-md-3 d-flex">
-                    <button type="submit" class="btn btn-primary me-2 flex-grow-1">
+                    <button type="submit" class="btn btn-dark me-2 flex-grow-1">
                         <i class="fas fa-filter me-2"></i>Apply Filters
                     </button>
                     <a href="receptionist-booking.php" class="btn btn-outline-secondary flex-grow-1">
@@ -825,12 +825,12 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
         
 <!-- Booking List Section -->
 <div class="card mb-4" id="bookingList">
-  <div class="card-header bg-light d-flex justify-content-between align-items-center p-3">
+  <div class="card-header d-flex justify-content-between align-items-center p-3" style="background-color: #871D2B;">
     <div>
-      <h2 class="h5 mb-0 text-gray-900">
-        <i class="fas fa-calendar-check me-2 text-primary"></i>Booking List
+      <h2 class="h5 mb-0 text-white">
+        <i class="fas fa-calendar-check me-2 text-white"></i>Booking List
       </h2>
-      <p class="text-sm text-gray-600 mt-1"><?= $total_records ?> total bookings</p>
+      <p class="text-sm text-white mt-1"><?= $total_records ?> total bookings</p>
     </div>
 
     <div class="d-flex align-items-center gap-2">

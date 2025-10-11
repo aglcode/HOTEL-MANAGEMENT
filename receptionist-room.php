@@ -603,7 +603,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
 
     <!-- Room List -->
     <div class="card mb-4">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
             <h5 class="mb-0">Room Status</h5>
             <i class="fas fa-bed"></i>
         </div>
@@ -677,7 +677,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
 
     <!-- Booking Summary Table -->
     <div class="card mb-4">
-    <div class="card-header text-black d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="card-header text-white bg-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0">Booking Summary</h5>
         <div class="d-flex align-items-center gap-3 flex-wrap">
         <!-- Custom dropdown and search -->
@@ -696,7 +696,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                         <th>Room #</th>
                         <th>Duration</th>
                         <th>Guests</th>
-                        <th>Action</th>
+                        <th>Action/Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -789,7 +789,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                             ?>
                                 <span class="badge bg-success">In Use by <?= htmlspecialchars($guest_name) ?></span>
                             <?php elseif ($checked_out_for_booking || $booking_finished): ?>
-                                <span class="badge bg-secondary">Checked Out</span>
+                                <span class="badge bg-danger">Checked Out</span>
                             <?php elseif ($occupied_by_other): ?>
                                 <span class="badge bg-warning text-dark">Room Unavailable</span>
                             <?php elseif ($room && $room['status'] === 'available'): 

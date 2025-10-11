@@ -594,21 +594,21 @@ try {
 
 <!-- Inventory Table Card -->
 <div class="card mb-4">
-  <div class="card-header d-flex justify-content-between align-items-center py-3">
-    <h5 class="mb-0">Supply Inventory</h5>
+  <div class="card-header bg-dark d-flex justify-content-between align-items-center py-3">
+    <h5 class="mb-0 text-white">Supply Inventory</h5>
     <div class="d-flex align-items-center gap-2">
       <!-- Calendar Toggle -->
-      <button id="toggleCalendar" class="btn btn-outline-secondary btn-sm">
+      <button id="toggleCalendar" class="btn btn-outline-light btn-sm">
         <i class="fas fa-calendar-alt"></i>
       </button>
 
       <!-- Stock In/Out -->
-      <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#stockModal">
+      <button type="button" class="btn btn-dark btn-sm" data-bs-toggle="modal" data-bs-target="#stockModal">
         <i class="fas fa-exchange-alt me-2"></i>Stock In/Out
       </button>
 
       <!-- Manage Supplies -->
-      <a href="admin-supplies.php" class="btn btn-primary btn-sm">
+      <a href="admin-supplies.php" class="btn btn-dark btn-sm">
         <i class="fas fa-plus-circle me-2"></i>Manage Supplies
       </a>
 
@@ -772,7 +772,7 @@ try {
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <form method="POST" action="stock-action.php">
-        <div class="modal-header bg-success text-white">
+        <div class="modal-header bg-dark text-white">
           <h5 class="modal-title">Stock In/Out</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
@@ -816,7 +816,7 @@ try {
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-success">Submit</button>
+          <button type="submit" class="btn btn-dark">Submit</button>
         </div>
       </form>
     </div>

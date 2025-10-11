@@ -192,7 +192,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $_SESSION['check_out_date'] = $check_out_date->format('F j, Y h:i A');
         $_SESSION['total_price'] = $total_price;
 
-        header("Location: receptionist-guest.php");
+        // header("Location: receptionist-guest.php");
+        header("Location: receptionist-guest.php?success=checkedin"); // with toast alert
         exit();
     } else {
         echo "Error: " . $stmt->error;
@@ -273,18 +274,33 @@ $conn->close();
                                     <div class="p-5">
                                         <div class="mb-4">
                                             <label class="block text-gray-700 text-sm font-medium mb-2">Guest Name</label>
-                                            <input type="text" name="guest_name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors" value="<?= htmlspecialchars($guest_name) ?>" required>
+                                            <input type="text" name="guest_name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors" value="<?= htmlspecialchars($guest_name) ?>" required oninput="this.value = this.value.replace(/[0-9]/g, '')">
                                         </div>
-                                        <div class="mb-4">
-                                            <label class="block text-gray-700 text-sm font-medium mb-2">Telephone</label>
-                                            <div class="flex">
-                                                <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">
-                                                    <i class="fas fa-phone"></i>
-                                                </span>
-                                                <input type="text" name="telephone" class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"  required pattern="\d{10,11}">
-                                            </div>
-                                            <p class="text-xs text-gray-500 mt-1">Enter a 10 or 11 digit phone number</p>
+                                        <div class="flex flex-col mb-5">
+                                        <label for="telephone" class="mb-1 font-medium text-gray-700">Contact Number</label>
+
+                                        <div class="flex">
+                                            <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">
+                                            <i class="fas fa-mobile"></i>
+                                            </span>
+                                            <input
+                                            type="text"
+                                            id="telephone"
+                                            name="telephone"
+                                            class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                                            placeholder="+63 9xx-xxx-xxxx"
+                                            required
+                                            oninput="formatPhilippineNumber(this)"
+                                            onblur="checkPhoneValidity(this)"
+                                            >
                                         </div>
+
+                                            <div id="phone-error" class="text-red-500 text-sm mb-1 hidden">
+                                            Please enter a valid mobile number (e.g. +63 9XX-XXX-XXXX).
+                                        </div>
+
+                                        </div>
+
                                         <div class="mb-4">
                                             <label class="block text-gray-700 text-sm font-medium mb-2">Address</label>
                                             <div class="flex">
@@ -369,63 +385,76 @@ $conn->close();
                                         </div>
                                     </div>
                                     
-                                    <!-- Cash Payment Section -->
-                                    <div id="cash_section" class="hidden mt-6">
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label class="block text-gray-700 text-sm font-medium mb-2">Amount Paid</label>
-                                                <div class="flex">
-                                                    <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">₱</span>
-                                                    <input type="number" name="amount_paid" id="cash_amount_paid" class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors" oninput="calculateChange();">
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label class="block text-gray-700 text-sm font-medium mb-2">Change</label>
-                                                <div class="flex">
-                                                    <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">₱</span>
-                                                    <input type="text" name="change" id="change" class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg bg-gray-50" readonly>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- GCash Payment Section -->
-                                    <div id="gcash_section" class="hidden mt-6">
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div>
-                                                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
-                                                    <h5 class="font-medium text-blue-700 flex items-center mb-3"><i class="fas fa-info-circle mr-2"></i>GCash Payment Instructions</h5>
-                                                    <ol class="list-decimal pl-5 text-blue-700 text-sm space-y-2">
-                                                        <li>Open your GCash app</li>
-                                                        <li>Send payment to: <span class="font-semibold">09123456789</span></li>
-                                                        <li>Enter the exact amount: <span class="font-semibold" id="gcash_amount_display">₱0.00</span></li>
-                                                        <li>Complete the payment and note your reference number</li>
-                                                    </ol>
-                                                </div>
-                                            </div>
-                                            
-                                            <div>
-                                                <div class="mb-4">
-                                                    <label class="block text-gray-700 text-sm font-medium mb-2">Amount Paid via GCash</label>
-                                                    <div class="flex">
-                                                        <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">₱</span>
-                                                        <input type="number" name="amount_paid" id="gcash_amount_paid" class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg bg-gray-50" readonly>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div>
-                                                    <label class="block text-gray-700 text-sm font-medium mb-2">GCash Reference Number</label>
-                                                    <div class="flex">
-                                                        <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">
-                                                            <i class="fas fa-hashtag"></i>
-                                                        </span>
-                                                        <input type="text" name="gcash_ref_id" id="gcash_ref_id" class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors" placeholder="Enter your GCash reference number">
-                                                    </div>
-                                                    <p class="text-xs text-gray-500 mt-1">Enter the reference number from your GCash transaction</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+<!-- CASH PAYMENT SECTION -->
+<div id="cash_section" class="hidden mt-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <label class="block text-gray-700 text-sm font-medium mb-2">Amount Paid</label>
+            <div class="flex">
+                <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">₱</span>
+                <input type="number" name="amount_paid" id="cash_amount_paid"
+                    class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                    oninput="calculateChange(); validateCashAmount();">
+            </div>
+            <p id="cash_error" class="text-red-500 text-sm mt-1 hidden">Amount paid must be at least equal to the total price.</p>
+        </div>
+
+        <div>
+            <label class="block text-gray-700 text-sm font-medium mb-2">Change</label>
+            <div class="flex">
+                <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">₱</span>
+                <input type="text" name="change" id="change"
+                    class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg bg-gray-50" readonly>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GCASH PAYMENT SECTION -->
+<div id="gcash_section" class="hidden mt-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
+                <h5 class="font-medium text-blue-700 flex items-center mb-3">
+                    <i class="fas fa-info-circle mr-2"></i>GCash Payment Instructions
+                </h5>
+                <ol class="list-decimal pl-5 text-blue-700 text-sm space-y-2">
+                    <li>Open your GCash app</li>
+                    <li>Send payment to: <span class="font-semibold">09123456789</span></li>
+                    <li>Enter the exact amount: <span class="font-semibold" id="gcash_amount_display">₱0.00</span></li>
+                    <li>Complete the payment and note your reference number</li>
+                </ol>
+            </div>
+        </div>
+
+        <div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-medium mb-2">Amount Paid via GCash</label>
+                <div class="flex">
+                    <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">₱</span>
+                    <input type="number" name="amount_paid" id="gcash_amount_paid"
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg bg-gray-50" readonly>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-medium mb-2">GCash Reference Number</label>
+                <div class="flex">
+                    <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">
+                        <i class="fas fa-hashtag"></i>
+                    </span>
+                    <input type="text" name="gcash_ref_id" id="gcash_ref_id"
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                        placeholder="Enter your GCash reference number"
+                        oninput="validateGCashRef();">
+                </div>
+                <p id="gcash_error" class="text-red-500 text-sm mt-1 hidden">Please enter the GCash reference number.</p>
+                <p id="gcash_digit_error" class="text-red-500 text-sm mt-1 hidden">Reference number must contain digits only.</p>
+                <p class="text-xs text-gray-500 mt-1">Enter the reference number from your GCash transaction</p>
+            </div>
+        </div>
+    </div>
+</div>
                                 </div>
                             </div>
                         </div>
@@ -567,38 +596,76 @@ $conn->close();
                 document.getElementById("change").value = '0.00';
             }
         }
-
+         
+        // refined validation in payment methods
         function validateForm() {
             const paymentMode = document.getElementById("payment_mode").value;
             const duration = parseInt(document.getElementById("stay_duration").value);
-            
+
+            document.getElementById("cash_error").classList.add("hidden");
+            document.getElementById("gcash_error").classList.add("hidden");
+            document.getElementById("gcash_digit_error").classList.add("hidden");
+
             if (!duration || !priceMap[duration]) {
                 alert("Please select a stay duration.");
                 return false;
             }
-            
+
             if (paymentMode === "select") {
                 alert("Please select a payment method.");
                 return false;
             }
-            
+
             const totalPrice = priceMap[duration];
-            
+
             if (paymentMode === "cash") {
                 const paid = parseFloat(document.getElementById("cash_amount_paid").value) || 0;
                 if (paid < totalPrice) {
-                    alert("Amount paid must be at least equal to the total price.");
+                    document.getElementById("cash_error").classList.remove("hidden");
                     return false;
                 }
             } else if (paymentMode === "gcash") {
                 const refNumber = document.getElementById("gcash_ref_id").value.trim();
                 if (!refNumber) {
-                    alert("Please enter the GCash reference number.");
+                    document.getElementById("gcash_error").classList.remove("hidden");
+                    return false;
+                } else if (!/^\d+$/.test(refNumber)) {
+                    document.getElementById("gcash_digit_error").classList.remove("hidden");
                     return false;
                 }
             }
-            
+
             return true;
+        }
+
+        // ---- LIVE VALIDATION ----
+        function validateCashAmount() {
+            const duration = parseInt(document.getElementById("stay_duration").value);
+            const totalPrice = priceMap[duration];
+            const paid = parseFloat(document.getElementById("cash_amount_paid").value) || 0;
+            const error = document.getElementById("cash_error");
+
+            if (paid >= totalPrice) {
+                error.classList.add("hidden");
+            } else {
+                error.classList.remove("hidden");
+            }
+        }
+
+        function validateGCashRef() {
+            const refNumber = document.getElementById("gcash_ref_id").value.trim();
+            const errorEmpty = document.getElementById("gcash_error");
+            const errorDigits = document.getElementById("gcash_digit_error");
+
+            // Reset all
+            errorEmpty.classList.add("hidden");
+            errorDigits.classList.add("hidden");
+
+            if (!refNumber) {
+                errorEmpty.classList.remove("hidden");
+            } else if (!/^\d+$/.test(refNumber)) {
+                errorDigits.classList.remove("hidden");
+            }
         }
 
         // Update clock
@@ -617,6 +684,44 @@ $conn->close();
 
         setInterval(updateClock, 1000);
         updateClock();
+
+        // validate contact number
+        function formatPhilippineNumber(input) {
+        let value = input.value.replace(/[^\d+]/g, "");
+
+        if (!value.startsWith("+63")) {
+            value = "+63" + value.replace(/^\+?63?/, "");
+        }
+
+        const digits = value.replace(/\D/g, "").substring(2, 12);
+
+        let formatted = "+63";
+        if (digits.length > 0) formatted += " " + digits.substring(0, 1);
+        if (digits.length > 1) formatted += digits.substring(1, 3);
+        if (digits.length > 3) formatted += "-" + digits.substring(3, 6);
+        if (digits.length > 6) formatted += "-" + digits.substring(6, 10);
+
+        input.value = formatted;
+        }
+
+        function checkPhoneValidity(input) {
+        const pattern = /^\+63 9\d{2}-\d{3}-\d{4}$/;
+        const feedback = document.getElementById("phone-error");
+
+        if (!pattern.test(input.value)) {
+            input.classList.add("is-invalid");
+            feedback.classList.remove("hidden");
+        } else {
+            input.classList.remove("is-invalid");
+            feedback.classList.add("hidden");
+        }
+        }
+
+        // Clean up before submitting (remove spaces and dashes)
+        document.querySelector("form")?.addEventListener("submit", function () {
+        const input = document.getElementById("telephone");
+        input.value = input.value.replace(/[\s-]/g, ""); // e.g. +639123456789
+        });
     </script>
 </body>
 
