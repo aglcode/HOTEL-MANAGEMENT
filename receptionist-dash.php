@@ -644,7 +644,7 @@ function renderOrders(data) {
                 </button>
               ` : `
                 <button class="btn btn-secondary w-100" disabled>
-                  <i class="fas fa-check me-1"></i> All Served ✔
+                  <i class="fas fa-check me-1"></i> All Served
                 </button>
                 <button class="btn btn-outline-secondary w-100" id="print-btn-${room}" onclick="printReceipt('${room}')">
                   <i class="fas fa-print me-1"></i> Print Receipt
@@ -687,7 +687,7 @@ async function markAllServed(roomNumber) {
       // Update UI state
       serveBtn.classList.remove("btn-success");
       serveBtn.classList.add("btn-secondary");
-      serveBtn.textContent = "All Served ✔";
+      serveBtn.textContent = "All Served";
       printBtn.classList.remove("d-none"); // show Print Receipt
 
       // Pause auto-refresh temporarily to keep the print button visible
