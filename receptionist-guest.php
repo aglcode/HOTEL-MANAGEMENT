@@ -39,10 +39,17 @@ if ($action === 'checkout' && $guest_id > 0) {
             ]);
         } else {
             // Payment is good → proceed checkout
-            $stmt = $conn->prepare("UPDATE checkins SET status = 'checked_out', check_out_date = NOW() WHERE id = ?");
+            $stmt = $conn->prepare("
+                UPDATE checkins 
+                SET status = 'checked_out', check_out_date = NOW()
+                WHERE id = ? AND status IN ('checked_in', 'scheduled')
+            ");
             $stmt->bind_param('i', $guest_id);
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                error_log("Checkout update failed: " . $stmt->error);
+            }
             $stmt->close();
+
 
             $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
             $stmt->bind_param('i', $guest['room_number']);
@@ -236,8 +243,10 @@ $history_sql = "SELECT
     check_in_date,
     check_out_date,
     gcash_reference,
-    receptionist_id
+    receptionist_id,
+    status
 FROM checkins WHERE 1=1";
+
 
 // Apply filter
 if ($filter === 'recent') {
@@ -960,10 +969,28 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
           <tbody>
             <?php while ($row = $history_guests->fetch_assoc()): 
               $checkout_date = new DateTime($row['check_out_date'] ?? 'now');
-              $checkin_date = new DateTime($row['check_in_date'] ?? 'now');
-              $now_dt = new DateTime();
-              $is_checked_out = $checkout_date <= $now_dt;
-              $is_active = $now_dt >= $checkin_date && $now_dt < $checkout_date;
+$checkin_date = new DateTime($row['check_in_date'] ?? 'now');
+$now_dt = new DateTime();
+
+$status = strtolower($row['status'] ?? '');
+
+if ($status === 'checked_out') {
+    $is_checked_out = true;
+    $is_active = false;
+} elseif ($status === 'checked_in') {
+    $is_checked_out = false;
+    $is_active = true;
+} elseif ($status === 'scheduled' && $checkout_date <= $now_dt) {
+    // If scheduled but already past checkout date → mark as checked out
+    $is_checked_out = true;
+    $is_active = false;
+    // Optionally auto-correct status in DB
+    $conn->query("UPDATE checkins SET status='checked_out' WHERE id=" . (int)$row['id']);
+} else {
+    $is_checked_out = false;
+    $is_active = false;
+}
+
 
               // If not active and not checked out by dates, check bookings table for a completed booking
               if (! $is_checked_out && ! $is_active) {
@@ -1050,17 +1077,11 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
               <td class="fw-bold text-success">₱<?= number_format($row['total_price'] ?? 0, 2) ?></td>
               <td class="no-print">
                 <?php if ($is_active): ?>
-                  <span class="badge bg-success">
-                    <i class="fas fa-clock me-1"></i>In Use
-                  </span>
+                  <span class="badge bg-success"><i class="fas fa-clock me-1"></i>In Use</span>
                 <?php elseif ($is_checked_out): ?>
-                  <span class="badge bg-secondary">
-                    <i class="fas fa-check-circle me-1"></i>Checked Out
-                  </span>
+                  <span class="badge bg-secondary"><i class="fas fa-check-circle me-1"></i>Checked Out</span>
                 <?php else: ?>
-                  <span class="badge bg-warning">
-                    <i class="fas fa-hourglass-half me-1"></i>Scheduled
-                  </span>
+                  <span class="badge bg-warning"><i class="fas fa-hourglass-half me-1"></i>Scheduled</span>
                 <?php endif; ?>
               </td>
             </tr>

@@ -2,6 +2,22 @@
 session_start();
 require_once 'database.php';
 
+// ✅ Auto-update booking statuses based on current time
+$conn->query("
+    UPDATE bookings 
+    SET status = 'active'
+    WHERE start_date <= NOW()
+      AND end_date > NOW()
+      AND status NOT IN ('cancelled', 'completed')
+");
+
+$conn->query("
+    UPDATE bookings 
+    SET status = 'completed'
+    WHERE end_date <= NOW()
+      AND status NOT IN ('cancelled', 'completed')
+");
+
 // Generate booking token function
 function generateBookingToken() {
     return 'BK' . date('Ymd') . strtoupper(substr(uniqid(), -6));
@@ -31,6 +47,21 @@ function autoCancelOverdueBookings($conn) {
 // Run auto-cancellation check
 autoCancelOverdueBookings($conn);
 
+// ✅ Auto-update booking statuses based on current time
+$conn->query("
+    UPDATE bookings 
+    SET status = 'active'
+    WHERE start_date <= NOW()
+      AND end_date > NOW()
+      AND status NOT IN ('cancelled', 'completed')
+");
+
+$conn->query("
+    UPDATE bookings 
+    SET status = 'completed'
+    WHERE end_date <= NOW()
+      AND status NOT IN ('cancelled', 'completed')
+");
 
 
 // Handle cancellation
@@ -917,46 +948,51 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                                     }
                                     $occStmt->close();
 
-                                    // Decide status: prefer latest checkin status if present (override booking.status)
-                                    if ($latestCheckin) {
-                                        $ci_out = new DateTime($latestCheckin['check_out_date']);
-                                        $ci_in = new DateTime($latestCheckin['check_in_date']);
-                                        if ($ci_in <= $now && $ci_out > $now) {
-                                            $status_class = "bg-warning text-dark";
-                                            $status_text = "In Use";
-                                        } elseif ($ci_out <= $now) {
-                                            $status_class = "bg-secondary";
-                                            $status_text = "Checked Out";
-                                        } else {
-                                            // future checkin exists but not started
-                                            $status_class = "bg-info";
-                                            $status_text = "Upcoming";
-                                        }
-                                    } else {
-                                        // Fallback to booking.status/time logic
-                                        if ($row['status'] === 'cancelled') {
-                                            $status_class = "bg-danger";
-                                            $status_text = "Cancelled";
-                                        } elseif ($row['status'] === 'completed') {
-                                            $status_class = "bg-secondary";
-                                            $status_text = "Completed";
-                                        } elseif ($currentOccupant) {
-                                            $status_class = "bg-warning text-dark";
-                                            $status_text = "In Use";
-                                        } elseif ($now < $start) {
-                                            $status_class = "bg-info";
-                                            $status_text = "Upcoming";
-                                        } elseif ($now >= $start && $now <= $end) {
-                                            $status_class = "bg-success";
-                                            $status_text = "Active";
-                                        } elseif ($now > $end) {
-                                            $status_class = "bg-secondary";
-                                            $status_text = "Completed";
-                                        } else {
-                                            $status_class = "bg-secondary";
-                                            $status_text = ucfirst($row['status']);
-                                        }
-                                    }
+                                  // Decide status: prefer latest checkin status if present (override booking.status)
+                                  if ($row['status'] === 'completed') {
+                                      // ✅ Show as Completed directly
+                                      $status_class = "bg-secondary";
+                                      $status_text = "Completed";
+                                  } else {
+                                      if ($latestCheckin) {
+                                          $ci_out = new DateTime($latestCheckin['check_out_date']);
+                                          $ci_in = new DateTime($latestCheckin['check_in_date']);
+                                          if ($ci_in <= $now && $ci_out > $now) {
+                                              $status_class = "bg-warning text-dark";
+                                              $status_text = "In Use";
+                                          } elseif ($ci_out <= $now) {
+                                              $status_class = "bg-secondary";
+                                              $status_text = "Completed";
+                                              $updateStatus = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
+                                              $updateStatus->bind_param('i', $row['id']);
+                                              $updateStatus->execute();
+                                              $updateStatus->close();
+                                          } else {
+                                              $status_class = "bg-info";
+                                              $status_text = "Upcoming";
+                                          }
+                                      } else {
+                                          if ($row['status'] === 'cancelled') {
+                                              $status_class = "bg-danger";
+                                              $status_text = "Cancelled";
+                                          } elseif ($currentOccupant) {
+                                              $status_class = "bg-warning text-dark";
+                                              $status_text = "In Use";
+                                          } elseif ($now < $start) {
+                                              $status_class = "bg-info";
+                                              $status_text = "Upcoming";
+                                          } elseif ($now >= $start && $now <= $end) {
+                                              $status_class = "bg-success";
+                                              $status_text = "Active";
+                                          } elseif ($now > $end) {
+                                              $status_class = "bg-secondary";
+                                              $status_text = "Completed";
+                                          } else {
+                                              $status_class = "bg-secondary";
+                                              $status_text = ucfirst($row['status']);
+                                          }
+                                      }
+                                  }
                             ?>
                             <tr>
                                  <td><?= $index++ ?></td>

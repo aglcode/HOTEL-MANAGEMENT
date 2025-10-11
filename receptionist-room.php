@@ -112,7 +112,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             if ($selRes && $selRow = $selRes->fetch_assoc()) {
                 $checkin_id = $selRow['id'];
                 $sel->close();
-                $stmt_update2 = $conn->prepare("UPDATE checkins SET check_out_date = NOW() WHERE id = ?");
+                $stmt_update2 = $conn->prepare("
+                    UPDATE checkins 
+                    SET check_out_date = NOW(), status = 'checked_out' 
+                    WHERE id = ?
+                ");
                 $stmt_update2->bind_param('i', $checkin_id);
                 $stmt_update2->execute();
                 $stmt_update2->close();
