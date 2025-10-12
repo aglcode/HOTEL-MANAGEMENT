@@ -485,11 +485,11 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
   <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-0">
     <div class="d-flex align-items-center">
       <div class="bg-light p-2 rounded-3 me-2">
-        <i class="fas fa-filter text-primary"></i>
+        <i class="fas fa-filter text-dark"></i>
       </div>
       <h5 class="mb-0 fw-bold">Supply Filters</h5>
     </div>
-    <button class="btn btn-primary d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#addSupplyModal">
+    <button class="btn btn-dark d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#addSupplyModal">
       <i class="fas fa-plus me-2"></i> Add Supply
     </button>
   </div>
@@ -524,7 +524,7 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
       <!-- Filter Button -->
       <div class="col-md-2">
         <label class="form-label fw-semibold invisible">Filter</label>
-        <button class="btn btn-outline-primary w-100 same-height d-flex align-items-center justify-content-center">
+        <button class="btn btn-outline-dark w-100 same-height d-flex align-items-center justify-content-center">
           <i class="fas fa-filter me-2"></i> Filter
         </button>
       </div>
@@ -589,10 +589,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
  <!-- Supply Table -->
-<div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+<div class="card-header d-flex justify-content-between align-items-center py-3" style="background-color: #871D2B;">
   <div class="d-flex align-items-center">
-    <h5 class="mb-0 me-3">Supply Inventory</h5>
-    <span class="badge bg-primary"><?php echo $totalSupplies; ?> items</span>
+    <h5 class="mb-0 me-3 text-white">Supply Inventory</h5>
+    <span class="badge bg-dark"><?php echo $totalSupplies; ?> items</span>
   </div>
   <!-- Custom search box -->
   <div class="input-group" style="width: 250px;">
@@ -703,8 +703,8 @@ document.addEventListener("DOMContentLoaded", () => {
         <!-- Modal Header -->
         <div class="modal-header">
           <div class="d-flex align-items-center">
-            <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-2">
-              <i class="fas fa-cube text-primary fa-lg"></i>
+            <div class="bg-secondary bg-opacity-10 p-2 rounded-3 me-2">
+              <i class="fas fa-cube text-dark fa-lg"></i>
             </div>
             <h5 class="modal-title fw-bold mb-0" id="addSupplyModalLabel">Add New Supply</h5>
           </div>
@@ -761,7 +761,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <!-- Modal Footer -->
         <div class="modal-footer">
           <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" id="supplySubmitBtn" class="btn btn-primary px-4 fw-semibold">Add Supply</button>
+          <button type="submit" id="supplySubmitBtn" class="btn btn-dark px-4 fw-semibold">Add Supply</button>
         </div>
 
       </form>

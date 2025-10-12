@@ -39,10 +39,17 @@ if ($action === 'checkout' && $guest_id > 0) {
             ]);
         } else {
             // Payment is good → proceed checkout
-            $stmt = $conn->prepare("UPDATE checkins SET status = 'checked_out', check_out_date = NOW() WHERE id = ?");
+            $stmt = $conn->prepare("
+                UPDATE checkins 
+                SET status = 'checked_out', check_out_date = NOW()
+                WHERE id = ? AND status IN ('checked_in', 'scheduled')
+            ");
             $stmt->bind_param('i', $guest_id);
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                error_log("Checkout update failed: " . $stmt->error);
+            }
             $stmt->close();
+
 
             $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
             $stmt->bind_param('i', $guest['room_number']);
@@ -236,8 +243,10 @@ $history_sql = "SELECT
     check_in_date,
     check_out_date,
     gcash_reference,
-    receptionist_id
+    receptionist_id,
+    status
 FROM checkins WHERE 1=1";
+
 
 // Apply filter
 if ($filter === 'recent') {
@@ -773,7 +782,7 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
         </select>
       </div>
       <div class="col-md-4 d-flex">
-        <button type="submit" class="btn btn-primary me-2 flex-grow-1">
+        <button type="submit" class="btn btn-dark me-2 flex-grow-1">
           <i class="fas fa-filter me-2"></i>Apply Filters
         </button>
         <a href="receptionist-guest.php" class="btn btn-outline-secondary flex-grow-1">
@@ -785,9 +794,9 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
 
   <!-- Currently Checked-In Guests Section -->
   <div class="card mb-4">
-    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+    <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
       <h5 class="mb-0"><i class="fas fa-user-check me-2"></i>Currently Checked-In Guests</h5>
-      <span class="badge bg-light text-primary rounded-pill"><?= $current_guests->num_rows ?> Active Guests</span>
+      <span class="badge bg-light text-dark rounded-pill"><?= $current_guests->num_rows ?> Active Guests</span>
     </div>
     <div class="card-body p-0">
       <?php if ($current_guests->num_rows > 0): ?>
@@ -903,10 +912,10 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
 
 <!-- Guest Check-In History -->
 <div class="card mb-4">
-  <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+  <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
     <h5 class="mb-0"><i class="fas fa-history me-2"></i>Guest Check-In History</h5>
     <div class="d-flex align-items-center">
-      <span class="badge bg-light text-info rounded-pill me-2"><?= $history_guests->num_rows ?> Records</span>
+      <span class="badge bg-light text-dark rounded-pill me-2"><?= $history_guests->num_rows ?> Records</span>
       <a href="?export=csv&search=<?= urlencode($search) ?>&filter=<?= $filter ?>" class="btn btn-sm btn-light">
         <i class="fas fa-download me-1"></i>Export CSV
       </a>
@@ -960,10 +969,28 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
           <tbody>
             <?php while ($row = $history_guests->fetch_assoc()): 
               $checkout_date = new DateTime($row['check_out_date'] ?? 'now');
-              $checkin_date = new DateTime($row['check_in_date'] ?? 'now');
-              $now_dt = new DateTime();
-              $is_checked_out = $checkout_date <= $now_dt;
-              $is_active = $now_dt >= $checkin_date && $now_dt < $checkout_date;
+$checkin_date = new DateTime($row['check_in_date'] ?? 'now');
+$now_dt = new DateTime();
+
+$status = strtolower($row['status'] ?? '');
+
+if ($status === 'checked_out') {
+    $is_checked_out = true;
+    $is_active = false;
+} elseif ($status === 'checked_in') {
+    $is_checked_out = false;
+    $is_active = true;
+} elseif ($status === 'scheduled' && $checkout_date <= $now_dt) {
+    // If scheduled but already past checkout date → mark as checked out
+    $is_checked_out = true;
+    $is_active = false;
+    // Optionally auto-correct status in DB
+    $conn->query("UPDATE checkins SET status='checked_out' WHERE id=" . (int)$row['id']);
+} else {
+    $is_checked_out = false;
+    $is_active = false;
+}
+
 
               // If not active and not checked out by dates, check bookings table for a completed booking
               if (! $is_checked_out && ! $is_active) {
@@ -1050,17 +1077,11 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
               <td class="fw-bold text-success">₱<?= number_format($row['total_price'] ?? 0, 2) ?></td>
               <td class="no-print">
                 <?php if ($is_active): ?>
-                  <span class="badge bg-success">
-                    <i class="fas fa-clock me-1"></i>In Use
-                  </span>
+                  <span class="badge bg-success"><i class="fas fa-clock me-1"></i>In Use</span>
                 <?php elseif ($is_checked_out): ?>
-                  <span class="badge bg-secondary">
-                    <i class="fas fa-check-circle me-1"></i>Checked Out
-                  </span>
+                  <span class="badge bg-secondary"><i class="fas fa-check-circle me-1"></i>Checked Out</span>
                 <?php else: ?>
-                  <span class="badge bg-warning">
-                    <i class="fas fa-hourglass-half me-1"></i>Scheduled
-                  </span>
+                  <span class="badge bg-warning"><i class="fas fa-hourglass-half me-1"></i>Scheduled</span>
                 <?php endif; ?>
               </td>
             </tr>
@@ -1108,6 +1129,22 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
   </div>
 </div>
 
+<!-- Toast container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+  <?php if (isset($_GET['success']) && $_GET['success'] === 'checkedin'): ?>
+    <div id="checkinSuccessToast" class="toast align-items-center text-bg-success border-0 fade" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-check-circle me-2"></i>
+          Guest checked in successfully!
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+</div>
+
+
 <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1116,6 +1153,16 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
+
+  // toast 
+  document.addEventListener("DOMContentLoaded", () => {
+  const successToast = document.getElementById("checkinSuccessToast");
+  if (successToast) {
+    const toast = new bootstrap.Toast(successToast);
+    toast.show();
+  }
+});
+
   document.getElementById("searchInput").addEventListener("input", function() {
     if (this.value === "") {
       // Keep the current filter when clearing search

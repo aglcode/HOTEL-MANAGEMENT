@@ -662,7 +662,8 @@ $result = $conn->query($query);
 <div class="row mb-4">
   <div class="col-md-12">
     <div class="card">
-      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <div class="card-header text-white d-flex justify-content-between align-items-center" 
+style="background-color: #871D2B;">
         <h5 class="mb-0">Add New User</h5>
         <i class="fas fa-user-plus"></i>
       </div>
@@ -730,7 +731,7 @@ $result = $conn->query($query);
           </div>
 
           <div class="col-12 mt-4">
-            <button type="submit" name="add_user" class="btn btn-primary">
+            <button type="submit" name="add_user" class="btn text-white" style="background-color: #871D2B;">
               <i class="fas fa-user-plus me-2"></i>Add User
             </button>
           </div>
@@ -1005,10 +1006,10 @@ sendCodeBtn.addEventListener("click", () => {
 
         <!-- User List --> 
         <div class="card">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center p-3">
+    <div class="card-header bg-dark d-flex justify-content-between align-items-center p-3">
         <div>
-            <h2 class="h5 mb-0 text-gray-900">User Accounts</h2>
-            <p class="text-sm text-gray-600 mt-1"><?php echo $result->num_rows; ?> total users</p>
+            <h2 class="h5 mb-0 text-white">User Accounts</h2>
+            <p class="text-sm text-white mt-1"><?php echo $result->num_rows; ?> total users</p>
         </div>
         <div class="d-flex align-items-center gap-2">
     
@@ -1174,7 +1175,7 @@ sendCodeBtn.addEventListener("click", () => {
 <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-dark text-white">
                 <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -1224,7 +1225,7 @@ sendCodeBtn.addEventListener("click", () => {
                     </div>
                     <div class="col-12 mt-4 text-end">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" name="edit_user" class="btn btn-primary">
+                        <button type="submit" name="edit_user" class="btn btn-dark">
                             <i class="fas fa-save me-2"></i>Save Changes
                         </button>
                     </div>

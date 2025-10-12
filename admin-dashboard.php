@@ -460,7 +460,7 @@ try {
                     <!-- Post Announcement Card -->
                     <div class="col-12 mb-4">
                         <div class="card">
-                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
                                 <h5 class="mb-0">Post an Announcement</h5>
                                 <i class="fas fa-bullhorn"></i>
                             </div>
@@ -474,7 +474,7 @@ try {
                                         <label class="form-label">Message</label>
                                         <textarea name="message" class="form-control" rows="4" placeholder="Enter your message here" required></textarea>
                                     </div>
-                                    <button type="submit" name="add_announcement" class="btn btn-primary w-100">
+                                    <button type="submit" name="add_announcement" class="btn text-white w-100" style="background-color: #871D2B;">
                                         <i class="fas fa-paper-plane me-2"></i>Post Announcement
                                     </button>
                                 </form>
@@ -485,7 +485,9 @@ try {
                     <!-- Recent Announcements Card -->
                     <div class="col-12">
                         <div class="card">
-                            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                            <div class="card-header text-white d-flex justify-content-between align-items-center" 
+style="background-color: #871D2B;"
+>
                                 <h5 class="mb-0">Recent Announcements</h5>
                                 <i class="fas fa-list-ul"></i>
                             </div>
@@ -523,7 +525,7 @@ try {
             <!-- Feedback and Complaints Section -->
             <div class="col-md-6 mb-4">
                 <div class="card h-100">
-                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Customer Feedback</h5>
                         <i class="fas fa-comments"></i>
                     </div>

@@ -2,6 +2,22 @@
 session_start();
 require_once 'database.php';
 
+// ✅ Auto-update booking statuses based on current time
+$conn->query("
+    UPDATE bookings 
+    SET status = 'active'
+    WHERE start_date <= NOW()
+      AND end_date > NOW()
+      AND status NOT IN ('cancelled', 'completed')
+");
+
+$conn->query("
+    UPDATE bookings 
+    SET status = 'completed'
+    WHERE end_date <= NOW()
+      AND status NOT IN ('cancelled', 'completed')
+");
+
 // Generate booking token function
 function generateBookingToken() {
     return 'BK' . date('Ymd') . strtoupper(substr(uniqid(), -6));
@@ -31,6 +47,21 @@ function autoCancelOverdueBookings($conn) {
 // Run auto-cancellation check
 autoCancelOverdueBookings($conn);
 
+// ✅ Auto-update booking statuses based on current time
+$conn->query("
+    UPDATE bookings 
+    SET status = 'active'
+    WHERE start_date <= NOW()
+      AND end_date > NOW()
+      AND status NOT IN ('cancelled', 'completed')
+");
+
+$conn->query("
+    UPDATE bookings 
+    SET status = 'completed'
+    WHERE end_date <= NOW()
+      AND status NOT IN ('cancelled', 'completed')
+");
 
 
 // Handle cancellation
@@ -813,7 +844,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                     </select>
                 </div>
                 <div class="col-md-3 d-flex">
-                    <button type="submit" class="btn btn-primary me-2 flex-grow-1">
+                    <button type="submit" class="btn btn-dark me-2 flex-grow-1">
                         <i class="fas fa-filter me-2"></i>Apply Filters
                     </button>
                     <a href="receptionist-booking.php" class="btn btn-outline-secondary flex-grow-1">
@@ -825,12 +856,12 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
         
 <!-- Booking List Section -->
 <div class="card mb-4" id="bookingList">
-  <div class="card-header bg-light d-flex justify-content-between align-items-center p-3">
+  <div class="card-header d-flex justify-content-between align-items-center p-3" style="background-color: #871D2B;">
     <div>
-      <h2 class="h5 mb-0 text-gray-900">
-        <i class="fas fa-calendar-check me-2 text-primary"></i>Booking List
+      <h2 class="h5 mb-0 text-white">
+        <i class="fas fa-calendar-check me-2 text-white"></i>Booking List
       </h2>
-      <p class="text-sm text-gray-600 mt-1"><?= $total_records ?> total bookings</p>
+      <p class="text-sm text-white mt-1"><?= $total_records ?> total bookings</p>
     </div>
 
     <div class="d-flex align-items-center gap-2">
@@ -917,46 +948,51 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                                     }
                                     $occStmt->close();
 
-                                    // Decide status: prefer latest checkin status if present (override booking.status)
-                                    if ($latestCheckin) {
-                                        $ci_out = new DateTime($latestCheckin['check_out_date']);
-                                        $ci_in = new DateTime($latestCheckin['check_in_date']);
-                                        if ($ci_in <= $now && $ci_out > $now) {
-                                            $status_class = "bg-warning text-dark";
-                                            $status_text = "In Use";
-                                        } elseif ($ci_out <= $now) {
-                                            $status_class = "bg-secondary";
-                                            $status_text = "Checked Out";
-                                        } else {
-                                            // future checkin exists but not started
-                                            $status_class = "bg-info";
-                                            $status_text = "Upcoming";
-                                        }
-                                    } else {
-                                        // Fallback to booking.status/time logic
-                                        if ($row['status'] === 'cancelled') {
-                                            $status_class = "bg-danger";
-                                            $status_text = "Cancelled";
-                                        } elseif ($row['status'] === 'completed') {
-                                            $status_class = "bg-secondary";
-                                            $status_text = "Completed";
-                                        } elseif ($currentOccupant) {
-                                            $status_class = "bg-warning text-dark";
-                                            $status_text = "In Use";
-                                        } elseif ($now < $start) {
-                                            $status_class = "bg-info";
-                                            $status_text = "Upcoming";
-                                        } elseif ($now >= $start && $now <= $end) {
-                                            $status_class = "bg-success";
-                                            $status_text = "Active";
-                                        } elseif ($now > $end) {
-                                            $status_class = "bg-secondary";
-                                            $status_text = "Completed";
-                                        } else {
-                                            $status_class = "bg-secondary";
-                                            $status_text = ucfirst($row['status']);
-                                        }
-                                    }
+                                  // Decide status: prefer latest checkin status if present (override booking.status)
+                                  if ($row['status'] === 'completed') {
+                                      // ✅ Show as Completed directly
+                                      $status_class = "bg-secondary";
+                                      $status_text = "Completed";
+                                  } else {
+                                      if ($latestCheckin) {
+                                          $ci_out = new DateTime($latestCheckin['check_out_date']);
+                                          $ci_in = new DateTime($latestCheckin['check_in_date']);
+                                          if ($ci_in <= $now && $ci_out > $now) {
+                                              $status_class = "bg-warning text-dark";
+                                              $status_text = "In Use";
+                                          } elseif ($ci_out <= $now) {
+                                              $status_class = "bg-secondary";
+                                              $status_text = "Completed";
+                                              $updateStatus = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
+                                              $updateStatus->bind_param('i', $row['id']);
+                                              $updateStatus->execute();
+                                              $updateStatus->close();
+                                          } else {
+                                              $status_class = "bg-info";
+                                              $status_text = "Upcoming";
+                                          }
+                                      } else {
+                                          if ($row['status'] === 'cancelled') {
+                                              $status_class = "bg-danger";
+                                              $status_text = "Cancelled";
+                                          } elseif ($currentOccupant) {
+                                              $status_class = "bg-warning text-dark";
+                                              $status_text = "In Use";
+                                          } elseif ($now < $start) {
+                                              $status_class = "bg-info";
+                                              $status_text = "Upcoming";
+                                          } elseif ($now >= $start && $now <= $end) {
+                                              $status_class = "bg-success";
+                                              $status_text = "Active";
+                                          } elseif ($now > $end) {
+                                              $status_class = "bg-secondary";
+                                              $status_text = "Completed";
+                                          } else {
+                                              $status_class = "bg-secondary";
+                                              $status_text = ucfirst($row['status']);
+                                          }
+                                      }
+                                  }
                             ?>
                             <tr>
                                  <td><?= $index++ ?></td>
@@ -1212,39 +1248,44 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 </div>
 
 
-    <!-- Cancel Booking Modal -->
-
-    <div class="modal fade" id="cancelBookingModal" tabindex="-1" aria-labelledby="cancelBookingModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="cancelBookingModalLabel">
-
-
-    <!-- Cancelled Bookings Modal -->
-    <div class="modal fade" id="cancelledBookingsModal" tabindex="-1" aria-labelledby="cancelledBookingsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="cancelledBookingsModalLabel">
-                        <i class="fas fa-times-circle me-2"></i>Cancelled Bookings Details
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="cancelledBookingsContent">
-                        <div class="text-center">
-                            <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
-                            <p class="mt-2">Loading cancelled bookings...</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
+<!-- Cancel Booking Modal (complete) -->
+<div class="modal fade" id="cancelBookingModal" tabindex="-1" aria-labelledby="cancelBookingModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" id="cancelBookingForm" onsubmit="return confirm('Are you sure you want to cancel this booking?');">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="cancelBookingModalLabel"><i class="fas fa-times-circle me-2"></i>Cancel Booking</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
+        <div class="modal-body">
+          <input type="hidden" name="booking_id" id="bookingIdToCancel" value="">
+          <div class="mb-3">
+            <label class="form-label fw-medium">Guest</label>
+            <div class="fw-semibold" id="guestNameToCancel">—</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="cancellationReason" class="form-label fw-medium">Cancellation Reason *</label>
+            <textarea name="cancellation_reason" id="cancellationReason" class="form-control" rows="4" placeholder="Reason for cancellation" required></textarea>
+          </div>
+
+          <div class="alert alert-warning small">
+            Cancelling a booking will set its status to <strong>Cancelled</strong>. This action can be reviewed in the Cancelled Bookings panel.
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+          <!-- name="delete_booking" is how your PHP block detects a cancellation POST -->
+          <button type="submit" name="delete_booking" class="btn btn-danger">Confirm Cancel</button>
+        </div>
+      </form>
     </div>
+  </div>
+</div>
+
+<!-- End Cancel Booking Modal -->
+
 
     <!-- Guest Details Modal -->
     <div class="modal fade" id="guestDetailsModal" tabindex="-1" aria-labelledby="guestDetailsModalLabel" aria-hidden="true">

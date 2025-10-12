@@ -374,7 +374,7 @@ $result = $conn->query($sql);
 
     <!-- Buttons -->
     <div class="col-md-4 d-flex">
-      <button type="submit" class="btn btn-primary me-2 flex-grow-1">
+      <button type="submit" class="btn btn-dark me-2 flex-grow-1">
         <i class="fas fa-filter me-2"></i>Apply Filters
       </button>
       <a href="receptionist-payment.php" class="btn btn-outline-secondary flex-grow-1">
@@ -386,7 +386,7 @@ $result = $conn->query($sql);
 
 <!-- TABLE -->
 <div class="card mb-4">
-  <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+  <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
     <h5 class="mb-0"><i class="fas fa-money-check me-2"></i>Payment History</h5>
     <span class="badge bg-blue-100 text-blue-800 border-blue-200 rounded-pill">
       <?= $result->num_rows ?> Records
