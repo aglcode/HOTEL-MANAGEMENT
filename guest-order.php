@@ -140,40 +140,162 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gitarra Apartelle - Guest Order</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link href="style.css" rel="stylesheet">
-    <style>
-     /* === Sidebar Navigation === */
-.sidebar {
-  width: 260px;
-  height: 100vh;
-  background: #fff;
-  border-right: 1px solid #e5e7eb;
-  position: fixed;
-  top: 0;
-  left: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 20px 0;
-  font-family: 'Poppins', sans-serif;
-}
+  <!-- ==================== HEAD SECTION ==================== -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gitarra Apartelle - Guest Order</title>
 
-/* === Header === */
-.sidebar h4 {
-  text-align: center;
-  font-weight: 700;
-  color: #111827;
-  margin-bottom: 30px;
-}
+  <!-- ========== FONTS & ICONS ========== -->
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"/>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
+  <!-- ========== CSS FRAMEWORK ========== -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <!-- ========== CUSTOM STYLES ========== -->
+  <link href="style.css" rel="stylesheet" />
+  <!-- ========== JS LIBRARIES ========== -->
+  <!-- jsPDF & html2canvas for PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- SweetAlert2 for alerts -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <style>
+/* === Sidebar Container === */
+    .sidebar {
+      width: 260px;
+      height: 100vh;
+      background: #fff;
+      border-right: 1px solid #e5e7eb;
+      position: fixed;
+      top: 0;
+      left: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* === Logo / Header === */
+    .sidebar h4 {
+      text-align: center;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 30px;
+    }
+
+    /* === User Info Section === */
+    .user-info {
+      text-align: center;
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 15px;
+      margin: 0 20px 25px 20px;
+    }
+
+    .user-info i {
+      font-size: 30px;
+      color: #6b7280;
+      margin-bottom: 5px;
+    }
+ 
+    .user-info p {
+      margin: 0;
+      font-size: 14px;
+      color: #6b7280;
+    }
+
+    .user-info h6 {
+      margin: 0;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    /* === Sidebar Navigation === */
+    .nav-links {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 0 10px;
+    }
+
+    .nav-links a {
+    display: flex;
+    align-items: center;
+    gap: 14px; 
+    font-size: 16px; 
+    font-weight: 500;
+    color: #374151;
+    text-decoration: none;
+    padding: 12px 18px; 
+    border-radius: 8px;
+    margin: 4px 10px;
+    transition: all 0.2s ease;
+    }
+
+    .nav-links a i {
+    font-size: 19px; 
+    color: #374151;
+    transition: color 0.2s ease;
+    }
+
+    /* Hover state — icon & text both turn black */
+    .nav-links a:hover {
+    background: #f3f4f6;
+    color: #111827;
+    }
+
+    .nav-links a:hover i {
+    color: #111827;
+    }
+
+    /* Active state — white text & icon on dark background */
+    .nav-links a.active {
+    background: #871D2B;
+    color: #fff;
+    }
+
+    .nav-links a.active i {
+    color: #fff;
+    }
+    /* === Sign Out === */
+    .signout {
+    border-top: 1px solid #e5e7eb;
+    padding: 15px 20px 0;
+    }
+
+    .signout a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #dc2626;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 15px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    }
+
+    /* Hover effect — same feel as the other links */
+    .signout a:hover {
+    background: #f3f4f6;
+    color: #dc2626;
+    }
+
+    .signout a:hover i {
+    color: #dc2626;
+    }
+
+    /* === Main Content Offset === */
+    .content {
+      margin-left: 270px;
+      padding: 30px;
+      max-width: 1400px;
+    }
 
 /* === User Info === */
 .user-info {
@@ -284,7 +406,6 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
   padding: 30px;
   max-width: 1400px;
 }
-        
 .card {
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
@@ -350,6 +471,7 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 </head>
 <body>
 <!-- Sidebar -->
+<<!-- Sidebar -->
 <div class="sidebar" id="sidebar">
   <h4>Gitarra Apartelle</h4>
 
@@ -379,6 +501,7 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
     <a href="signin.php"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
   </div>
 </div>
+
 
 
     <!-- Content -->
@@ -924,178 +1047,237 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (options.length === 0) options.push({ label: "Unit", price: 0 });
 
-      // ================= SWEETALERT ORDER FORM =================
-      let html = `
-        <div style="text-align:left;display:flex;flex-direction:column;gap:15px;">
-
-          <!-- Size / Variant -->
-          ${
-            options.length > 1
-              ? `
-                <div>
-                  <label style="font-weight:600;display:block;margin-bottom:5px;">⚙️ Size / Variant</label>
-                  <select id="sizeSelect" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;">
-                    ${options
-                      .map(
-                        (opt, i) =>
-                          `<option value="${i}">${escapeHtml(opt.label)} — ₱${opt.price.toFixed(2)}</option>`
-                      )
-                      .join("")}
-                  </select>
-                </div>`
-              : `<p><strong>Price:</strong> ₱${options[0].price.toFixed(2)}</p>`
-          }
-
-          <!-- Quantity -->
-          <div>
-            <label style="font-weight:600;display:block;margin-bottom:5px;">🔢 Quantity</label>
-            <input id="qty" type="number" min="1" value="1"
-              style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;">
-          </div>
-
-          <div id="totalDisplay"
-               style="font-weight:bold;background:#f8f9fa;padding:10px;border-radius:8px;text-align:center;">
-            Total: ₱${options[0].price.toFixed(2)}
-          </div>
-
-          <!-- Mode of Payment -->
-          <div>
-            <label style="font-weight:600;display:block;margin-bottom:5px;">💳 Mode of Payment</label>
-            <select id="modePayment" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;">
-              <option value="cash">Cash</option>
-              <option value="gcash">GCash</option>
-            </select>
-          </div>
-
-          <!-- GCash Info -->
-          <div id="gcashDetails"
-               style="display:none;background:#222;color:white;padding:15px;border-radius:10px;margin-top:5px;">
-            <p style="margin:0 0 10px 0;font-weight:600;">📱 GCash Payment Information</p>
-            <p style="margin:0 0 5px 0;">📞 <strong>Account Number:</strong> 09171234567</p>
-            <p style="margin:0 0 10px 0;">👤 <strong>Account Name:</strong> Juan Dela Cruz</p>
-
-            <label for="refNumber" style="font-weight:600;display:block;margin-bottom:5px;">🔢 Enter Reference Number</label>
-            <input id="refNumber" type="text"
-              placeholder="Enter 12–14 digit Ref No."
-              maxlength="14"
-              style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;">
-          </div>
-        </div>
-      `;
-
+      // 🟢 Step 1: Show Informative Reminder before opening order form
       Swal.fire({
-        title: `Order ${escapeHtml(itemName)}`,
-        html,
-        showCancelButton: true,
-        confirmButtonText: "Add Order",
-        cancelButtonText: "Cancel",
-        confirmButtonColor: "#222",
-        cancelButtonColor: "#dc3545",
-        focusConfirm: false,
-        customClass: { popup: "swal2-rounded swal2-large" },
-
-        didOpen: () => {
-          const qtyInput = document.getElementById("qty");
-          const sizeSelect = document.getElementById("sizeSelect");
-          const totalDisplay = document.getElementById("totalDisplay");
-          const modePayment = document.getElementById("modePayment");
-          const gcashDetails = document.getElementById("gcashDetails");
-
-          const updateTotal = () => {
-            const qty = Math.max(1, parseInt(qtyInput.value) || 1);
-            const idx = sizeSelect ? parseInt(sizeSelect.value) : 0;
-            const price = options[idx].price;
-            totalDisplay.textContent = `Total: ₱${(qty * price).toFixed(2)}`;
-          };
-
-          qtyInput.addEventListener("input", updateTotal);
-          if (sizeSelect) sizeSelect.addEventListener("change", updateTotal);
-          modePayment.addEventListener("change", () => {
-            gcashDetails.style.display = modePayment.value === "gcash" ? "block" : "none";
-          });
-        },
-
-        preConfirm: () => {
-          const qty = Math.max(1, parseInt(document.getElementById("qty").value) || 1);
-          const idx = document.getElementById("sizeSelect")
-            ? parseInt(document.getElementById("sizeSelect").value)
-            : 0;
-          const mode_payment = document.getElementById("modePayment").value;
-          const ref_number = document.getElementById("refNumber")?.value.trim() || null;
-          const chosen = options[idx];
-          const total = qty * chosen.price;
-
-          if (mode_payment === "gcash" && !/^[0-9]{12,14}$/.test(ref_number)) {
-            Swal.showValidationMessage("Please enter a valid 12–14 digit GCash reference number.");
-            return false;
-          }
-
-          return {
-            item_name: itemName,
-            size: chosen.label,
-            price: total,
-            quantity: qty,
-            total,
-            mode_payment,
-            ref_number: mode_payment === "gcash" ? ref_number : null
-          };
-        }
+title: "🕒 Important Reminder",
+html: `
+  <div style="
+    text-align:left;
+    font-size:0.95em;
+    line-height:1.7;
+    color:#2d2d2d;
+    background:#fff8f8;
+    padding:18px 22px;
+    border-radius:14px;
+    border-left:6px solid #800000;
+    box-shadow:0 3px 10px rgba(128,0,0,0.15);
+  ">
+    <p style="font-weight:700;font-size:1.05em;margin-bottom:10px;color:#800000;">
+      ⚠️ Please review before placing your order:
+    </p>
+    <ul style="list-style:none;padding-left:0;margin:0;">
+      <li style="margin:6px 0;">
+        ⏳ You can <b>update</b> or <b>delete</b> your order within 
+        <span style="color:#b71c1c;font-weight:600;">5 minutes</span> of placing it.
+      </li>
+      <li style="margin:6px 0;">
+        🔒 After 5 minutes, your order will be <b>locked</b> for preparation.
+      </li>
+      <li style="margin:6px 0;">
+        🍽️ Orders that are already <b>served</b> cannot be changed or removed.
+      </li>
+    </ul>
+    <div style="
+      margin-top:18px;
+      text-align:center;
+      background:#fff0f0;
+      border:1px dashed #b71c1c;
+      padding:10px;
+      border-radius:8px;
+      font-weight:500;
+      color:#5a1a1a;
+    ">
+      Do you want to continue ordering 
+      <strong style="color:#800000;">${escapeHtml(itemName)}</strong>?
+    </div>
+  </div>
+`,
+iconHtml: '<i class="fas fa-exclamation-circle" style="color:#800000;font-size:2em;"></i>',
+customClass: {
+  icon: "no-border",
+  popup: "swal2-rounded swal2-large"
+},
+showCancelButton: true,
+confirmButtonText: "Yes, Proceed",
+cancelButtonText: "Cancel",
+confirmButtonColor: "#333333ff",
+cancelButtonColor: "#9c2b27ff",
+background: "#ffffff",
+allowOutsideClick: false,
+allowEscapeKey: false
       }).then(result => {
-        if (result.isConfirmed && result.value) {
-          const orderData = result.value;
+        if (!result.isConfirmed) return;
 
-          // 🟡 Add confirmation prompt before saving
-          Swal.fire({
-            title: "Confirm Order?",
-            html: `
-              <div style="
-                font-family: 'Courier New', monospace;
-                text-align: left;
-                background: #fff;
-                border: 2px dashed #ccc;
-                border-radius: 10px;
-                padding: 15px 20px;
-                max-width: 320px;
-                margin: 10px auto;
-                color: #222;
-              ">
-                <p style="text-align:center; font-weight:bold; margin:0 0 10px;">🧾 Order Confirmation</p>
-                <hr style="border:none; border-top:1px dashed #ccc; margin:10px 0;">
-                <p><strong>Item:</strong> ${escapeHtml(orderData.item_name)}</p>
-                <p><strong>Variant:</strong> ${orderData.size !== "Unit" ? escapeHtml(orderData.size) : "N/A"}</p>
-                <p><strong>Quantity:</strong> ${orderData.quantity}</p>
-                <p><strong>Payment:</strong> ${orderData.mode_payment.toUpperCase()}</p>
-                ${
-                  orderData.mode_payment === "gcash"
-                    ? `<p><strong>GCash Ref #:</strong> ${escapeHtml(orderData.ref_number)}</p>`
-                    : ""
-                }
-                <hr style="border:none; border-top:2px dashed #000; margin:12px 0;">
-                <p style="font-size:1.2em; font-weight:bold; text-align:right; color:#28a745;">
-                  Total: ₱${orderData.total.toFixed(2)}
-                </p>
-              </div>
-              <p style="font-size:0.9em; color:#555; text-align:center; margin-top:10px;">
-                Please confirm your order before proceeding.
-              </p>
-            `,
-            icon: "question",
-            showCancelButton: true,
-            confirmButtonText: "Yes, Confirm Order",
-            cancelButtonText: "Cancel",
-            confirmButtonColor: "#28a745",
-            cancelButtonColor: "#6c757d",
-            allowOutsideClick: false,
-            allowEscapeKey: false
-          }).then(confirmRes => {
-            if (!confirmRes.isConfirmed) return; // ❌ Do nothing if user cancels
+        // 🟢 Step 2: Proceed to original order form (your existing logic)
+        let html = `
+          <div style="text-align:left;display:flex;flex-direction:column;gap:15px;">
 
-            // ✅ Proceed with fetch only after confirmation
-            fetch("guest_add_order.php", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(orderData)
-            })
+            <!-- Size / Variant -->
+            ${
+              options.length > 1
+                ? `
+                  <div>
+                    <label style="font-weight:600;display:block;margin-bottom:5px;">⚙️ Size / Variant</label>
+                    <select id="sizeSelect" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;">
+                      ${options
+                        .map(
+                          (opt, i) =>
+                            `<option value="${i}">${escapeHtml(opt.label)} — ₱${opt.price.toFixed(2)}</option>`
+                        )
+                        .join("")}
+                    </select>
+                  </div>`
+                : `<p><strong>Price:</strong> ₱${options[0].price.toFixed(2)}</p>`
+            }
+
+            <!-- Quantity -->
+            <div>
+              <label style="font-weight:600;display:block;margin-bottom:5px;">🔢 Quantity</label>
+              <input id="qty" type="number" min="1" value="1"
+                style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;">
+            </div>
+
+            <div id="totalDisplay"
+                 style="font-weight:bold;background:#f8f9fa;padding:10px;border-radius:8px;text-align:center;">
+              Total: ₱${options[0].price.toFixed(2)}
+            </div>
+
+            <!-- Mode of Payment -->
+            <div>
+              <label style="font-weight:600;display:block;margin-bottom:5px;">💳 Mode of Payment</label>
+              <select id="modePayment" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;">
+                <option value="cash">Cash</option>
+                <option value="gcash">GCash</option>
+              </select>
+            </div>
+
+            <!-- GCash Info -->
+            <div id="gcashDetails"
+                 style="display:none;background:#222;color:white;padding:15px;border-radius:10px;margin-top:5px;">
+              <p style="margin:0 0 10px 0;font-weight:600;">📱 GCash Payment Information</p>
+              <p style="margin:0 0 5px 0;">📞 <strong>Account Number:</strong> 09171234567</p>
+              <p style="margin:0 0 10px 0;">👤 <strong>Account Name:</strong> Juan Dela Cruz</p>
+
+              <label for="refNumber" style="font-weight:600;display:block;margin-bottom:5px;">🔢 Enter Reference Number</label>
+              <input id="refNumber" type="text"
+                placeholder="Enter 12–14 digit Ref No."
+                maxlength="14"
+                style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;">
+            </div>
+          </div>
+        `;
+
+        Swal.fire({
+          title: `Order ${escapeHtml(itemName)}`,
+          html,
+          showCancelButton: true,
+          confirmButtonText: "Add Order",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: "#333333ff",
+          cancelButtonColor: "#9c2b27ff",
+          focusConfirm: false,
+          customClass: { popup: "swal2-rounded swal2-large" },
+
+          didOpen: () => {
+            const qtyInput = document.getElementById("qty");
+            const sizeSelect = document.getElementById("sizeSelect");
+            const totalDisplay = document.getElementById("totalDisplay");
+            const modePayment = document.getElementById("modePayment");
+            const gcashDetails = document.getElementById("gcashDetails");
+
+            const updateTotal = () => {
+              const qty = Math.max(1, parseInt(qtyInput.value) || 1);
+              const idx = sizeSelect ? parseInt(sizeSelect.value) : 0;
+              const price = options[idx].price;
+              totalDisplay.textContent = `Total: ₱${(qty * price).toFixed(2)}`;
+            };
+
+            qtyInput.addEventListener("input", updateTotal);
+            if (sizeSelect) sizeSelect.addEventListener("change", updateTotal);
+            modePayment.addEventListener("change", () => {
+              gcashDetails.style.display = modePayment.value === "gcash" ? "block" : "none";
+            });
+          },
+
+          preConfirm: () => {
+            const qty = Math.max(1, parseInt(document.getElementById("qty").value) || 1);
+            const idx = document.getElementById("sizeSelect")
+              ? parseInt(document.getElementById("sizeSelect").value)
+              : 0;
+            const mode_payment = document.getElementById("modePayment").value;
+            const ref_number = document.getElementById("refNumber")?.value.trim() || null;
+            const chosen = options[idx];
+            const total = qty * chosen.price;
+
+            if (mode_payment === "gcash" && !/^[0-9]{12,14}$/.test(ref_number)) {
+              Swal.showValidationMessage("Please enter a valid 12–14 digit GCash reference number.");
+              return false;
+            }
+
+            return {
+              item_name: itemName,
+              size: chosen.label,
+              price: total,
+              quantity: qty,
+              total,
+              mode_payment,
+              ref_number: mode_payment === "gcash" ? ref_number : null
+            };
+          }
+        }).then(result2 => {
+          if (result2.isConfirmed && result2.value) {
+            const orderData = result2.value;
+
+            // Continue with your existing receipt + PDF generation flow
+            // (All existing fetch, confirmation, receipt, reload logic remains unchanged)
+            Swal.fire({
+              title: "Confirm Order?",
+              html: `
+                <div style="
+                  font-family: 'Courier New', monospace;
+                  text-align: left;
+                  background: #fff;
+                  border: 2px dashed #ccc;
+                  border-radius: 10px;
+                  padding: 15px 20px;
+                  max-width: 320px;
+                  margin: 10px auto;
+                  color: #222;
+                ">
+                  <p style="text-align:center; font-weight:bold; margin:0 0 10px;">🧾 Order Confirmation</p>
+                  <hr style="border:none; border-top:1px dashed #ccc; margin:10px 0;">
+                  <p><strong>Item:</strong> ${escapeHtml(orderData.item_name)}</p>
+                  <p><strong>Variant:</strong> ${orderData.size !== "Unit" ? escapeHtml(orderData.size) : "N/A"}</p>
+                  <p><strong>Quantity:</strong> ${orderData.quantity}</p>
+                  <p><strong>Payment:</strong> ${orderData.mode_payment.toUpperCase()}</p>
+                  ${
+                    orderData.mode_payment === "gcash"
+                      ? `<p><strong>GCash Ref #:</strong> ${escapeHtml(orderData.ref_number)}</p>`
+                      : ""
+                  }
+                  <hr style="border:none; border-top:2px dashed #000; margin:12px 0;">
+                  <p style="font-size:1.2em; font-weight:bold; text-align:right; color:#28a745;">
+                    Total: ₱${orderData.total.toFixed(2)}
+                  </p>
+                </div>
+              `,
+              icon: "question",
+              showCancelButton: true,
+              confirmButtonText: "Yes, Confirm Order",
+              cancelButtonText: "Cancel",
+              confirmButtonColor: "#28a745",
+              cancelButtonColor: "#6c757d",
+              allowOutsideClick: false,
+              allowEscapeKey: false
+            }).then(confirmRes => {
+              if (!confirmRes.isConfirmed) return;
+
+              // ✅ Proceed with saving order + receipt generation (unchanged)
+              fetch("guest_add_order.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(orderData)
+              })
               .then(res => res.json())
               .then(async response => {
                 if (response.success) {
@@ -1110,37 +1292,16 @@ document.addEventListener("DOMContentLoaded", () => {
                   });
 
                   const htmlReceipt = `
-                    <div id="receipt-content" style="
-                      display:flex;
-                      flex-direction:column;
-                      align-items:center;
-                      text-align:center;
-                      gap:10px;
-                      font-family:'Courier New', monospace;
-                    ">
-                      <img src="image/logo-light.png" 
-                           alt="Apartelle Logo" 
-                           style="width:80px;height:auto;margin-top:15px;margin-bottom:5px;">
-                      <h3 style="margin:5px 0;color:#111;font-weight:700;letter-spacing:1px;">ORDER RECEIPT</h3>
-
-                      <div style="
-                        background:#fff;
-                        border:2px dashed #ccc;
-                        border-radius:10px;
-                        padding:15px 20px;
-                        width:100%;
-                        max-width:320px;
-                        text-align:left;
-                        color:#222;
-                      ">
-                        <p style="margin:0 0 10px;text-align:center;font-weight:bold;">
-                          🧾 Order Summary
-                        </p>
+                    <div id="receipt-content" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;font-family:'Courier New', monospace;">
+                      <img src="image/logo-light.png" style="width:80px;height:auto;margin-top:15px;margin-bottom:5px;">
+                      <h3 style="margin:5px 0;color:#111;font-weight:700;">ORDER RECEIPT</h3>
+                      <div style="background:#fff;border:2px dashed #ccc;border-radius:10px;padding:15px 20px;width:100%;max-width:320px;text-align:left;color:#222;">
+                        <p style="text-align:center;font-weight:bold;">🧾 Order Summary</p>
                         <hr style="border:none;border-top:1px dashed #ccc;margin:10px 0;">
                         <p><strong>Item:</strong> ${escapeHtml(orderData.item_name)}</p>
                         <p><strong>Variant:</strong> ${orderData.size !== "Unit" ? escapeHtml(orderData.size) : "N/A"}</p>
                         <p><strong>Quantity:</strong> ${orderData.quantity}</p>
-                        <p><strong>Payment Mode:</strong> ${orderData.mode_payment.toUpperCase()}</p>
+                        <p><strong>Payment:</strong> ${orderData.mode_payment.toUpperCase()}</p>
                         ${
                           orderData.mode_payment === "gcash"
                             ? `<p><strong>GCash Ref #:</strong> ${escapeHtml(orderData.ref_number)}</p>`
@@ -1152,8 +1313,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         </p>
                       </div>
                       <p style="font-size:0.85em;color:#555;margin-top:15px;">
-                        Thank you for ordering at <strong>Gitarra Apartelle</strong>!<br>
-                        Please wait while we process your request.
+                        Thank you for ordering at <strong>Gitarra Apartelle</strong>!
                       </p>
                     </div>
                   `;
@@ -1162,11 +1322,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     title: "✅ Order Confirmed!",
                     html: htmlReceipt,
                     icon: "success",
-                    background: "#fdfdfd",
-                    customClass: { popup: "swal2-rounded swal2-large" }
+                    background: "#fdfdfd"
                   });
 
-                  // 🧾 Handle Receipt Download
                   if (popupResult.dismiss === Swal.DismissReason.cancel) {
                     const receiptElement = document.getElementById("receipt-content");
                     const canvas = await html2canvas(receiptElement, { scale: 2, useCORS: true });
@@ -1180,31 +1338,281 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                   }
 
-                  // ✅ Reload on Done
-                  if (popupResult.isConfirmed) {
-                    window.location.reload();
-                  }
+                  if (popupResult.isConfirmed) window.location.reload();
                 } else {
                   Swal.fire("❌ Error", response.message || "Failed to save order.", "error");
                 }
               })
               .catch(() => Swal.fire("Error", "Server error. Please try again later.", "error"));
-          });
-        }
+            });
+          }
+        });
       });
     });
   });
 
-  // Simple HTML escape
+  // Prevent HTML injection
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, s =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      }[s])
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s])
+    );
+  }
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const viewBtn = document.getElementById("viewOrderBtn");
+
+  viewBtn.addEventListener("click", async () => {
+    const res = await fetch("guest_fetch_orders.php");
+    const data = await res.json();
+
+    if (!data.success) {
+      Swal.fire("Error", data.message || "Failed to fetch orders.", "error");
+      return;
+    }
+
+    const orders = data.orders;
+    if (!orders.length) {
+      Swal.fire("No Orders", "You have not placed any orders yet.", "info");
+      return;
+    }
+
+    // ✅ Compute grand total
+    let grandTotal = orders.reduce((sum, o) => sum + parseFloat(o.price), 0);
+
+    // ✅ Visual Info Banner
+    const tableHTML = `
+      <div style="margin-bottom:10px;padding:10px;background:#dff9fb;border:1px solid #22a6b3;border-radius:6px;color:#130f40;font-size:0.9em;display:flex;align-items:center;gap:8px;">
+        ⏰ <div><strong>Note:</strong> You have <b>5 minutes</b> after placing an order to update or delete it. The timer below each item shows how much time is left.</div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+          <thead style="background:#222;color:#fff;">
+            <tr>
+              <th style="padding:8px;">Item</th>
+              <th>Size</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Payment</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${orders.map(order => {
+              const isServed = order.status?.toLowerCase() === "served";
+              const orderTime = new Date(order.created_at.replace(" ", "T"));
+              const now = new Date();
+              const elapsed = (now - orderTime) / 1000; // seconds
+              const remainingSeconds = Math.max(0, 5 * 60 - elapsed); // 5 mins = 300s
+              const isExpired = remainingSeconds <= 0;
+
+              const badgeClass = isServed
+                ? "badge bg-success rounded-pill"
+                : "badge bg-warning text-dark rounded-pill";
+
+              const disableActions = isServed || isExpired;
+              const disableDelete = isServed || isExpired;
+
+              return `
+                <tr data-id="${order.id}" data-created="${order.created_at}">
+                  <td style="padding:6px;">
+                    ${escapeHtml(order.item_name)}
+                    <div class="timer" data-seconds="${remainingSeconds}" style="font-size:0.75em;color:#999;">
+                      ${isServed ? "" : (isExpired ? "⏱ Time expired" : "⏱ Calculating...")}
+                    </div>
+                  </td>
+                  <td>${order.size || "N/A"}</td>
+                  <td>
+                    <input 
+                      type="number" 
+                      value="${order.quantity}" 
+                      min="1"
+                      data-original-qty="${order.quantity}"
+                      data-original-price="${order.price}"
+                      style="width:60px;padding:4px;text-align:center;border:1px solid #ccc;border-radius:4px;"
+                      ${disableActions ? "disabled" : ""}
+                    >
+                  </td>
+                  <td class="price">₱${parseFloat(order.price).toFixed(2)}</td>
+                  <td>${order.mode_payment.toUpperCase()}</td>
+                  <td><span class="${badgeClass}">${order.status || "Pending"}</span></td>
+                  <td>
+                    <button class="btn btn-success btn-sm updateBtn" ${disableActions ? "disabled" : ""}>Update</button>
+                    <button class="btn btn-danger btn-sm deleteBtn" ${disableDelete ? "disabled" : ""}>Delete</button>
+                  </td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+          <tfoot style="font-weight:bold;">
+            <tr>
+              <td colspan="3" style="text-align:right;padding:8px;">Grand Total:</td>
+              <td colspan="4" id="grandTotal">₱${grandTotal.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+
+    Swal.fire({
+      title: "🧾 Your Orders",
+      html: tableHTML,
+      width: "700px",
+      showConfirmButton: false,
+      showCancelButton: true,
+      cancelButtonText: "Close",
+      didOpen: () => {
+        const popup = Swal.getPopup();
+        const updateButtons = popup.querySelectorAll(".updateBtn");
+        const deleteButtons = popup.querySelectorAll(".deleteBtn");
+        const qtyInputs = popup.querySelectorAll("input[type='number']");
+        const timers = popup.querySelectorAll(".timer");
+
+        // 🔹 Start live countdown timers
+        const timerInterval = setInterval(() => {
+          timers.forEach(timer => {
+            let remaining = parseInt(timer.dataset.seconds);
+            if (remaining <= 0) {
+              timer.textContent = "⏱ Time expired";
+              const row = timer.closest("tr");
+              const updateBtn = row.querySelector(".updateBtn");
+              const deleteBtn = row.querySelector(".deleteBtn");
+              const qtyInput = row.querySelector("input[type='number']");
+              if (updateBtn && !updateBtn.disabled) updateBtn.disabled = true;
+              if (deleteBtn && !deleteBtn.disabled) deleteBtn.disabled = true;
+              if (qtyInput && !qtyInput.disabled) qtyInput.disabled = true;
+              return;
+            }
+            remaining--;
+            timer.dataset.seconds = remaining;
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            timer.textContent = `⏱ ${mins}:${secs.toString().padStart(2, "0")} left`;
+          });
+        }, 1000);
+
+        // 🔹 Clear interval when popup closed
+        Swal.getContainer().addEventListener("click", (e) => {
+          if (e.target.classList.contains("swal2-cancel")) clearInterval(timerInterval);
+        });
+
+        // 🔹 Quantity input recalculation
+        qtyInputs.forEach(input => {
+          input.addEventListener("input", () => {
+            if (input.disabled) return;
+            const row = input.closest("tr");
+            const priceCell = row.querySelector(".price");
+            const oldQty = parseInt(input.dataset.originalQty);
+            const oldPrice = parseFloat(input.dataset.originalPrice);
+            const newQty = parseInt(input.value);
+
+            if (newQty < 1) return;
+            const unitPrice = oldPrice / oldQty;
+            const newPrice = unitPrice * newQty;
+            priceCell.textContent = `₱${newPrice.toFixed(2)}`;
+            updateGrandTotal();
+          });
+        });
+
+        // 🔹 Update order
+        updateButtons.forEach(btn => {
+          btn.addEventListener("click", async () => {
+            if (btn.disabled) return;
+            const row = btn.closest("tr");
+            const id = row.dataset.id;
+            const qtyInput = row.querySelector("input[type='number']");
+            const newQty = parseInt(qtyInput.value);
+
+            if (newQty < 1) {
+              Swal.fire("Invalid", "Quantity must be at least 1.", "warning");
+              return;
+            }
+
+            const confirm = await Swal.fire({
+              title: "Update Quantity?",
+              text: `Set quantity to ${newQty}?`,
+              icon: "question",
+              showCancelButton: true,
+              confirmButtonText: "Yes, Update"
+            });
+
+            if (!confirm.isConfirmed) return;
+
+            const updateRes = await fetch("guest_update_order.php", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id, quantity: newQty })
+            });
+            const updateData = await updateRes.json();
+
+            if (updateData.success) {
+              qtyInput.dataset.originalQty = newQty;
+              qtyInput.dataset.originalPrice = updateData.new_price.replace(/,/g, "");
+              Swal.fire("✅ Updated!", "Quantity updated successfully.", "success");
+            } else {
+              Swal.fire("Error", updateData.message || "Failed to update order.", "error");
+            }
+          });
+        });
+
+        // 🔹 Delete order
+        deleteButtons.forEach(btn => {
+          btn.addEventListener("click", async () => {
+            if (btn.disabled) return;
+            const row = btn.closest("tr");
+            const id = row.dataset.id;
+
+            const confirm = await Swal.fire({
+              title: "Delete Order?",
+              text: "This cannot be undone.",
+              icon: "warning",
+              showCancelButton: true,
+              confirmButtonText: "Yes, Delete",
+              confirmButtonColor: "#d33"
+            });
+
+            if (!confirm.isConfirmed) return;
+
+            const delRes = await fetch("guest_delete_order.php", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id })
+            });
+            const delData = await delRes.json();
+
+            if (delData.success) {
+              row.remove();
+              updateGrandTotal();
+              Swal.fire("Deleted!", "Order removed.", "success");
+            } else {
+              Swal.fire("Error", delData.message || "Failed to delete order.", "error");
+            }
+          });
+        });
+
+        // 🔹 Grand total update function
+        function updateGrandTotal() {
+          const rows = popup.querySelectorAll("tbody tr");
+          let total = 0;
+          rows.forEach(r => {
+            const priceText = r.querySelector(".price")?.textContent.replace(/[₱,]/g, "") || "0";
+            total += parseFloat(priceText);
+          });
+          const grandTotalEl = popup.querySelector("#grandTotal");
+          if (grandTotalEl) grandTotalEl.textContent = `₱${total.toFixed(2)}`;
+        }
+      }
+    });
+  });
+
+  // 🛡️ Prevent HTML injection
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, s =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s])
     );
   }
 });
