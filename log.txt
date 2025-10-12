@@ -1,0 +1,38 @@
+
+============================== UPDATES ========================================
+
+[ADMIN]
+* added logout session to admin panel 
+* report sidebar active style fixed
+* Data Tables implemented
+* Made the calendar just a pop up slide in
+* Centered the contents in dashboards
+* CHANGED the weekly report - monthly (walang ma pull up na weekly data) - THIS IS PARTIAL
+* ADD NEW ROOM - changed UI
+* UI for card stats
+* Add validation for the add new room
+* ROOM update finished - added modals for deletion and edit
+* ROOMS FINISHED --------------------------------------------------------------
+* USERS - fixed the auto-scroll when opening a modals
+* Added validation on email and password on 'Add new user'
+* Modified the success messages into toast alert on 'USERS'
+* Added error toast alert messages on 'USERS'
+* Changed the pause icon to 'undo' for reverting the user to pending status
+* Email verification
+* Code verification
+* Code expiration validation
+* Loading and Success modal for send and sent verification code
+* USERS FINISHED --------------------------------------------------------------
+* REPORTS FINISHED ------------------------------------------------------------
+* MODIFIED delete confirmation modals
+* MODIFIED edit modals
+* Edited form, modals, and supply filters on 'Supplies'
+* SUPPLIES FINISHED -----------------------------------------------------------
+* Added function to forgot password
+* Added mailer to reset password
+* Added loading and success modals for forgot and reset password
+* Added reset token in database
+* Added reset password validation
+* RESET PASSWORD mail UI
+* RESET PASSWORD FINISHED -----------------------------------------------------
+* SIGN IN UI changed
