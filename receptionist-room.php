@@ -55,108 +55,148 @@ while ($order = $orderResult->fetch_assoc()) {
     $roomOrders[$order['room_number']][] = $order;
 }
 
-// Actions: Extend or Checkout
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
+
+// ---------------------------
+//  ACTIONS: EXTEND / CHECKOUT
+// ---------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     $room_number = (int)$_POST['room_number'];
 
+    // ---------------- EXTEND ----------------
     if (isset($_POST['extend'])) {
-        $stmt = $conn->prepare("SELECT check_out_date FROM checkins WHERE room_number = ? AND check_out_date > NOW() ORDER BY check_out_date DESC LIMIT 1");
-        $stmt->bind_param('i', $room_number);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $check_out_date = $result->fetch_assoc()['check_out_date'] ?? null;
-
-        if ($check_out_date) {
-            $new_check_out_date = date('Y-m-d H:i:s', strtotime($check_out_date . ' +1 hour'));
-            $stmt_update = $conn->prepare("UPDATE checkins SET check_out_date = ? WHERE room_number = ?");
-            $stmt_update->bind_param('si', $new_check_out_date, $room_number);
-            $stmt_update->execute();
-            $stmt_update->close();
-
-            // ✅ ADD THIS: Extend keycard validity
-            $stmt_k = $conn->prepare("UPDATE keycards SET valid_to = ?, status = 'active' WHERE room_number = ? ORDER BY id DESC LIMIT 1");
-            $stmt_k->bind_param("si", $new_check_out_date, $room_number);
-            $stmt_k->execute();
-            $stmt_k->close();
-            
-            header("Location: receptionist-room.php?success=extended");
-            exit;
-        } else {
-            // ❌ No record found
-            header("Location: receptionist-room.php?error=no_checkin");
-            exit;
-        }
-    }
-
-    if (isset($_POST['checkout'])) {
-        // 1. Get total_price, amount_paid and guest_name
-        $stmt = $conn->prepare("SELECT total_price, amount_paid, guest_name FROM checkins WHERE room_number = ? ORDER BY check_out_date DESC LIMIT 1");
+        $stmt = $conn->prepare("
+            SELECT id, check_out_date, total_price 
+            FROM checkins 
+            WHERE room_number = ? AND status = 'checked_in' 
+            ORDER BY check_in_date DESC LIMIT 1
+        ");
         $stmt->bind_param('i', $room_number);
         $stmt->execute();
         $result = $stmt->get_result();
         $checkin = $result->fetch_assoc();
         $stmt->close();
-    
+
+        if ($checkin) {
+            $checkin_id = $checkin['id'];
+            $check_out_date = $checkin['check_out_date'];
+            $new_check_out_date = date('Y-m-d H:i:s', strtotime($check_out_date . ' +1 hour'));
+
+            // Permanent extension fee ₱120
+            $extension_fee = 120;
+            $new_total_price = $checkin['total_price'] + $extension_fee;
+
+            // Update check-out time and price
+            $stmt_update = $conn->prepare("
+                UPDATE checkins 
+                SET check_out_date = ?, total_price = ?, status = 'checked_in'
+                WHERE id = ?
+            ");
+            $stmt_update->bind_param('sdi', $new_check_out_date, $new_total_price, $checkin_id);
+            $stmt_update->execute();
+            $stmt_update->close();
+
+            // Extend keycard validity
+            $stmt_k = $conn->prepare("
+                UPDATE keycards 
+                SET valid_to = ?, status = 'active' 
+                WHERE room_number = ? 
+                ORDER BY id DESC LIMIT 1
+            ");
+            $stmt_k->bind_param("si", $new_check_out_date, $room_number);
+            $stmt_k->execute();
+            $stmt_k->close();
+
+            header("Location: receptionist-room.php?success=extended");
+            exit;
+        } else {
+            header("Location: receptionist-room.php?error=no_active_checkin");
+            exit;
+        }
+    }
+
+    // ---------------- CHECKOUT ----------------
+    if (isset($_POST['checkout'])) {
+        $stmt = $conn->prepare("
+            SELECT id, total_price, amount_paid, guest_name 
+            FROM checkins 
+            WHERE room_number = ? AND status = 'checked_in' 
+            ORDER BY check_in_date DESC LIMIT 1
+        ");
+        $stmt->bind_param('i', $room_number);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $checkin = $result->fetch_assoc();
+        $stmt->close();
+
         if ($checkin) {
             $total_price = (float)$checkin['total_price'];
             $amount_paid = (float)$checkin['amount_paid'];
             $guest_name = $checkin['guest_name'];
-    
-            // Proceed with checkout: update room and checkin
+            $balance = $total_price - $amount_paid;
+
+            // ❌ Require full payment before checkout
+            if ($balance > 0) {
+                header("Location: receptionist-room.php?error=unpaid&balance=" . $balance);
+                exit;
+            }
+
+            // ✅ Mark room available
             $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
             $stmt->bind_param('i', $room_number);
             $stmt->execute();
             $stmt->close();
-    
-            $stmt_update = $conn->prepare("UPDATE checkins SET check_out_date = NOW() WHERE room_number = ? AND guest_name = ? ORDER BY check_in_date DESC LIMIT 1");
-            // Note: MySQL does not support ORDER BY in UPDATE with LIMIT reliably across versions;
-            // do a safe two-step: find id then update
-            $sel = $conn->prepare("SELECT id FROM checkins WHERE room_number = ? AND guest_name = ? ORDER BY check_in_date DESC LIMIT 1");
-            $sel->bind_param('is', $room_number, $guest_name);
-            $sel->execute();
-            $selRes = $sel->get_result();
-            if ($selRes && $selRow = $selRes->fetch_assoc()) {
-                $checkin_id = $selRow['id'];
-                $sel->close();
-                $stmt_update2 = $conn->prepare("
-                    UPDATE checkins 
-                    SET check_out_date = NOW(), status = 'checked_out' 
-                    WHERE id = ?
-                ");
-                $stmt_update2->bind_param('i', $checkin_id);
-                $stmt_update2->execute();
-                $stmt_update2->close();
 
-                // Mark related booking as completed (if any)
-                $bkSel = $conn->prepare("SELECT id FROM bookings WHERE guest_name = ? AND room_number = ? AND status NOT IN ('cancelled','completed') ORDER BY start_date DESC LIMIT 1");
-                $bkSel->bind_param("si", $guest_name, $room_number);
-                $bkSel->execute();
-                $bkRes = $bkSel->get_result();
-                if ($bkRes && $bkRow = $bkRes->fetch_assoc()) {
-                    $booking_id = (int)$bkRow['id'];
-                    $bkSel->close();
-                    $bkUpd = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
-                    $bkUpd->bind_param('i', $booking_id);
-                    $bkUpd->execute();
-                    $bkUpd->close();
-                } else {
-                    $bkSel->close();
-                }
+            // ✅ Update checkin status
+            $stmt_update2 = $conn->prepare("
+                UPDATE checkins 
+                SET check_out_date = NOW(), status = 'checked_out' 
+                WHERE id = ?
+            ");
+            $stmt_update2->bind_param('i', $checkin['id']);
+            $stmt_update2->execute();
+            $stmt_update2->close();
 
-                // ✅ ADD THIS: Expire keycard upon checkout
-                $stmt_k2 = $conn->prepare("UPDATE keycards SET status='expired' WHERE room_number = ? AND status = 'active'");
-                $stmt_k2->bind_param("i", $room_number);
-                $stmt_k2->execute();
-                $stmt_k2->close();
-
+            // ✅ Complete related booking
+            $bkSel = $conn->prepare("
+                SELECT id FROM bookings 
+                WHERE guest_name = ? AND room_number = ? 
+                AND status NOT IN ('cancelled','completed') 
+                ORDER BY start_date DESC LIMIT 1
+            ");
+            $bkSel->bind_param("si", $guest_name, $room_number);
+            $bkSel->execute();
+            $bkRes = $bkSel->get_result();
+            if ($bkRes && $bkRow = $bkRes->fetch_assoc()) {
+                $booking_id = (int)$bkRow['id'];
+                $bkSel->close();
+                $bkUpd = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
+                $bkUpd->bind_param('i', $booking_id);
+                $bkUpd->execute();
+                $bkUpd->close();
             } else {
-                $sel->close();
+                $bkSel->close();
             }
+
+            // ✅ Expire keycard
+            $stmt_k2 = $conn->prepare("
+                UPDATE keycards 
+                SET status='expired' 
+                WHERE room_number = ? AND status = 'active'
+            ");
+            $stmt_k2->bind_param("i", $room_number);
+            $stmt_k2->execute();
+            $stmt_k2->close();
+
+            header("Location: receptionist-room.php?success=checked_out");
+            exit;
+        } else {
+            header("Location: receptionist-room.php?error=no_active_guest");
+            exit;
         }
     }
-
-        header("Location: receptionist-room.php?success=checked_out");
-    exit;
 }
 
 ?>
@@ -932,24 +972,121 @@ document.querySelectorAll('.extend-form').forEach(form => {
 });
 
 
-// SweetAlert Confirmation before Check Out
+// SweetAlert Confirmation before Check Out (with payment redirect)
 document.querySelectorAll('.checkout-form').forEach(form => {
-    form.addEventListener('submit', function(e) {
-        e.preventDefault(); // prevent immediate submit
+    form.addEventListener('submit', function (e) {
+        e.preventDefault(); // prevent normal submit
 
-        Swal.fire({
-            title: 'Are you sure?',
-            text: "Do you really want to check out this guest?",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Yes, check out',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                form.submit(); // proceed with form submission
+        const roomNumber = form.querySelector('input[name="room_number"]').value;
+
+        // Check payment status before showing confirmation
+        fetch("receptionist-guest.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: `action=check_payment_status&room_number=${roomNumber}`
+        })
+        .then(async res => {
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                console.error("Invalid JSON response:", text);
+                throw new Error("Invalid JSON");
             }
+        })
+        .then(data => {
+            if (data.payment_required) {
+                // 🧾 Show payment popup
+                Swal.fire({
+                    title: "Complete Payment",
+                    html: `
+                        <div style="text-align:left;">
+                            <p><b>Guest:</b> ${data.guest_name}</p>
+                            <p><b>Room:</b> #${data.room_number}</p>
+                            <p><b>Total Due:</b> ₱${parseFloat(data.amount_due).toFixed(2)}</p>
+                            <div style="margin-top:10px;">
+                                <label for="payment_amount">Enter Payment:</label>
+                                <input type="number" id="payment_amount" class="swal2-input"
+                                    placeholder="Enter amount" min="0" step="0.01"
+                                    style="width:80%; text-align:right;" />
+                            </div>
+                            <div style="margin-top:10px;">
+                                <label for="payment_mode">Payment Method:</label>
+                                <select id="payment_mode" class="swal2-select" style="width:80%;">
+                                    <option value="cash">Cash</option>
+                                    <option value="gcash">GCash</option>
+                                    <option value="card">Card</option>
+                                </select>
+                            </div>
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: "Submit Payment",
+                    cancelButtonText: "Cancel",
+                    focusConfirm: false,
+                    preConfirm: () => {
+                        const amount = parseFloat(document.getElementById("payment_amount").value);
+                        const mode = document.getElementById("payment_mode").value;
+                        if (!amount || amount <= 0) {
+                            Swal.showValidationMessage("Please enter a valid amount.");
+                            return false;
+                        }
+                        return { amount, mode };
+                    }
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        fetch("receptionist-guest.php", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                            body: `action=add_payment&guest_id=${data.guest_id}&additional_amount=${result.value.amount}&payment_mode=${result.value.mode}`
+                        })
+                        .then(async res => {
+                            const text = await res.text();
+                            try {
+                                return JSON.parse(text);
+                            } catch {
+                                console.error("Invalid JSON in payment:", text);
+                                throw new Error("Invalid JSON");
+                            }
+                        })
+                        .then(payData => {
+                            if (payData.success) {
+                                Swal.fire("Payment Successful", payData.message, "success")
+                                    .then(() => {
+                                        form.submit(); // auto checkout
+                                    });
+                            } else {
+                                Swal.fire("Error", payData.message, "error");
+                            }
+                        })
+                        .catch(async err => {
+                            const rawText = await err?.response?.text?.() || "No raw response";
+                            console.error("Payment fetch failed:", err, rawText);
+                            Swal.fire("Server Response", `<pre>${rawText}</pre>`, "error");
+                        });
+                    }
+                });
+            } else {
+                // ✅ No balance, proceed with normal checkout
+                Swal.fire({
+                    title: 'Are you sure?',
+                    text: "Do you really want to check out this guest?",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Yes, check out',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            }
+        })
+        .catch(err => {
+            console.error("Error:", err);
+            Swal.fire("Error", "Unable to verify payment status.", "error");
         });
     });
 });

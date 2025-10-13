@@ -7,17 +7,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $guest_id = (int)($_POST['guest_id'] ?? 0);
     $action = $_POST['action'];
     
+// ✅ CHECKOUT PROCESS
 if ($action === 'checkout' && $guest_id > 0) {
-    // Fetch guest info first
     $stmt = $conn->prepare("SELECT * FROM checkins WHERE id = ?");
     $stmt->bind_param('i', $guest_id);
     $stmt->execute();
-    $result = $stmt->get_result();
-    $guest = $result->fetch_assoc();
+    $guest = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
     if ($guest) {
-        // Check payment
         $total_cost = floatval($guest['total_price']);
         $amount_paid = floatval($guest['amount_paid']);
         $balance = $total_cost - $amount_paid;
@@ -31,56 +29,55 @@ if ($action === 'checkout' && $guest_id > 0) {
                     'guest_id' => $guest_id,
                     'guest_name' => $guest['guest_name'],
                     'room_number' => $guest['room_number'],
-                    'total_cost' => number_format($total_cost, 2),
-                    'amount_paid' => number_format($amount_paid, 2),
-                    'balance_due' => number_format($balance, 2),
-                    'balance_amount' => $balance
+                    'room_type' => $guest['room_type'] ?? '',
+                    'amount_due' => number_format($balance, 2),
+                    'amount_due_raw' => $balance
                 ]
             ]);
-        } else {
-            // Payment is good → proceed checkout
-            $stmt = $conn->prepare("
-                UPDATE checkins 
-                SET status = 'checked_out', check_out_date = NOW()
-                WHERE id = ? AND status IN ('checked_in', 'scheduled')
-            ");
-            $stmt->bind_param('i', $guest_id);
-            if (!$stmt->execute()) {
-                error_log("Checkout update failed: " . $stmt->error);
-            }
-            $stmt->close();
-
-
-            $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
-            $stmt->bind_param('i', $guest['room_number']);
-            $stmt->execute();
-            $stmt->close();
-
-            // ✅ Expire the keycard immediately after checkout
-            $stmt_keycard = $conn->prepare("UPDATE keycards SET status = 'expired' WHERE room_number = ? AND status = 'active'");
-            $stmt_keycard->bind_param('i', $guest['room_number']);
-            $stmt_keycard->execute();
-            $stmt_keycard->close();
-
-
-            // Update related booking
-            $bkSel = $conn->prepare("SELECT id FROM bookings WHERE guest_name = ? AND room_number = ? AND status NOT IN ('cancelled','completed') ORDER BY start_date DESC LIMIT 1");
-            $bkSel->bind_param("si", $guest['guest_name'], $guest['room_number']);
-            $bkSel->execute();
-            $bkRes = $bkSel->get_result();
-            if ($bkRes && $bkRow = $bkRes->fetch_assoc()) {
-                $booking_id = (int)$bkRow['id'];
-                $bkSel->close();
-                $bkUpd = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
-                $bkUpd->bind_param('i', $booking_id);
-                $bkUpd->execute();
-                $bkUpd->close();
-            } else {
-                $bkSel->close();
-            }
-
-            echo json_encode(['success' => true, 'message' => 'Guest checked out successfully']);
+            exit;
         }
+
+        // ✅ Mark guest checked out
+        $stmt = $conn->prepare("
+            UPDATE checkins
+            SET status = 'checked_out', check_out_date = NOW()
+            WHERE id = ? AND status IN ('checked_in', 'scheduled')
+        ");
+        $stmt->bind_param('i', $guest_id);
+        $stmt->execute();
+        $stmt->close();
+
+        // ✅ Make room available
+        $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
+        $stmt->bind_param('i', $guest['room_number']);
+        $stmt->execute();
+        $stmt->close();
+
+        // ✅ Expire keycard
+        $stmt = $conn->prepare("UPDATE keycards SET status='expired' WHERE room_number = ? AND status='active'");
+        $stmt->bind_param('i', $guest['room_number']);
+        $stmt->execute();
+        $stmt->close();
+
+        // ✅ Complete related booking
+        $bkSel = $conn->prepare("
+            SELECT id FROM bookings 
+            WHERE guest_name = ? AND room_number = ? 
+            AND status NOT IN ('cancelled','completed')
+            ORDER BY start_date DESC LIMIT 1
+        ");
+        $bkSel->bind_param('si', $guest['guest_name'], $guest['room_number']);
+        $bkSel->execute();
+        $bkRes = $bkSel->get_result();
+        if ($bkRes && $bkRow = $bkRes->fetch_assoc()) {
+            $bkUpd = $conn->prepare("UPDATE bookings SET status='completed' WHERE id=?");
+            $bkUpd->bind_param('i', $bkRow['id']);
+            $bkUpd->execute();
+            $bkUpd->close();
+        }
+        $bkSel->close();
+
+        echo json_encode(['success' => true, 'message' => 'Guest checked out successfully']);
     } else {
         echo json_encode(['success' => false, 'message' => 'Guest not found or already checked out']);
     }
@@ -88,107 +85,168 @@ if ($action === 'checkout' && $guest_id > 0) {
 }
 
 
-    // Add new action for additional payment
-    if ($action === 'add_payment' && $guest_id > 0) {
-        $additional_amount = floatval($_POST['additional_amount'] ?? 0);
-        $payment_mode = $_POST['payment_mode'] ?? 'cash';
-        $gcash_reference = $_POST['gcash_reference'] ?? '';
-        
-        if ($additional_amount <= 0) {
-            echo json_encode(['success' => false, 'message' => 'Invalid payment amount']);
-            exit;
-        }
-        
-        // Get current guest data
-        $stmt = $conn->prepare("SELECT * FROM checkins WHERE id = ?");
-        $stmt->bind_param('i', $guest_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $guest = $result->fetch_assoc();
-        $stmt->close();
-        
-        if ($guest) {
-            $new_amount_paid = floatval($guest['amount_paid']) + $additional_amount;
-            $new_total_cost = floatval($guest['total_price']);
-            $new_change = max(0, $new_amount_paid - $new_total_cost);
-            
-            // Update payment information
-            $stmt = $conn->prepare("
-                UPDATE checkins 
-                SET amount_paid = ?, change_amount = ?, payment_mode = ?, gcash_reference = ? 
-                WHERE id = ?
-            ");
-            $stmt->bind_param('ddssi', $new_amount_paid, $new_change, $payment_mode, $gcash_reference, $guest_id);
-            $stmt->execute();
-            $stmt->close();
-            
-            echo json_encode([
-                'success' => true, 
-                'message' => 'Payment added successfully',
-                'new_amount_paid' => number_format($new_amount_paid, 2),
-                'change_amount' => number_format($new_change, 2),
-                'can_checkout' => $new_amount_paid >= $new_total_cost
-            ]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Guest not found']);
-        }
-        exit;
-    }
-    
-    if ($action === 'extend' && $guest_id > 0) {
-        // Get guest and room information
-        $stmt = $conn->prepare("
-            SELECT c.*, r.price_3hrs 
-            FROM checkins c 
-            JOIN rooms r ON c.room_number = r.room_number 
-            WHERE c.id = ? AND c.check_out_date > NOW()
-        ");
-        $stmt->bind_param('i', $guest_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $guest = $result->fetch_assoc();
-        $stmt->close();
-        
-        if ($guest) {
-            // Calculate new check-out time (extend by 1 hour)
-            $current_checkout = new DateTime($guest['check_out_date']);
-            $new_checkout = $current_checkout->modify('+1 hour');
-            $new_checkout_str = $new_checkout->format('Y-m-d H:i:s');
-            
-            // Calculate additional price (1 hour extension = price_3hrs / 3)
-            $hourly_rate = $guest['price_3hrs'] / 3;
-            $new_total_price = $guest['total_price'] + $hourly_rate;
-            
-            // Update check-out time, stay duration, and total price
-            $new_duration = $guest['stay_duration'] + 1;
-            $stmt = $conn->prepare("
-                UPDATE checkins 
-                SET check_out_date = ?, stay_duration = ?, total_price = ? 
-                WHERE id = ?
-            ");
-            $stmt->bind_param('sidi', $new_checkout_str, $new_duration, $new_total_price, $guest_id);
-            $stmt->execute();
-            $stmt->close();
+// ✅ ADDITIONAL PAYMENT
+if ($action === 'add_payment' && $guest_id > 0) {
+    $additional_amount = floatval($_POST['additional_amount'] ?? 0);
+    $payment_mode = $_POST['payment_mode'] ?? 'cash';
+    $gcash_reference = $_POST['gcash_reference'] ?? '';
 
-            // ✅ Extend keycard validity time as well
-            $stmt_keycard = $conn->prepare("UPDATE keycards SET valid_to = ?, status = 'active' WHERE room_number = ? ORDER BY id DESC LIMIT 1");
-            $stmt_keycard->bind_param('si', $new_checkout_str, $guest['room_number']);
-            $stmt_keycard->execute();
-            $stmt_keycard->close();
-                        
-            echo json_encode([
-                'success' => true, 
-                'message' => 'Stay extended by 1 hour',
-                'new_checkout' => $new_checkout->format('M j, Y g:i A'),
-                'new_total' => number_format($new_total_price, 2),
-                'additional_cost' => number_format($hourly_rate, 2)
-            ]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Guest not found or already checked out']);
-        }
+    if ($additional_amount <= 0) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Invalid payment amount']);
         exit;
     }
+
+    // Get current guest
+    $stmt = $conn->prepare("SELECT * FROM checkins WHERE id = ?");
+    $stmt->bind_param('i', $guest_id);
+    $stmt->execute();
+    $guest = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$guest) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Guest not found']);
+        exit;
+    }
+
+    $new_amount_paid = floatval($guest['amount_paid']) + $additional_amount;
+    $total_price = floatval($guest['total_price']);
+    $new_change = max(0, $new_amount_paid - $total_price);
+
+    // Update checkins
+    $stmt = $conn->prepare("
+        UPDATE checkins
+        SET amount_paid=?, change_amount=?, payment_mode=?, gcash_reference=?
+        WHERE id=?
+    ");
+    $stmt->bind_param('ddssi', $new_amount_paid, $new_change, $payment_mode, $gcash_reference, $guest_id);
+    $stmt->execute();
+    $stmt->close();
+
+    // ✅ Insert into payments table (matches your table structure)
+    $stmtp = $conn->prepare("
+        INSERT INTO payments (payment_date, amount, payment_mode)
+        VALUES (NOW(), ?, ?)
+    ");
+    $stmtp->bind_param('ds', $additional_amount, $payment_mode);
+    $stmtp->execute();
+    $stmtp->close();
+
+    // ✅ Return clean JSON
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true, 
+        'message' => 'Payment added successfully',
+        'new_amount_paid' => number_format($new_amount_paid, 2),
+        'change_amount' => number_format($new_change, 2),
+        'can_checkout' => $new_amount_paid >= $total_price
+    ]);
+    exit;
 }
+
+
+
+// ✅ EXTEND STAY (Fixed ₱120 fee)
+if ($action === 'extend' && $guest_id > 0) {
+    $stmt = $conn->prepare("
+        SELECT c.*, r.room_type 
+        FROM checkins c 
+        JOIN rooms r ON c.room_number = r.room_number
+        WHERE c.id = ? AND c.status='checked_in'
+    ");
+    $stmt->bind_param('i', $guest_id);
+    $stmt->execute();
+    $guest = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($guest) {
+        // Fixed extension fee ₱120
+        $extension_fee = 120;
+
+        // Extend checkout by 1 hour
+        $current_checkout = new DateTime($guest['check_out_date']);
+        $new_checkout = $current_checkout->modify('+1 hour');
+        $new_checkout_str = $new_checkout->format('Y-m-d H:i:s');
+
+        $new_total = $guest['total_price'] + $extension_fee;
+
+        $stmt = $conn->prepare("
+            UPDATE checkins 
+            SET check_out_date=?, total_price=?, stay_duration=stay_duration+1 
+            WHERE id=?
+        ");
+        $stmt->bind_param('sdi', $new_checkout_str, $new_total, $guest_id);
+        $stmt->execute();
+        $stmt->close();
+
+        // Extend keycard
+        $stmt_k = $conn->prepare("
+            UPDATE keycards 
+            SET valid_to=?, status='active' 
+            WHERE room_number=? ORDER BY id DESC LIMIT 1
+        ");
+        $stmt_k->bind_param('si', $new_checkout_str, $guest['room_number']);
+        $stmt_k->execute();
+        $stmt_k->close();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Stay extended by 1 hour',
+            'new_checkout' => $new_checkout->format('M j, Y g:i A'),
+            'additional_cost' => number_format($extension_fee, 2),
+            'new_total' => number_format($new_total, 2),
+            'payment_required' => true,
+            'payment_details' => [
+                'guest_id' => (int)$guest_id,
+                'guest_name' => $guest['guest_name'],
+                'room_number' => $guest['room_number'],
+                'room_type' => $guest['room_type'] ?? '',
+                'amount_due' => number_format($extension_fee, 2),
+                'amount_due_raw' => $extension_fee
+            ]
+        ]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Guest not found or already checked out']);
+    }
+    exit;
+}
+
+
+// ✅ CHECK PAYMENT STATUS (used by receptionist-room)
+if ($action === 'check_payment_status' && isset($_POST['room_number'])) {
+    $room_number = intval($_POST['room_number']);
+    $stmt = $conn->prepare("
+        SELECT id, guest_name, total_price, amount_paid
+        FROM checkins
+        WHERE room_number = ? AND status='checked_in'
+        ORDER BY check_in_date DESC LIMIT 1
+    ");
+    $stmt->bind_param('i', $room_number);
+    $stmt->execute();
+    $guest = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($guest) {
+        $balance = floatval($guest['total_price']) - floatval($guest['amount_paid']);
+        if ($balance > 0) {
+            echo json_encode([
+                'payment_required' => true,
+                'guest_id' => $guest['id'],
+                'guest_name' => $guest['guest_name'],
+                'room_number' => $room_number,
+                'amount_due' => number_format($balance, 2)
+            ]);
+        } else {
+            echo json_encode(['payment_required' => false]);
+        }
+    } else {
+        echo json_encode(['payment_required' => false]);
+    }
+    exit;
+}
+}
+
 
 // Total Bookings Count
 $total_bookings_result = $conn->query("SELECT COUNT(*) AS total FROM checkins");
@@ -1214,18 +1272,8 @@ function checkOutGuest(guestId) {
                     Swal.fire("Checked Out!", data.message, "success")
                         .then(() => location.reload());
                 } else if (data.payment_required) {
-                    // If payment is needed, show custom modal or SweetAlert form
-                    Swal.fire({
-                        title: "Payment Required",
-                        html: `
-                            <p>${data.message}</p>
-                            <p><b>Amount Due:</b> ₱${data.payment_details.amount_due}</p>
-                        `,
-                        icon: "info",
-                        confirmButtonText: "Proceed to Payment"
-                    }).then(() => {
-                        showPaymentForm(data.payment_details);
-                    });
+                    // show payment form only during checkout
+                    showPaymentForm(data.payment_details, true); 
                 } else {
                     Swal.fire("Error", data.message, "error");
                 }
@@ -1238,14 +1286,17 @@ function checkOutGuest(guestId) {
     });
 }
 
-function showPaymentForm(paymentDetails) {
+function showPaymentForm(paymentDetails, autoCheckout = false) {
+    const amountDueRaw = Number(paymentDetails.amount_due_raw ?? paymentDetails.balance_amount ?? 0) || 0;
+    const amountDueDisplay = paymentDetails.amount_due ?? paymentDetails.balance_due ?? parseFloat(amountDueRaw).toFixed(2);
+
     Swal.fire({
         title: "Complete Payment",
         html: `
             <div style="text-align:left;">
-                <p><b>Guest:</b> ${paymentDetails.guest_name}</p>
-                <p><b>Room:</b> #${paymentDetails.room_number} (${paymentDetails.room_type})</p>
-                <p><b>Total Due:</b> ₱${parseFloat(paymentDetails.amount_due).toFixed(2)}</p>
+                <p><b>Guest:</b> ${paymentDetails.guest_name || ''}</p>
+                <p><b>Room:</b> #${paymentDetails.room_number || ''} ${paymentDetails.room_type ? '(' + paymentDetails.room_type + ')' : ''}</p>
+                <p><b>Total Due:</b> ₱${amountDueDisplay}</p>
                 <div style="margin-top:10px;">
                     <label for="payment_amount">Enter Payment:</label>
                     <input type="number" id="payment_amount" class="swal2-input" 
@@ -1261,38 +1312,63 @@ function showPaymentForm(paymentDetails) {
                         <option value="card">Card</option>
                     </select>
                 </div>
+                <div id="gcash_ref_wrapper" style="display:none; margin-top:8px;">
+                    <label for="gcash_reference">GCash Reference:</label>
+                    <input id="gcash_reference" class="swal2-input" placeholder="GCash reference (optional)" style="width:80%; text-align:left;" />
+                </div>
             </div>
         `,
         showCancelButton: true,
         confirmButtonText: "Submit Payment",
         cancelButtonText: "Cancel",
         focusConfirm: false,
+        didOpen: () => {
+            const modeSelect = document.getElementById('payment_mode');
+            const gcashWrapper = document.getElementById('gcash_ref_wrapper');
+            modeSelect.addEventListener('change', () => {
+                gcashWrapper.style.display = modeSelect.value === 'gcash' ? 'block' : 'none';
+            });
+        },
         preConfirm: () => {
-            const amount = document.getElementById("payment_amount").value;
+            const amount = parseFloat(document.getElementById("payment_amount").value);
             const mode = document.getElementById("payment_mode").value;
+            const gcash_reference = document.getElementById("gcash_reference") ? document.getElementById("gcash_reference").value.trim() : '';
 
-            if (!amount || parseFloat(amount) <= 0) {
+            if (!amount || amount <= 0) {
                 Swal.showValidationMessage("Please enter a valid amount.");
                 return false;
             }
 
-            return { amount, mode };
+            return { amount, mode, gcash_reference };
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            // Process the payment
+            const payload = new URLSearchParams();
+            payload.append('action', 'add_payment');
+            payload.append('guest_id', paymentDetails.guest_id);
+            payload.append('additional_amount', result.value.amount);
+            payload.append('payment_mode', result.value.mode);
+            payload.append('gcash_reference', result.value.gcash_reference);
+
             fetch("receptionist-guest.php", {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: `action=pay&guest_id=${paymentDetails.guest_id}&amount=${result.value.amount}&mode=${result.value.mode}`
+                body: payload.toString()
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     Swal.fire("Payment Successful", data.message, "success")
-                        .then(() => location.reload());
+                        .then(() => {
+                            if (autoCheckout) {
+                                // Automatically complete checkout after payment
+                                proceedWithCheckout(paymentDetails.guest_id);
+                            } else {
+                                location.reload();
+                            }
+                        });
                 } else {
-                    Swal.fire("Error", data.message, "error");
+                    Swal.fire("Error", data.message || "Payment failed", "error");
                 }
             })
             .catch(error => {
@@ -1305,27 +1381,25 @@ function showPaymentForm(paymentDetails) {
 
 
 function proceedWithCheckout(guestId) {
-    fetch('receptionist-guest.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
+    fetch("receptionist-guest.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: `action=checkout&guest_id=${guestId}`
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert(data.message);
-            location.reload();
+            Swal.fire("Checked Out!", data.message, "success")
+                .then(() => location.reload());
         } else {
-            alert('Error: ' + data.message);
+            Swal.fire("Error", data.message, "error");
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while checking out the guest.');
+        console.error("Error:", error);
+        Swal.fire("Error", "An error occurred during checkout.", "error");
     });
-}  
+}
 // Function to extend guest stay
 function extendStay(guestId) {
     if (!guestId) {
@@ -1352,6 +1426,7 @@ function extendStay(guestId) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Just show confirmation, no payment modal
                     Swal.fire({
                         title: "Stay Extended!",
                         html: `
