@@ -959,10 +959,12 @@ document.querySelectorAll('.extend-form').forEach(form => {
             text: "Do you want to extend this stay by 1 hour?",
             icon: 'question',
             showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#aaa',
+            background: '#1a1a1a',
+            color: '#fff',
+            confirmButtonColor: '#8b1d2d', 
+            cancelButtonColor: '#555',
             confirmButtonText: 'Yes, extend',
-            cancelButtonText: 'No'
+            cancelButtonText: 'Cancel'
         }).then((result) => {
             if (result.isConfirmed) {
                 form.submit();
@@ -972,124 +974,160 @@ document.querySelectorAll('.extend-form').forEach(form => {
 });
 
 
-// SweetAlert Confirmation before Check Out (with payment redirect)
+// SweetAlert Confirmation before Check Out (with payment popup)
 document.querySelectorAll('.checkout-form').forEach(form => {
-    form.addEventListener('submit', function (e) {
-        e.preventDefault(); // prevent normal submit
+  form.addEventListener('submit', function (e) {
+    e.preventDefault(); // prevent default form submit
 
-        const roomNumber = form.querySelector('input[name="room_number"]').value;
+    const roomNumber = form.querySelector('input[name="room_number"]').value;
 
-        // Check payment status before showing confirmation
-        fetch("receptionist-guest.php", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: `action=check_payment_status&room_number=${roomNumber}`
-        })
-        .then(async res => {
-            const text = await res.text();
-            try {
-                return JSON.parse(text);
-            } catch {
-                console.error("Invalid JSON response:", text);
-                throw new Error("Invalid JSON");
+    // Check payment status first
+    fetch("receptionist-guest.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `action=check_payment_status&room_number=${roomNumber}`
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.payment_required) {
+        // 🧾 Show styled payment popup
+        const amountDueRaw = Number(data.amount_due) || 0;
+        const amountDueDisplay = amountDueRaw.toFixed(2);
+
+        Swal.fire({
+          title: '<span style="font-weight: 600; color: #fff;">Complete Payment</span>',
+          html: `
+            <div style="background: #111; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: inset 0 0 6px rgba(255,255,255,0.05);">
+              <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333;">
+                <span style="color: #bbb;">Guest:</span>
+                <span style="color: #fff; font-weight: 500;">${data.guest_name || ''}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333;">
+                <span style="color: #bbb;">Room:</span>
+                <span style="color: #fff; font-weight: 500;">#${data.room_number || ''}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+                <span style="color: #dc3545; font-weight: 600;">Balance Due:</span>
+                <span style="color: #dc3545; font-weight: 700;">₱${amountDueDisplay}</span>
+              </div>
+            </div>
+
+            <div style="text-align: left; margin-bottom: 15px;">
+              <label style="display: block; color: #ccc; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Enter Payment:</label>
+              <input type="number" id="payment_amount" placeholder="0.00" min="0" step="0.01"
+                style="width: 100%; padding: 12px; border: 1px solid #444; border-radius: 6px; font-size: 15px; background: #222; color: #eee; box-sizing: border-box;" />
+            </div>
+
+            <div style="text-align: left;">
+              <label style="display: block; color: #ccc; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Payment Method:</label>
+              <select id="payment_mode" style="width: 100%; padding: 12px; border: 1px solid #444; border-radius: 6px; font-size: 15px; background: #222; color: #eee;">
+                <option value="cash">Cash</option>
+                <option value="gcash">GCash</option>
+              </select>
+            </div>
+
+            <div id="gcash_ref_wrapper" style="display:none; margin-top: 15px; text-align: left;">
+              <label style="display: block; color: #ccc; font-size: 14px; margin-bottom: 6px; font-weight: 500;">GCash Reference:</label>
+              <input id="gcash_reference" placeholder="Enter GCash reference number"
+                style="width: 100%; padding: 12px; border: 1px solid #444; border-radius: 6px; font-size: 15px; background: #222; color: #eee; box-sizing: border-box;" />
+            </div>
+          `,
+          background: '#1a1a1a',
+          color: '#fff',
+          showCancelButton: true,
+          confirmButtonText: 'Submit Payment',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#8b1d2d',
+          cancelButtonColor: '#555',
+          width: '500px',
+          padding: '1.5rem',
+          didOpen: () => {
+            const modeSelect = document.getElementById('payment_mode');
+            const gcashWrapper = document.getElementById('gcash_ref_wrapper');
+            modeSelect.addEventListener('change', () => {
+              gcashWrapper.style.display = modeSelect.value === 'gcash' ? 'block' : 'none';
+            });
+          },
+          preConfirm: () => {
+            const amount = parseFloat(document.getElementById("payment_amount").value);
+            const mode = document.getElementById("payment_mode").value;
+            const gcash_reference = document.getElementById("gcash_reference")?.value.trim() || '';
+
+            if (!amount || amount <= 0) {
+              Swal.showValidationMessage("Please enter a valid amount.");
+              return false;
             }
-        })
-        .then(data => {
-            if (data.payment_required) {
-                // 🧾 Show payment popup
-                Swal.fire({
-                    title: "Complete Payment",
-                    html: `
-                        <div style="text-align:left;">
-                            <p><b>Guest:</b> ${data.guest_name}</p>
-                            <p><b>Room:</b> #${data.room_number}</p>
-                            <p><b>Total Due:</b> ₱${parseFloat(data.amount_due).toFixed(2)}</p>
-                            <div style="margin-top:10px;">
-                                <label for="payment_amount">Enter Payment:</label>
-                                <input type="number" id="payment_amount" class="swal2-input"
-                                    placeholder="Enter amount" min="0" step="0.01"
-                                    style="width:80%; text-align:right;" />
-                            </div>
-                            <div style="margin-top:10px;">
-                                <label for="payment_mode">Payment Method:</label>
-                                <select id="payment_mode" class="swal2-select" style="width:80%;">
-                                    <option value="cash">Cash</option>
-                                    <option value="gcash">GCash</option>
-                                    <option value="card">Card</option>
-                                </select>
-                            </div>
-                        </div>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonText: "Submit Payment",
-                    cancelButtonText: "Cancel",
-                    focusConfirm: false,
-                    preConfirm: () => {
-                        const amount = parseFloat(document.getElementById("payment_amount").value);
-                        const mode = document.getElementById("payment_mode").value;
-                        if (!amount || amount <= 0) {
-                            Swal.showValidationMessage("Please enter a valid amount.");
-                            return false;
-                        }
-                        return { amount, mode };
-                    }
-                }).then(result => {
-                    if (result.isConfirmed) {
-                        fetch("receptionist-guest.php", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                            body: `action=add_payment&guest_id=${data.guest_id}&additional_amount=${result.value.amount}&payment_mode=${result.value.mode}`
-                        })
-                        .then(async res => {
-                            const text = await res.text();
-                            try {
-                                return JSON.parse(text);
-                            } catch {
-                                console.error("Invalid JSON in payment:", text);
-                                throw new Error("Invalid JSON");
-                            }
-                        })
-                        .then(payData => {
-                            if (payData.success) {
-                                Swal.fire("Payment Successful", payData.message, "success")
-                                    .then(() => {
-                                        form.submit(); // auto checkout
-                                    });
-                            } else {
-                                Swal.fire("Error", payData.message, "error");
-                            }
-                        })
-                        .catch(async err => {
-                            const rawText = await err?.response?.text?.() || "No raw response";
-                            console.error("Payment fetch failed:", err, rawText);
-                            Swal.fire("Server Response", `<pre>${rawText}</pre>`, "error");
-                        });
-                    }
-                });
-            } else {
-                // ✅ No balance, proceed with normal checkout
-                Swal.fire({
-                    title: 'Are you sure?',
-                    text: "Do you really want to check out this guest?",
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Yes, check out',
-                    cancelButtonText: 'Cancel'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        form.submit();
-                    }
-                });
+
+            if (mode === "gcash" && !gcash_reference) {
+              Swal.showValidationMessage("Please enter GCash reference number.");
+              return false;
             }
-        })
-        .catch(err => {
-            console.error("Error:", err);
-            Swal.fire("Error", "Unable to verify payment status.", "error");
+
+            return { amount, mode, gcash_reference };
+          }
+        }).then(result => {
+          if (result.isConfirmed) {
+            // Submit payment before checkout
+            const payload = new URLSearchParams();
+            payload.append('action', 'add_payment');
+            payload.append('guest_id', data.guest_id);
+            payload.append('additional_amount', result.value.amount);
+            payload.append('payment_mode', result.value.mode);
+            payload.append('gcash_reference', result.value.gcash_reference);
+
+            fetch("receptionist-guest.php", {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: payload.toString()
+            })
+            .then(res => res.json())
+            .then(payData => {
+              if (payData.success) {
+                Swal.fire({
+                  title: "Payment Successful",
+                  text: payData.message || "Payment recorded successfully.",
+                  icon: "success",
+                  background: '#1a1a1a',
+                  confirmButtonColor: "#8b1d2d"
+                }).then(() => {
+                  form.submit(); // proceed with checkout
+                });
+              } else {
+                Swal.fire("Error", payData.message || "Payment failed.", "error");
+              }
+            })
+            .catch(err => {
+              console.error("Payment Error:", err);
+              Swal.fire("Error", "An error occurred while processing payment.", "error");
+            });
+          }
         });
+
+      } else {
+        // ✅ No payment required — regular checkout confirmation
+        Swal.fire({
+          title: 'Are you sure?',
+          text: "Do you really want to check out this guest?",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#8b1d2d',
+          cancelButtonColor: '#555',
+          confirmButtonText: 'Yes, check out',
+          cancelButtonText: 'Cancel'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            form.submit();
+          }
+        });
+      }
+    })
+    .catch(err => {
+      console.error("Error:", err);
+      Swal.fire("Error", "Unable to verify payment status.", "error");
     });
+  });
 });
+
 
 
 // Handle card click
