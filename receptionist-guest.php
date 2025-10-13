@@ -2,6 +2,43 @@
 session_start();
 require_once 'database.php';
 
+// ✅ AUTO-UPDATE STATUS BASED ON TIME (runs on every page load)
+// Update scheduled → checked_in when check-in time passes
+$conn->query("
+    UPDATE checkins 
+    SET status = 'checked_in' 
+    WHERE status = 'scheduled' 
+    AND check_in_date <= NOW()
+");
+
+// Update checked_in → checked_out when check-out time passes
+$conn->query("
+    UPDATE checkins 
+    SET status = 'checked_out' 
+    WHERE status = 'checked_in' 
+    AND check_out_date <= NOW()
+");
+
+// Also make rooms available when guests are auto-checked-out
+$conn->query("
+    UPDATE rooms r
+    INNER JOIN checkins c ON r.room_number = c.room_number
+    SET r.status = 'available'
+    WHERE c.status = 'checked_out' 
+    AND c.check_out_date <= NOW()
+    AND r.status = 'occupied'
+");
+
+// Expire keycards for checked-out guests
+$conn->query("
+    UPDATE keycards k
+    INNER JOIN checkins c ON k.room_number = c.room_number
+    SET k.status = 'expired'
+    WHERE c.status = 'checked_out' 
+    AND c.check_out_date <= NOW()
+    AND k.status = 'active'
+");
+
 // Handle AJAX requests for check-out and extend functionality
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $guest_id = (int)($_POST['guest_id'] ?? 0);
@@ -25,14 +62,14 @@ if ($action === 'checkout' && $guest_id > 0) {
                 'success' => false,
                 'payment_required' => true,
                 'message' => 'Additional payment required',
-                'payment_details' => [
-                    'guest_id' => $guest_id,
-                    'guest_name' => $guest['guest_name'],
-                    'room_number' => $guest['room_number'],
-                    'room_type' => $guest['room_type'] ?? '',
-                    'amount_due' => number_format($balance, 2),
-                    'amount_due_raw' => $balance
-                ]
+                'guest_id' => $guest_id,
+                'guest_name' => $guest['guest_name'],
+                'room_number' => $guest['room_number'],
+                'room_type' => $guest['room_type'] ?? '',
+                'total_cost' => number_format($total_cost, 2),
+                'amount_paid' => number_format($amount_paid, 2),
+                'balance' => number_format($balance, 2),
+                'balance_raw' => $balance
             ]);
             exit;
         }
@@ -253,8 +290,8 @@ $total_bookings_result = $conn->query("SELECT COUNT(*) AS total FROM checkins");
 $total_bookings_row = $total_bookings_result->fetch_assoc();
 $total_bookings = $total_bookings_row['total'];
 
-// Total Check-in Guests Count
-$checkin_count_result = $conn->query("SELECT COUNT(*) AS total FROM checkins WHERE NOW() BETWEEN check_in_date AND check_out_date");
+// Total Check-in Guests Count (now uses status column)
+$checkin_count_result = $conn->query("SELECT COUNT(*) AS total FROM checkins WHERE status = 'checked_in'");
 $checkin_count_row = $checkin_count_result->fetch_assoc();
 $currently_checked_in = $checkin_count_row['total'];
 
@@ -262,7 +299,7 @@ $currently_checked_in = $checkin_count_row['total'];
 $revenue_result = $conn->query("SELECT SUM(total_price) AS total_revenue FROM checkins");
 $total_revenue = $revenue_result->fetch_assoc()['total_revenue'] ?? 0;
 
-// Fetch currently checked-in guests
+// Fetch currently checked-in guests (updated to use status)
 $current_guests = $conn->query("SELECT 
     id,
     guest_name, 
@@ -277,9 +314,10 @@ $current_guests = $conn->query("SELECT
     amount_paid,
     change_amount,
     payment_mode,
-    gcash_reference
+    gcash_reference,
+    status
 FROM checkins
-WHERE check_out_date > NOW()
+WHERE status IN ('checked_in', 'scheduled')
 ORDER BY check_in_date DESC");
 
 // Guest Check-in History - Updated SQL query to use checkins table
@@ -306,13 +344,15 @@ $history_sql = "SELECT
 FROM checkins WHERE 1=1";
 
 
-// Apply filter
+// Apply filter (updated to use status column)
 if ($filter === 'recent') {
     $history_sql .= " AND check_in_date > DATE_SUB(NOW(), INTERVAL 7 DAY)";
 } elseif ($filter === 'past') {
-    $history_sql .= " AND check_out_date < NOW()";
+    $history_sql .= " AND status = 'checked_out'";
 } elseif ($filter === 'current') {
-    $history_sql .= " AND NOW() BETWEEN check_in_date AND check_out_date";
+    $history_sql .= " AND status = 'checked_in'";
+} elseif ($filter === 'scheduled') {
+    $history_sql .= " AND status = 'scheduled'";
 } elseif ($filter === 'all') {
     // Show all records - no additional filter needed
 }
@@ -338,7 +378,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     fputcsv($output, [
         'Guest ID', 'Guest Name', 'Address', 'Telephone', 'Room Number', 
         'Room Type', 'Stay Duration (hrs)', 'Check-In Date', 'Check-Out Date', 
-        'Payment Mode', 'Amount Paid', 'Change', 'Total Price', 'GCash Reference'
+        'Payment Mode', 'Amount Paid', 'Change', 'Total Price', 'GCash Reference', 'Status'
     ]);
     
     // Add data rows
@@ -357,7 +397,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $row['amount_paid'] ?? 0,
             $row['change_amount'] ?? 0,
             $row['total_price'] ?? 0,
-            $row['gcash_reference'] ?? 'N/A'
+            $row['gcash_reference'] ?? 'N/A',
+            $row['status'] ?? 'N/A'
         ]);
     }
     
@@ -369,15 +410,18 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 // Reset the result pointer for normal page display
 $history_guests = $conn->query($history_sql);
 
-// Calculate statistics from checkins table
+// Calculate statistics from checkins table (updated to use status)
 $total_checkins_result = $conn->query("SELECT COUNT(*) AS total_checkins FROM checkins");
 $total_checkins = $total_checkins_result->fetch_assoc()['total_checkins'];
 
-$current_checkins_result = $conn->query("SELECT COUNT(*) AS current_checkins FROM checkins WHERE NOW() BETWEEN check_in_date AND check_out_date");
+$current_checkins_result = $conn->query("SELECT COUNT(*) AS current_checkins FROM checkins WHERE status = 'checked_in'");
 $current_checkins = $current_checkins_result->fetch_assoc()['current_checkins'];
 
-$past_checkins_result = $conn->query("SELECT COUNT(*) AS past_checkins FROM checkins WHERE check_out_date < NOW()");
+$past_checkins_result = $conn->query("SELECT COUNT(*) AS past_checkins FROM checkins WHERE status = 'checked_out'");
 $past_checkins = $past_checkins_result->fetch_assoc()['past_checkins'];
+
+$scheduled_checkins_result = $conn->query("SELECT COUNT(*) AS scheduled_checkins FROM checkins WHERE status = 'scheduled'");
+$scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_checkins'];
 
 $total_revenue_result = $conn->query("SELECT SUM(total_price) AS total_revenue FROM checkins");
 $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] ?? 0;
@@ -400,6 +444,14 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
     <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
   <style>
+
+    .payment-modal-popup {
+    overflow-x: hidden !important;
+}
+
+.payment-modal-popup .swal2-html-container {
+    overflow-x: hidden !important;
+}
 
     .stat-card {
       border-radius: 12px;
@@ -1200,6 +1252,42 @@ if ($status === 'checked_out') {
       </div>
     </div>
   <?php endif; ?>
+  
+  <?php if (isset($_GET['success']) && $_GET['success'] === 'checkedout'): ?>
+    <div id="checkoutSuccessToast" class="toast align-items-center text-bg-success border-0 fade" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-check-circle me-2"></i>
+          Guest checked out successfully!
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+  
+  <?php if (isset($_GET['success']) && $_GET['success'] === 'payment'): ?>
+    <div id="paymentSuccessToast" class="toast align-items-center text-bg-success border-0 fade" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-money-bill-wave me-2"></i>
+          Payment processed successfully!
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+  
+  <?php if (isset($_GET['success']) && $_GET['success'] === 'extended'): ?>
+    <div id="extendSuccessToast" class="toast align-items-center text-bg-info border-0 fade" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-clock me-2"></i>
+          Stay extended successfully!
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
 </div>
 
 
@@ -1217,6 +1305,27 @@ if ($status === 'checked_out') {
   const successToast = document.getElementById("checkinSuccessToast");
   if (successToast) {
     const toast = new bootstrap.Toast(successToast);
+    toast.show();
+  }
+
+    // Checkout toast
+  const checkoutToast = document.getElementById('checkoutSuccessToast');
+  if (checkoutToast) {
+    const toast = new bootstrap.Toast(checkoutToast, { delay: 3000 });
+    toast.show();
+  }
+  
+  // Payment toast
+  const paymentToast = document.getElementById('paymentSuccessToast');
+  if (paymentToast) {
+    const toast = new bootstrap.Toast(paymentToast, { delay: 3000 });
+    toast.show();
+  }
+  
+  // Extend toast
+  const extendToast = document.getElementById('extendSuccessToast');
+  if (extendToast) {
+    const toast = new bootstrap.Toast(extendToast, { delay: 3000 });
     toast.show();
   }
 });
@@ -1257,8 +1366,10 @@ function checkOutGuest(guestId) {
         showCancelButton: true,
         confirmButtonText: "Yes, check out",
         cancelButtonText: "Cancel",
-        confirmButtonColor: "#3085d6",
-        cancelButtonColor: "#d33"
+        background: '#1a1a1a',
+        color: '#fff',
+        confirmButtonColor: '#8b1d2d', 
+        cancelButtonColor: '#555'
     }).then((result) => {
         if (result.isConfirmed) {
             fetch("receptionist-guest.php", {
@@ -1269,11 +1380,19 @@ function checkOutGuest(guestId) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    Swal.fire("Checked Out!", data.message, "success")
-                        .then(() => location.reload());
+                    // Redirect with success parameter for toast
+                    window.location.href = '?success=checkedout';
                 } else if (data.payment_required) {
-                    // show payment form only during checkout
-                    showPaymentForm(data.payment_details, true); 
+                    showPaymentForm({
+                        guest_id: data.guest_id,
+                        guest_name: data.guest_name,
+                        room_number: data.room_number,
+                        room_type: data.room_type,
+                        total_cost: data.total_cost,
+                        amount_paid: data.amount_paid,
+                        amount_due: data.balance,
+                        amount_due_raw: data.balance_raw
+                    }, true); 
                 } else {
                     Swal.fire("Error", data.message, "error");
                 }
@@ -1287,119 +1406,211 @@ function checkOutGuest(guestId) {
 }
 
 function showPaymentForm(paymentDetails, autoCheckout = false) {
-    const amountDueRaw = Number(paymentDetails.amount_due_raw ?? paymentDetails.balance_amount ?? 0) || 0;
-    const amountDueDisplay = paymentDetails.amount_due ?? paymentDetails.balance_due ?? parseFloat(amountDueRaw).toFixed(2);
+  const amountDueRaw = Number(paymentDetails.amount_due_raw ?? paymentDetails.balance_raw ?? paymentDetails.balance_amount ?? 0) || 0;
+  const amountDueDisplay = paymentDetails.amount_due ?? paymentDetails.balance ?? paymentDetails.balance_due ?? parseFloat(amountDueRaw).toFixed(2);
 
-    Swal.fire({
-        title: "Complete Payment",
-        html: `
-            <div style="text-align:left;">
-                <p><b>Guest:</b> ${paymentDetails.guest_name || ''}</p>
-                <p><b>Room:</b> #${paymentDetails.room_number || ''} ${paymentDetails.room_type ? '(' + paymentDetails.room_type + ')' : ''}</p>
-                <p><b>Total Due:</b> ₱${amountDueDisplay}</p>
-                <div style="margin-top:10px;">
-                    <label for="payment_amount">Enter Payment:</label>
-                    <input type="number" id="payment_amount" class="swal2-input" 
-                           placeholder="Enter amount" 
-                           min="0" step="0.01" 
-                           style="width:80%; text-align:right;" />
-                </div>
-                <div style="margin-top:10px;">
-                    <label for="payment_mode">Payment Method:</label>
-                    <select id="payment_mode" class="swal2-select" style="width:80%;">
-                        <option value="cash">Cash</option>
-                        <option value="gcash">GCash</option>
-                        <option value="card">Card</option>
-                    </select>
-                </div>
-                <div id="gcash_ref_wrapper" style="display:none; margin-top:8px;">
-                    <label for="gcash_reference">GCash Reference:</label>
-                    <input id="gcash_reference" class="swal2-input" placeholder="GCash reference (optional)" style="width:80%; text-align:left;" />
-                </div>
-            </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: "Submit Payment",
-        cancelButtonText: "Cancel",
-        focusConfirm: false,
-        didOpen: () => {
-            const modeSelect = document.getElementById('payment_mode');
-            const gcashWrapper = document.getElementById('gcash_ref_wrapper');
-            modeSelect.addEventListener('change', () => {
-                gcashWrapper.style.display = modeSelect.value === 'gcash' ? 'block' : 'none';
-            });
-        },
-        preConfirm: () => {
-            const amount = parseFloat(document.getElementById("payment_amount").value);
-            const mode = document.getElementById("payment_mode").value;
-            const gcash_reference = document.getElementById("gcash_reference") ? document.getElementById("gcash_reference").value.trim() : '';
+  Swal.fire({
+    title: '<span style="font-weight: 600; color: #fff;">Complete Payment</span>',
+    html: `
+      <div style="background: #111; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: inset 0 0 6px rgba(255,255,255,0.05);">
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333;">
+              <span style="color: #bbb;">Guest:</span>
+              <span style="color: #fff; font-weight: 500;">${paymentDetails.guest_name || ''}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333;">
+              <span style="color: #bbb;">Room:</span>
+              <span style="color: #fff; font-weight: 500;">${paymentDetails.room_type || ''} Room ${paymentDetails.room_number || ''}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333;">
+              <span style="color: #bbb;">Total Cost:</span>
+              <span style="color: #fff; font-weight: 500;">₱${paymentDetails.total_cost || '0.00'}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #333;">
+              <span style="color: #bbb;">Amount Paid:</span>
+              <span style="color: #fff; font-weight: 500;">₱${paymentDetails.amount_paid || '0.00'}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+              <span style="color: #dc3545; font-weight: 600;">Balance Due:</span>
+              <span style="color: #dc3545; font-weight: 700;">₱${amountDueDisplay}</span>
+          </div>
+      </div>
 
-            if (!amount || amount <= 0) {
-                Swal.showValidationMessage("Please enter a valid amount.");
-                return false;
-            }
+      <div style="text-align: left; margin-bottom: 15px;">
+          <label style="display: block; color: #ccc; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Enter Payment:</label>
+          <input type="number" id="payment_amount" placeholder="0.00" min="0" step="0.01"
+              style="width: 100%; padding: 12px; border: 1px solid #444; border-radius: 6px; font-size: 15px; background: #222; color: #eee; box-sizing: border-box;" />
+      </div>
 
-            return { amount, mode, gcash_reference };
-        }
-    }).then((result) => {
-        if (result.isConfirmed) {
-            const payload = new URLSearchParams();
-            payload.append('action', 'add_payment');
-            payload.append('guest_id', paymentDetails.guest_id);
-            payload.append('additional_amount', result.value.amount);
-            payload.append('payment_mode', result.value.mode);
-            payload.append('gcash_reference', result.value.gcash_reference);
+      <div style="text-align: left;">
+          <label style="display: block; color: #ccc; font-size: 14px; margin-bottom: 6px; font-weight: 500;">Payment Method:</label>
+          <select id="payment_mode" style="width: 100%; padding: 12px; border: 1px solid #444; border-radius: 6px; font-size: 15px; background: #222; color: #eee;">
+              <option value="cash">Cash</option>
+              <option value="gcash">GCash</option>
+          </select>
+      </div>
 
+      <div id="gcash_ref_wrapper" style="display:none; margin-top: 15px; text-align: left;">
+          <label style="display: block; color: #ccc; font-size: 14px; margin-bottom: 6px; font-weight: 500;">GCash Reference:</label>
+          <input id="gcash_reference" placeholder="Enter GCash reference number"
+              style="width: 100%; padding: 12px; border: 1px solid #444; border-radius: 6px; font-size: 15px; background: #222; color: #eee; box-sizing: border-box;" />
+      </div>
+    `,
+    background: '#1a1a1a',
+    color: '#fff',
+    showCancelButton: true,
+    confirmButtonText: 'Submit Payment',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#8b1d2d', // maroon button
+    cancelButtonColor: '#555', // gray cancel
+    customClass: {
+      popup: 'payment-modal-popup'
+    },
+    width: '500px',
+    padding: '1.5rem',
+    didOpen: () => {
+      const modeSelect = document.getElementById('payment_mode');
+      const gcashWrapper = document.getElementById('gcash_ref_wrapper');
+      modeSelect.addEventListener('change', () => {
+        gcashWrapper.style.display = modeSelect.value === 'gcash' ? 'block' : 'none';
+      });
+    },
+    preConfirm: () => {
+      const amount = parseFloat(document.getElementById("payment_amount").value);
+      const mode = document.getElementById("payment_mode").value;
+      const gcash_reference = document.getElementById("gcash_reference") ? document.getElementById("gcash_reference").value.trim() : '';
+
+      if (!amount || amount <= 0) {
+        Swal.showValidationMessage("Please enter a valid amount.");
+        return false;
+      }
+
+      return { amount, mode, gcash_reference };
+    }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const payload = new URLSearchParams();
+      payload.append('action', 'add_payment');
+      payload.append('guest_id', paymentDetails.guest_id);
+      payload.append('additional_amount', result.value.amount);
+      payload.append('payment_mode', result.value.mode);
+      payload.append('gcash_reference', result.value.gcash_reference);
+
+      fetch("receptionist-guest.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: payload.toString()
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          if (autoCheckout && data.can_checkout) {
             fetch("receptionist-guest.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: payload.toString()
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: `action=checkout&guest_id=${paymentDetails.guest_id}`
             })
             .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire("Payment Successful", data.message, "success")
-                        .then(() => {
-                            if (autoCheckout) {
-                                // Automatically complete checkout after payment
-                                proceedWithCheckout(paymentDetails.guest_id);
-                            } else {
-                                location.reload();
-                            }
-                        });
-                } else {
-                    Swal.fire("Error", data.message || "Payment failed", "error");
-                }
+            .then(checkoutData => {
+              if (checkoutData.success) {
+                window.location.href = '?success=checkedout';
+              } else {
+                Swal.fire("Error", checkoutData.message || "Checkout failed", "error");
+              }
             })
             .catch(error => {
-                console.error("Error:", error);
-                Swal.fire("Error", "An error occurred while processing payment.", "error");
+              console.error("Checkout Error:", error);
+              Swal.fire("Error", "An error occurred during checkout.", "error");
             });
+          } else {
+            window.location.href = '?success=payment';
+          }
+        } else {
+          Swal.fire("Error", data.message || "Payment failed", "error");
         }
+      })
+      .catch(error => {
+        console.error("Error:", error);
+        Swal.fire("Error", "An error occurred while processing payment.", "error");
+      });
+    }
+  });
+}
+
+
+
+// ✅ Process payment
+function processPayment(guestId, amount, mode, gcashRef, isCheckout) {
+    const formData = new URLSearchParams();
+    formData.append('action', 'add_payment');
+    formData.append('guest_id', guestId);
+    formData.append('additional_amount', amount);
+    formData.append('payment_mode', mode);
+    formData.append('gcash_reference', gcashRef);
+
+    fetch('receptionist-guest.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                title: 'Payment Processed!',
+                html: `
+                    <p>${data.message}</p>
+                    <p><strong>New Amount Paid:</strong> ₱${data.new_amount_paid}</p>
+                    ${data.change_amount !== '0.00' ? `<p><strong>Change:</strong> ₱${data.change_amount}</p>` : ''}
+                `,
+                icon: 'success'
+            }).then(() => {
+                if (isCheckout && data.can_checkout) {
+                    // Auto-checkout after payment
+                    checkOutGuest(guestId);
+                } else {
+                    location.reload();
+                }
+            });
+        } else {
+            Swal.fire('Error', data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire('Error', 'Failed to process payment', 'error');
     });
 }
 
 
 function proceedWithCheckout(guestId) {
-    fetch("receptionist-guest.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    fetch('receptionist-guest.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `action=checkout&guest_id=${guestId}`
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            Swal.fire("Checked Out!", data.message, "success")
-                .then(() => location.reload());
+            // Just redirect - no alert!
+            window.location.href = '?success=checkedout';
+        } else if (data.payment_required) {
+            Swal.fire({
+                title: 'Additional Payment Required',
+                html: `...`,
+                icon: 'warning',
+                confirmButtonText: 'OK'
+            });
         } else {
-            Swal.fire("Error", data.message, "error");
+            Swal.fire('Error', data.message || 'Checkout failed', 'error');
         }
     })
     .catch(error => {
-        console.error("Error:", error);
-        Swal.fire("Error", "An error occurred during checkout.", "error");
+        console.error('Error:', error);
+        Swal.fire('Error', 'An error occurred while checking out the guest.', 'error');
     });
 }
+
+
 // Function to extend guest stay
 function extendStay(guestId) {
     if (!guestId) {
@@ -1414,8 +1625,10 @@ function extendStay(guestId) {
         showCancelButton: true,
         confirmButtonText: "Yes, extend",
         cancelButtonText: "Cancel",
-        confirmButtonColor: "#3085d6",
-        cancelButtonColor: "#d33"
+        background: '#1a1a1a',
+        color: '#fff',
+        confirmButtonColor: '#8b1d2d', 
+        cancelButtonColor: '#555'
     }).then((result) => {
         if (result.isConfirmed) {
             fetch("receptionist-guest.php", {
@@ -1426,17 +1639,8 @@ function extendStay(guestId) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Just show confirmation, no payment modal
-                    Swal.fire({
-                        title: "Stay Extended!",
-                        html: `
-                            <p><b>New checkout time:</b> ${data.new_checkout}</p>
-                            <p><b>Additional cost:</b> ₱${data.additional_cost}</p>
-                            <p><b>New total:</b> ₱${data.new_total}</p>
-                        `,
-                        icon: "success",
-                        confirmButtonText: "OK"
-                    }).then(() => location.reload());
+                    // Redirect with extend success toast
+                    window.location.href = '?success=extended';
                 } else {
                     Swal.fire("Error", data.message, "error");
                 }
