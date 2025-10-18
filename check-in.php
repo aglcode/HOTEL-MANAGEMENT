@@ -590,67 +590,72 @@ $conn->close();
         function calculateChange() {
             const total = parseFloat(document.getElementById("summary_total").textContent.replace('₱', '').replace(',', '')) || 0;
             const paid = parseFloat(document.getElementById("cash_amount_paid").value) || 0;
-            if (paid >= total) {
-                document.getElementById("change").value = (paid - total).toFixed(2);
+            const changeInput = document.getElementById("change");
+
+            if (paid > total) {
+                // ✅ Show change only when overpaid
+                changeInput.value = (paid - total).toFixed(2);
             } else {
-                document.getElementById("change").value = '0.00';
+                // ✅ Hide change if exact or underpaid
+                changeInput.value = '';
             }
         }
          
-        // refined validation in payment methods
-        function validateForm() {
-            const paymentMode = document.getElementById("payment_mode").value;
-            const duration = parseInt(document.getElementById("stay_duration").value);
-
-            document.getElementById("cash_error").classList.add("hidden");
-            document.getElementById("gcash_error").classList.add("hidden");
-            document.getElementById("gcash_digit_error").classList.add("hidden");
-
-            if (!duration || !priceMap[duration]) {
-                alert("Please select a stay duration.");
-                return false;
-            }
-
-            if (paymentMode === "select") {
-                alert("Please select a payment method.");
-                return false;
-            }
-
-            const totalPrice = priceMap[duration];
-
-            if (paymentMode === "cash") {
+            // ---- FORM VALIDATION ----
+            function validateForm() {
+                const paymentMode = document.getElementById("payment_mode").value;
+                const duration = parseInt(document.getElementById("stay_duration").value);
+                const totalPrice = priceMap[duration];
                 const paid = parseFloat(document.getElementById("cash_amount_paid").value) || 0;
-                if (paid < totalPrice) {
-                    document.getElementById("cash_error").classList.remove("hidden");
+
+                document.getElementById("cash_error").classList.add("hidden");
+                document.getElementById("gcash_error").classList.add("hidden");
+                document.getElementById("gcash_digit_error").classList.add("hidden");
+
+                if (!duration || !priceMap[duration]) {
+                    alert("Please select a stay duration.");
                     return false;
                 }
-            } else if (paymentMode === "gcash") {
-                const refNumber = document.getElementById("gcash_ref_id").value.trim();
-                if (!refNumber) {
-                    document.getElementById("gcash_error").classList.remove("hidden");
-                    return false;
-                } else if (!/^\d+$/.test(refNumber)) {
-                    document.getElementById("gcash_digit_error").classList.remove("hidden");
+
+                if (paymentMode === "select") {
+                    alert("Please select a payment method.");
                     return false;
                 }
+
+                if (paymentMode === "cash") {
+                    if (paid < totalPrice) {
+                        document.getElementById("cash_error").classList.remove("hidden");
+                        return false;
+                    }
+                } else if (paymentMode === "gcash") {
+                    const refNumber = document.getElementById("gcash_ref_id").value.trim();
+                    if (!refNumber) {
+                        document.getElementById("gcash_error").classList.remove("hidden");
+                        return false;
+                    } else if (!/^\d+$/.test(refNumber)) {
+                        document.getElementById("gcash_digit_error").classList.remove("hidden");
+                        return false;
+                    }
+                }
+
+                return true;
             }
 
-            return true;
-        }
+            // ---- LIVE VALIDATION ----
+            function validateCashAmount() {
+                const duration = parseInt(document.getElementById("stay_duration").value);
+                const totalPrice = priceMap[duration];
+                const paid = parseFloat(document.getElementById("cash_amount_paid").value) || 0;
+                const error = document.getElementById("cash_error");
 
-        // ---- LIVE VALIDATION ----
-        function validateCashAmount() {
-            const duration = parseInt(document.getElementById("stay_duration").value);
-            const totalPrice = priceMap[duration];
-            const paid = parseFloat(document.getElementById("cash_amount_paid").value) || 0;
-            const error = document.getElementById("cash_error");
-
-            if (paid >= totalPrice) {
-                error.classList.add("hidden");
-            } else {
-                error.classList.remove("hidden");
+                if (paid >= totalPrice) {
+                    // ✅ Valid if exact or more
+                    error.classList.add("hidden");
+                } else {
+                    // ❌ Not enough payment
+                    error.classList.remove("hidden");
+                }
             }
-        }
 
         function validateGCashRef() {
             const refNumber = document.getElementById("gcash_ref_id").value.trim();

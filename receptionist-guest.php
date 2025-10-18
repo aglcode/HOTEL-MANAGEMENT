@@ -114,7 +114,24 @@ if ($action === 'checkout' && $guest_id > 0) {
         }
         $bkSel->close();
 
-        echo json_encode(['success' => true, 'message' => 'Guest checked out successfully']);
+        // ✅ 🧹 DELETE all orders (pending or served) for that room
+        $room_number_str = (string)$guest['room_number']; // orders.room_number is VARCHAR(10)
+        $del = $conn->prepare("
+            DELETE FROM orders 
+            WHERE room_number = ? 
+            AND status IN ('pending','served')
+        ");
+        $del->bind_param('s', $room_number_str);
+        $del->execute();
+        $deleted_orders = $del->affected_rows;
+        $del->close();
+
+        // ✅ Return success JSON
+        echo json_encode([
+            'success' => true,
+            'message' => 'Guest checked out successfully. ' . $deleted_orders . ' order(s) deleted.',
+            'deleted_orders' => $deleted_orders
+        ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Guest not found or already checked out']);
     }
@@ -122,19 +139,21 @@ if ($action === 'checkout' && $guest_id > 0) {
 }
 
 
-// ✅ ADDITIONAL PAYMENT
+
+
+// ✅ ADDITIONAL PAYMENT / EXTENSION HANDLING
 if ($action === 'add_payment' && $guest_id > 0) {
     $additional_amount = floatval($_POST['additional_amount'] ?? 0);
     $payment_mode = $_POST['payment_mode'] ?? 'cash';
     $gcash_reference = $_POST['gcash_reference'] ?? '';
 
     if ($additional_amount <= 0) {
-        header('Content-Type: application/json');
+      
         echo json_encode(['success' => false, 'message' => 'Invalid payment amount']);
         exit;
     }
 
-    // Get current guest
+    // 🧾 Fetch current guest data
     $stmt = $conn->prepare("SELECT * FROM checkins WHERE id = ?");
     $stmt->bind_param('i', $guest_id);
     $stmt->execute();
@@ -142,16 +161,21 @@ if ($action === 'add_payment' && $guest_id > 0) {
     $stmt->close();
 
     if (!$guest) {
-        header('Content-Type: application/json');
+
         echo json_encode(['success' => false, 'message' => 'Guest not found']);
         exit;
     }
 
-    $new_amount_paid = floatval($guest['amount_paid']) + $additional_amount;
-    $total_price = floatval($guest['total_price']);
-    $new_change = max(0, $new_amount_paid - $total_price);
 
-    // Update checkins
+    $total_price = floatval($guest['total_price']);
+    $new_amount_paid = $additional_amount; // 👈 Treat input as full payment amount
+
+    // ✅ Compute balance and change
+    $balance = $total_price - $new_amount_paid;
+    $new_change = $balance < 0 ? abs($balance) : 0;
+    $new_due = $balance > 0 ? $balance : 0;
+
+    // ✅ Update checkin record
     $stmt = $conn->prepare("
         UPDATE checkins
         SET amount_paid=?, change_amount=?, payment_mode=?, gcash_reference=?
@@ -161,7 +185,7 @@ if ($action === 'add_payment' && $guest_id > 0) {
     $stmt->execute();
     $stmt->close();
 
-    // ✅ Insert into payments table (matches your table structure)
+    // ✅ Insert payment record
     $stmtp = $conn->prepare("
         INSERT INTO payments (payment_date, amount, payment_mode)
         VALUES (NOW(), ?, ?)
@@ -170,17 +194,20 @@ if ($action === 'add_payment' && $guest_id > 0) {
     $stmtp->execute();
     $stmtp->close();
 
-    // ✅ Return clean JSON
-    header('Content-Type: application/json');
+    // ✅ JSON Response
     echo json_encode([
-        'success' => true, 
-        'message' => 'Payment added successfully',
+        'success' => true,
+        'message' => 'Payment processed successfully',
         'new_amount_paid' => number_format($new_amount_paid, 2),
-        'change_amount' => number_format($new_change, 2),
-        'can_checkout' => $new_amount_paid >= $total_price
+        'change_amount' => $new_change > 0.009 ? number_format($new_change, 2) : '0.00',
+        'due_amount' => $new_due > 0.009 ? number_format($new_due, 2) : '0.00',
+        'can_checkout' => $new_due <= 0
     ]);
     exit;
 }
+
+
+
 
 
 
@@ -295,9 +322,7 @@ $checkin_count_result = $conn->query("SELECT COUNT(*) AS total FROM checkins WHE
 $checkin_count_row = $checkin_count_result->fetch_assoc();
 $currently_checked_in = $checkin_count_row['total'];
 
-// Calculate total revenue from checkins table
-$revenue_result = $conn->query("SELECT SUM(total_price) AS total_revenue FROM checkins");
-$total_revenue = $revenue_result->fetch_assoc()['total_revenue'] ?? 0;
+
 
 // Fetch currently checked-in guests (updated to use status)
 $current_guests = $conn->query("SELECT 
@@ -423,8 +448,7 @@ $past_checkins = $past_checkins_result->fetch_assoc()['past_checkins'];
 $scheduled_checkins_result = $conn->query("SELECT COUNT(*) AS scheduled_checkins FROM checkins WHERE status = 'scheduled'");
 $scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_checkins'];
 
-$total_revenue_result = $conn->query("SELECT SUM(total_price) AS total_revenue FROM checkins");
-$total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] ?? 0;
+
 
 
 ?>
@@ -825,19 +849,7 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
     </div>
   </div>
 
-  <!-- Total Revenue -->
-  <div class="col-md-4 mb-3">
-    <div class="card stat-card h-100 p-3">
-      <div class="d-flex justify-content-between align-items-center">
-        <p class="stat-title">Total Revenue</p>
-        <div class="stat-icon bg-info bg-opacity-10 text-info">
-          <i class="fas fa-coins"></i>
-        </div>
-      </div>
-      <h3 class="fw-bold mb-1">₱<?= number_format($total_revenue, 2) ?></h3>
-      <p class="stat-change text-muted">Updated daily</p>
-    </div>
-  </div>
+  
 </div>
 
   <!-- Quick Actions -->
@@ -858,11 +870,7 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
             <i class="fas fa-sign-in-alt me-2"></i>Check-in Guest
           </a>
         </div>
-        <div class="col-md-3 mb-2">
-          <button onclick="window.print()" class="btn btn-outline-info w-100">
-            <i class="fas fa-print me-2"></i>Print Report
-          </button>
-        </div>
+
         <div class="col-md-3 mb-2">
           <a href="?export=csv" class="btn btn-outline-secondary w-100">
             <i class="fas fa-file-export me-2"></i>Export to CSV
@@ -968,13 +976,27 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
                     <span class="badge bg-<?= strtolower($guest['payment_mode'] ?? 'cash') === 'cash' ? 'success' : 'primary' ?> mb-1">
                       <?= ucfirst($guest['payment_mode'] ?? 'Cash') ?>
                     </span>
-                    <small class="text-muted">Total: ₱<?= number_format($guest['total_price'] ?? 0, 2) ?></small>
-                    <small class="text-muted">Paid: ₱<?= number_format($guest['amount_paid'] ?? 0, 2) ?></small>
-                    <?php if (($guest['change_amount'] ?? 0) > 0): ?>
-                    <small class="text-info">Change: ₱<?= number_format($guest['change_amount'], 2) ?></small>
+
+                    <?php 
+                    // Ensure accurate numeric handling
+                    $total = floatval($guest['total_price'] ?? 0);
+                    $paid = floatval($guest['amount_paid'] ?? 0);
+                    $change_amount = round($paid - $total, 2);
+
+                    // Always show Total and Paid
+                    ?>
+                    <small class="text-muted">Total: ₱<?= number_format($total, 2) ?></small>
+                    <small class="text-muted">Paid: ₱<?= number_format($paid, 2) ?></small>
+
+                    <?php if ($change_amount > 0.00): ?>
+                        <small class="text-info">Change: ₱<?= number_format($change_amount, 2) ?></small>
+                    <?php elseif ($change_amount < 0.00): ?>
+                        <small class="text-danger">Due: ₱<?= number_format(abs($change_amount), 2) ?></small>
                     <?php endif; ?>
                   </div>
                 </td>
+
+
                 <td class="no-print">
                   <div class="btn-group" role="group">
                     <button class="btn btn-sm btn-outline-danger" onclick="checkOutGuest(<?= $guest['id'] ?? 0 ?>)">
@@ -1079,27 +1101,27 @@ $total_revenue_checkins = $total_revenue_result->fetch_assoc()['total_revenue'] 
           <tbody>
             <?php while ($row = $history_guests->fetch_assoc()): 
               $checkout_date = new DateTime($row['check_out_date'] ?? 'now');
-$checkin_date = new DateTime($row['check_in_date'] ?? 'now');
-$now_dt = new DateTime();
+              $checkin_date = new DateTime($row['check_in_date'] ?? 'now');
+              $now_dt = new DateTime();
 
-$status = strtolower($row['status'] ?? '');
+              $status = strtolower($row['status'] ?? '');
 
-if ($status === 'checked_out') {
-    $is_checked_out = true;
-    $is_active = false;
-} elseif ($status === 'checked_in') {
-    $is_checked_out = false;
-    $is_active = true;
-} elseif ($status === 'scheduled' && $checkout_date <= $now_dt) {
-    // If scheduled but already past checkout date → mark as checked out
-    $is_checked_out = true;
-    $is_active = false;
-    // Optionally auto-correct status in DB
-    $conn->query("UPDATE checkins SET status='checked_out' WHERE id=" . (int)$row['id']);
-} else {
-    $is_checked_out = false;
-    $is_active = false;
-}
+              if ($status === 'checked_out') {
+                  $is_checked_out = true;
+                  $is_active = false;
+              } elseif ($status === 'checked_in') {
+                  $is_checked_out = false;
+                  $is_active = true;
+              } elseif ($status === 'scheduled' && $checkout_date <= $now_dt) {
+                  // If scheduled but already past checkout date → mark as checked out
+                  $is_checked_out = true;
+                  $is_active = false;
+                  // Optionally auto-correct status in DB
+                  $conn->query("UPDATE checkins SET status='checked_out' WHERE id=" . (int)$row['id']);
+              } else {
+                  $is_checked_out = false;
+                  $is_active = false;
+              }
 
 
               // If not active and not checked out by dates, check bookings table for a completed booking
@@ -1172,18 +1194,27 @@ if ($status === 'checked_out') {
                   </span><br>
                   <div class="text-muted">Paid: ₱<?= number_format($row['amount_paid'] ?? 0, 2) ?></div>
                   <?php 
-                  $balance = ($row['total_price'] ?? 0) - ($row['amount_paid'] ?? 0);
-                  if ($balance > 0): 
+                  $total = floatval($row['total_price'] ?? 0);
+                  $paid = floatval($row['amount_paid'] ?? 0);
+                  $change_amount = $paid - $total;
+
+                  // Round to avoid floating-point rounding issues
+                  $change_amount = round($change_amount, 2);
+
+                  if ($change_amount > 0.00): // Guest paid more → Change
                   ?>
-                  <div class="text-danger fw-bold">Due: ₱<?= number_format($balance, 2) ?></div>
-                  <?php elseif (($row['change_amount'] ?? 0) > 0): ?>
-                  <div class="text-info">Change: ₱<?= number_format($row['change_amount'], 2) ?></div>
+                      <div class="text-info">Change: ₱<?= number_format($change_amount, 2) ?></div>
+                  <?php elseif ($change_amount < 0.00): // Guest paid less → Due
+                  ?>
+                      <div class="text-danger fw-bold">Due: ₱<?= number_format(abs($change_amount), 2) ?></div>
                   <?php endif; ?>
+
                   <?php if (!empty($row['gcash_reference'])): ?>
-                  <div class="text-primary small">Ref: <?= htmlspecialchars($row['gcash_reference']) ?></div>
+                      <div class="text-primary small">Ref: <?= htmlspecialchars($row['gcash_reference']) ?></div>
                   <?php endif; ?>
                 </div>
               </td>
+
               <td class="fw-bold text-success">₱<?= number_format($row['total_price'] ?? 0, 2) ?></td>
               <td class="no-print">
                 <?php if ($is_active): ?>
@@ -1215,10 +1246,7 @@ if ($status === 'checked_out') {
             <div class="fw-bold text-secondary"><?= $past_checkins ?></div>
             <small class="text-muted">Checked Out</small>
           </div>
-          <div class="col-md-3">
-            <div class="fw-bold text-info">₱<?= number_format($total_revenue_checkins, 2) ?></div>
-            <small class="text-muted">Total Revenue</small>
-          </div>
+
         </div>
       </div>
       
@@ -1560,14 +1588,20 @@ function processPayment(guestId, amount, mode, gcashRef, isCheckout) {
                 html: `
                     <p>${data.message}</p>
                     <p><strong>New Amount Paid:</strong> ₱${data.new_amount_paid}</p>
-                    ${data.change_amount !== '0.00' ? `<p><strong>Change:</strong> ₱${data.change_amount}</p>` : ''}
+                    ${
+                        data.change_amount && parseFloat(data.change_amount) > 0
+                            ? `<p style="color:blue;"><strong>Change:</strong> ₱${data.change_amount}</p>`
+                            : ''
+                    }
                 `,
-                icon: 'success'
+                icon: 'success',
+                confirmButtonText: 'OK'
             }).then(() => {
                 if (isCheckout && data.can_checkout) {
-                    // Auto-checkout after payment
+                    // ✅ Automatically check out guest if full payment done
                     checkOutGuest(guestId);
                 } else {
+                    // ✅ Refresh to show updated "Paid", "Change", or "Due" values
                     location.reload();
                 }
             });
@@ -1580,6 +1614,7 @@ function processPayment(guestId, amount, mode, gcashRef, isCheckout) {
         Swal.fire('Error', 'Failed to process payment', 'error');
     });
 }
+
 
 
 function proceedWithCheckout(guestId) {
@@ -1662,48 +1697,62 @@ function printReceipt(guestId) {
     fetch(`get-guest-receipt.php?guest_id=${guestId}`)
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                const guest = data.guest;
-
-                // POS style slip content
-                const receiptContent = `
-                    <div style="font-family: monospace; font-size:13px; text-align:center; border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:5px;">
-                        <h4 style="margin:0;">Gitarra Apartelle</h4>
-                        <p style="margin:0;">123 Main Street, Anytown</p>
-                        <p style="margin:0;">Tel: (123) 456-7890</p>
-                    </div>
-
-                    <p style="margin:2px 0; text-align:left;">Receipt #: <span style="float:right;">GIT-${guest.id}-${new Date().getFullYear()}</span></p>
-                    <p style="margin:2px 0; text-align:left;">Guest: <span style="float:right;">${guest.guest_name}</span></p>
-                    <p style="margin:2px 0; text-align:left;">Room: <span style="float:right;">#${guest.room_number} (${guest.room_type ?? 'N/A'})</span></p>
-                    <p style="margin:2px 0; text-align:left;">Check-in: <span style="float:right;">${guest.check_in_date}</span></p>
-                    <p style="margin:2px 0; text-align:left;">Check-out: <span style="float:right;">${guest.check_out_date}</span></p>
-                    
-                    <div style="border-top:1px dashed #000; border-bottom:1px dashed #000; padding:5px 0; margin:8px 0;">
-                        <p style="margin:2px 0; text-align:left;">Room Charge (${guest.stay_duration} hrs)<span style="float:right;">₱${parseFloat(guest.total_price).toFixed(2)}</span></p>
-                        <p style="margin:2px 0; text-align:left; font-weight:bold;">Total<span style="float:right;">₱${parseFloat(guest.total_price).toFixed(2)}</span></p>
-                        <p style="margin:2px 0; text-align:left;">Amount Paid<span style="float:right;">₱${parseFloat(guest.amount_paid).toFixed(2)}</span></p>
-                        <p style="margin:2px 0; text-align:left;">Change<span style="float:right;">₱${parseFloat(guest.change_amount).toFixed(2)}</span></p>
-                        <p style="margin:2px 0; text-align:left;">Payment<span style="float:right;">${guest.payment_mode?.toUpperCase() ?? 'CASH'}</span></p>
-                    </div>
-
-                    <div style="text-align:center; font-size:12px; margin-top:10px;">
-                        <p style="margin:2px 0;">Thank you for choosing Gitarra Apartelle!</p>
-                        <p style="margin:2px 0; font-style:italic;">This receipt is computer-generated.</p>
-                    </div>
-                `;
-
-                document.getElementById('receiptContent').innerHTML = receiptContent;
-                document.getElementById('receiptModal').style.display = 'block';
-            } else {
+            if (!data.success) {
                 alert('Error: ' + data.message);
+                return;
             }
+
+            const guest = data.guest;
+            const change = parseFloat(guest.change_amount || 0);
+            const total = parseFloat(guest.total_price || 0);
+            const paid = parseFloat(guest.amount_paid || 0);
+
+            // ✅ Fix: don't double-subtract change
+            const due = Math.max(0, total - paid);
+
+            const receiptContent = `
+                <div style="font-family: monospace; font-size:13px; text-align:center; border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:5px;">
+                    <h4 style="margin:0;">Gitarra Apartelle</h4>
+                    <p style="margin:0;">123 Main Street, Anytown</p>
+                    <p style="margin:0;">Tel: (123) 456-7890</p>
+                </div>
+
+                <p>Receipt #: <span style="float:right;">GIT-${guest.id}-${new Date().getFullYear()}</span></p>
+                <p>Guest: <span style="float:right;">${guest.guest_name}</span></p>
+                <p>Room: <span style="float:right;">#${guest.room_number} (${guest.room_type ?? 'N/A'})</span></p>
+                <p>Check-in: <span style="float:right;">${guest.check_in_date}</span></p>
+                <p>Check-out: <span style="float:right;">${guest.check_out_date}</span></p>
+
+                <div style="border-top:1px dashed #000; border-bottom:1px dashed #000; padding:5px 0; margin:8px 0;">
+                    <p><strong>Total Room Charge (${guest.stay_duration} hrs)<span style="float:right;">₱${total.toFixed(2)}</span></strong></p>
+                    <p>Amount Paid<span style="float:right;">₱${paid.toFixed(2)}</span></p>
+                    ${
+                        change > 0
+                            ? `<p style="color:blue;">Change<span style="float:right;">₱${change.toFixed(2)}</span></p>`
+                            : due > 0
+                                ? `<p style="color:red;">Due<span style="float:right;">₱${due.toFixed(2)}</span></p>`
+                                : ''
+                    }
+                    <p>Payment<span style="float:right;">${guest.payment_mode?.toUpperCase() ?? 'CASH'}</span></p>
+                </div>
+
+                <div style="text-align:center; font-size:12px; margin-top:10px;">
+                    <p>Thank you for choosing Gitarra Apartelle!</p>
+                    <p style="font-style:italic;">This receipt is computer-generated.</p>
+                </div>
+            `;
+
+            document.getElementById('receiptContent').innerHTML = receiptContent;
+            document.getElementById('receiptModal').style.display = 'block';
         })
         .catch(error => {
             console.error(error);
             alert('Failed to load receipt data');
         });
 }
+
+
+
 
 function closeReceipt() {
     document.getElementById('receiptModal').style.display = 'none';

@@ -190,14 +190,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $stmt_k2->execute();
             $stmt_k2->close();
 
-            header("Location: receptionist-room.php?success=checked_out");
+            // ✅ 🧹 DELETE all pending and served orders
+            $del = $conn->prepare("
+                DELETE FROM orders 
+                WHERE room_number = ? 
+                AND status IN ('pending','served')
+            ");
+            $room_number_str = (string)$room_number; // orders.room_number = VARCHAR(10)
+            $del->bind_param('s', $room_number_str);
+            $del->execute();
+            $deleted_orders = $del->affected_rows;
+            $del->close();
+
+            // ✅ Redirect with success message
+            header("Location: receptionist-room.php?success=checked_out&deleted={$deleted_orders}");
             exit;
+
         } else {
             header("Location: receptionist-room.php?error=no_active_guest");
             exit;
         }
     }
 }
+
 
 ?>
 
