@@ -141,51 +141,55 @@ if ($action === 'checkout' && $guest_id > 0) {
 
 
 
-// ✅ ADDITIONAL PAYMENT / EXTENSION HANDLING
 if ($action === 'add_payment' && $guest_id > 0) {
     $additional_amount = floatval($_POST['additional_amount'] ?? 0);
     $payment_mode = $_POST['payment_mode'] ?? 'cash';
     $gcash_reference = $_POST['gcash_reference'] ?? '';
+    $replace_flag = isset($_POST['replace']) && $_POST['replace'] == '1';
 
     if ($additional_amount <= 0) {
-      
         echo json_encode(['success' => false, 'message' => 'Invalid payment amount']);
         exit;
     }
 
-    // 🧾 Fetch current guest data
-    $stmt = $conn->prepare("SELECT * FROM checkins WHERE id = ?");
+    // Fetch current guest data
+    $stmt = $conn->prepare("SELECT total_price, amount_paid FROM checkins WHERE id = ?");
     $stmt->bind_param('i', $guest_id);
     $stmt->execute();
     $guest = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
     if (!$guest) {
-
         echo json_encode(['success' => false, 'message' => 'Guest not found']);
         exit;
     }
 
-
     $total_price = floatval($guest['total_price']);
-    $new_amount_paid = $additional_amount; // 👈 Treat input as full payment amount
+    $previous_paid = floatval($guest['amount_paid']);
 
-    // ✅ Compute balance and change
-    $balance = $total_price - $new_amount_paid;
+    // ✅ If replace flag true (first payment), overwrite. Otherwise, ADD to previous.
+    if ($replace_flag) {
+        $new_total_paid = $additional_amount;
+    } else {
+        $new_total_paid = $previous_paid + $additional_amount;
+    }
+
+    // ✅ Compute change or due
+    $balance = $total_price - $new_total_paid;
     $new_change = $balance < 0 ? abs($balance) : 0;
     $new_due = $balance > 0 ? $balance : 0;
 
-    // ✅ Update checkin record
+    // ✅ Update record
     $stmt = $conn->prepare("
         UPDATE checkins
-        SET amount_paid=?, change_amount=?, payment_mode=?, gcash_reference=?
-        WHERE id=?
+        SET amount_paid = ?, change_amount = ?, payment_mode = ?, gcash_reference = ?
+        WHERE id = ?
     ");
-    $stmt->bind_param('ddssi', $new_amount_paid, $new_change, $payment_mode, $gcash_reference, $guest_id);
+    $stmt->bind_param('ddssi', $new_total_paid, $new_change, $payment_mode, $gcash_reference, $guest_id);
     $stmt->execute();
     $stmt->close();
 
-    // ✅ Insert payment record
+    // ✅ Log payment
     $stmtp = $conn->prepare("
         INSERT INTO payments (payment_date, amount, payment_mode)
         VALUES (NOW(), ?, ?)
@@ -194,17 +198,19 @@ if ($action === 'add_payment' && $guest_id > 0) {
     $stmtp->execute();
     $stmtp->close();
 
-    // ✅ JSON Response
+    // ✅ Response
     echo json_encode([
         'success' => true,
         'message' => 'Payment processed successfully',
-        'new_amount_paid' => number_format($new_amount_paid, 2),
-        'change_amount' => $new_change > 0.009 ? number_format($new_change, 2) : '0.00',
-        'due_amount' => $new_due > 0.009 ? number_format($new_due, 2) : '0.00',
+        'new_amount_paid' => number_format($new_total_paid, 2),
+        'change_amount' => number_format($new_change, 2),
+        'due_amount' => number_format($new_due, 2),
         'can_checkout' => $new_due <= 0
     ]);
     exit;
 }
+
+
 
 
 
@@ -1519,9 +1525,14 @@ function showPaymentForm(paymentDetails, autoCheckout = false) {
       const payload = new URLSearchParams();
       payload.append('action', 'add_payment');
       payload.append('guest_id', paymentDetails.guest_id);
+      // If client-side knows amount_paid is 0 (initial payment), tell server to replace.
+      const currentlyPaid = Number(paymentDetails.amount_paid ?? 0) || 0;
+      const replaceFlag = currentlyPaid <= 0 ? '1' : '0';
+
       payload.append('additional_amount', result.value.amount);
       payload.append('payment_mode', result.value.mode);
       payload.append('gcash_reference', result.value.gcash_reference);
+      payload.append('replace', replaceFlag);
 
       fetch("receptionist-guest.php", {
         method: "POST",
