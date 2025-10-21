@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 13, 2025 at 01:03 AM
+-- Generation Time: Oct 21, 2025 at 02:09 PM
 -- Server version: 8.4.3
 -- PHP Version: 8.2.27
 
@@ -81,7 +81,13 @@ INSERT INTO `bookings` (`id`, `guest_name`, `email`, `address`, `telephone`, `ag
 (9, 'Aldrick Dulnuan', NULL, 'Calamba City, Laguna', '09123456789', 21, NULL, '101', '6', 'Cash', '', NULL, 750, 750, NULL, '2025-08-06 13:00:00', '2025-08-06 19:00:00', 'completed', '2025-08-08 11:11:18', NULL, NULL),
 (10, 'Maria', 'calopez@ccc.edu.ph', 'Calamba City, Laguna', '09123456789', 21, 1, '103', '12', '0', '12456542566', 'BK202508083EAAF8', 1100, 1100, 0, '2025-08-08 20:00:00', '2025-08-09 08:00:00', 'cancelled', '2025-08-08 11:14:56', 'The guest didn\'t go at the right time and date', '2025-08-12 17:07:23'),
 (13, 'elvin', 'erreyes@ccc.edu.ph', 'halang', '09761090017', 51, 1, '101', '48', 'Cash', '', 'BK20250811F04207', 130, 120, 10, '2025-08-12 15:15:00', '2025-08-14 15:15:00', 'cancelled', '2025-08-11 07:17:35', 'Didn\'t go at the right time', '2025-08-12 17:19:59'),
-(17, 'Adobe Premiere ', 'adobe@gmail.com', 'Brgy. Lawa', '09165770822', 18, 1, '101', '3', 'Cash', '', 'BK202510066DDB35', 400, 400, 0, '2025-10-07 00:35:00', '2025-10-07 03:35:00', 'cancelled', '2025-10-06 16:36:06', 'Automatically cancelled - Guest did not check in within 30 minutes of designated time', '2025-10-07 22:37:16');
+(17, 'Adobe Premiere ', 'adobe@gmail.com', 'Brgy. Lawa', '09165770822', 18, 1, '101', '3', 'Cash', '', 'BK202510066DDB35', 400, 400, 0, '2025-10-07 00:35:00', '2025-10-07 03:35:00', 'cancelled', '2025-10-06 16:36:06', 'Automatically cancelled - Guest did not check in within 30 minutes of designated time', '2025-10-07 22:37:16'),
+(18, 'Zayn', 'kukuhuskar82@gmail.com', '123 Main St.', '09165770987', 18, 1, '101', '3', '0', '', 'BK20251018D32B00', 400, 400, 0, '2025-10-18 21:15:00', '2025-10-19 00:15:00', 'completed', '2025-10-18 13:15:43', NULL, NULL),
+(19, 'Zayn', 'kukuhuskar82@gmail.com', '123 Main St.', '09165770987', 18, 1, '101', '3', '0', '', 'BK202510181629DA', 400, 400, 0, '2025-10-18 21:15:00', '2025-10-19 00:15:00', 'completed', '2025-10-18 13:33:09', NULL, NULL),
+(20, 'Zayn', 'kukuhuskar82@gmail.com', '123 Main St.', '09165770987', 18, 1, '101', '3', '0', '', 'BK202510187FBD8C', 400, 400, 0, '2025-10-18 21:15:00', '2025-10-19 00:15:00', 'completed', '2025-10-18 13:33:17', NULL, NULL),
+(21, 'Bazz', 'kukuhuskar82@gmail.com', '123 Main St.', '09165770822', 22, 1, '101', '3', '0', '', 'BK20251018303620', 400, 400, 0, '2025-10-18 21:33:00', '2025-10-19 00:33:00', 'completed', '2025-10-18 13:34:04', NULL, NULL),
+(22, 'Toji', 'kukuhuskar82@gmail.com', 'St 123 Main Street ', '09165770822', 18, 1, '101', '3', '0', '', 'BK202510217A6C86', 400, 400, 0, '2025-10-21 21:19:00', '2025-10-22 00:19:00', 'active', '2025-10-21 13:19:53', NULL, NULL),
+(23, 'Mark', 'kukuhuskar82@gmail.com', 'St 123 Main Street ', '09165770822', 20, 1, '101', '3', '0', '', 'BK20251021C1CB60', 400, 400, 0, '2025-10-21 21:24:00', '2025-10-22 00:24:00', 'active', '2025-10-21 13:24:28', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -116,7 +122,22 @@ INSERT INTO `checkins` (`id`, `guest_name`, `address`, `telephone`, `room_number
 (70, 'Joji', 'Brgy. Lawa', '+639483743434', 101, '', 3, 400.00, 400.00, 400.00, 'gcash', '2025-10-12 12:23:39', '2025-10-12 15:23:39', 'checked_out', '31321323133', 2),
 (71, 'OZI', 'BLK 5, LOT5, MALIGAYA VILLAGE, BRGY. LAWA, CALAMBA CITY, LAGUNA', '+639165770829', 102, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-12 12:25:59', '2025-10-12 15:25:59', 'checked_out', '', 2),
 (72, 'San Miguel', 'Brgy. Barandal', '+639165770822', 101, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-12 21:10:40', '2025-10-13 00:10:40', 'checked_out', '', 2),
-(73, 'John Doe', '123 Main ST.', '+639898989843', 101, '', 4, 533.33, 400.00, 400.00, 'cash', '2025-10-13 08:58:43', '2025-10-13 09:02:00', 'checked_out', '', 2);
+(74, 'Arthur Lewin', 'St 123 Main Street', '+639165770822', 101, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-13 19:12:00', '2025-10-13 19:12:11', 'checked_out', '', 2),
+(75, 'Erza Scarlet', 'St 123 Main Street', '+639437482374', 101, '', 3, 400.00, 400.00, 400.00, 'cash', '2025-10-13 19:12:39', '2025-10-13 22:12:39', 'checked_out', '', 2),
+(76, 'Magenta', 'St 123 Main Street', '+639165770822', 101, '', 4, 520.00, 520.00, 0.00, 'cash', '2025-10-13 22:20:42', '2025-10-13 22:44:56', 'checked_out', '', 2),
+(77, 'Kamado Tanjiro', 'St 123 Main Street', '+639165770822', 101, '', 4, 520.00, 520.00, 0.00, 'cash', '2025-10-13 22:46:20', '2025-10-13 23:07:48', 'checked_out', '', 2),
+(78, 'DING DONG', 'St 123 Main Street', '+639437482374', 101, '', 4, 520.00, 520.00, 0.00, 'cash', '2025-10-13 23:16:30', '2025-10-13 23:17:37', 'checked_out', '', 2),
+(79, 'Aqua', 'St 123 Main Street', '+639165770829', 101, '', 4, 520.00, 520.00, 0.00, 'cash', '2025-10-13 23:21:34', '2025-10-13 23:22:05', 'checked_out', '', 2),
+(80, 'Balmond', 'St 123 Main Street', '+639437482374', 101, '', 4, 520.00, 520.00, 0.00, 'cash', '2025-10-13 23:25:15', '2025-10-13 23:25:30', 'checked_out', '', 2),
+(81, 'Maria', 'St 123 Main Street', '+639165770822', 101, '', 4, 520.00, 520.00, 0.00, 'cash', '2025-10-13 23:32:10', '2025-10-13 23:32:24', 'checked_out', '', 2),
+(82, 'King', 'St 123 Main Street', '+639165770822', 101, '', 5, 640.00, 640.00, 0.00, 'cash', '2025-10-13 23:35:06', '2025-10-13 23:36:18', 'checked_out', '', 2),
+(83, 'Macarov', 'St 123 Main Street', '+639165770822', 101, '', 4, 520.00, 520.00, 0.00, 'cash', '2025-10-13 23:41:25', '2025-10-13 23:44:56', 'checked_out', '', 2),
+(84, 'Fred', 'St 123 Main Street', '+639165770822', 102, '', 4, 520.00, 520.00, 0.00, 'cash', '2025-10-13 23:45:26', '2025-10-13 23:50:28', 'checked_out', '', 2),
+(85, 'Karina', 'St 123 Main Street', '+639165770822', 103, '', 4, 420.00, 420.00, 0.00, 'cash', '2025-10-13 23:50:49', '2025-10-13 23:51:10', 'checked_out', '', 2),
+(86, 'UI', 'St 123 Main Street', '+639437482374', 103, '', 5, 540.00, 540.00, 0.00, 'cash', '2025-10-13 23:52:47', '2025-10-14 00:33:25', 'checked_out', '', 2),
+(87, 'Cath', 'St 123 Main Street', '+639165770822', 102, '', 3, 520.00, 520.00, 0.00, 'cash', '2025-10-14 00:34:13', '2025-10-14 00:34:53', 'checked_out', '', 2),
+(88, 'Binch', 'Brgy. Barandal', '+639165770822', 101, '', 4, 520.00, 520.00, 0.00, 'cash', '2025-10-14 00:36:36', '2025-10-14 00:37:23', 'checked_out', '', 2),
+(89, 'Camel', 'St 123 Main Street', '+639165770822', 103, '', 3, 300.00, 300.00, 300.00, 'cash', '2025-10-21 21:36:10', '2025-10-22 00:36:10', 'checked_in', '', 2);
 
 -- --------------------------------------------------------
 
@@ -185,9 +206,9 @@ CREATE TABLE `keycards` (
 --
 
 INSERT INTO `keycards` (`id`, `room_number`, `booking_id`, `guest_id`, `qr_code`, `valid_from`, `valid_to`, `status`) VALUES
-(1, 101, NULL, NULL, '321A345D', '2025-10-05 10:16:23', '2025-10-13 12:58:43', 'expired'),
-(2, 102, NULL, NULL, 'B7B78413', '2025-10-10 11:58:31', '2035-10-10 11:58:31', 'active'),
-(3, 103, NULL, NULL, '3021063D', '2025-10-10 11:58:36', '2025-10-11 23:19:45', 'active'),
+(1, 101, NULL, NULL, '321A345D', '2025-10-05 10:16:23', '2025-10-14 04:36:36', 'expired'),
+(2, 102, NULL, NULL, 'B7B78413', '2025-10-10 11:58:31', '2025-10-14 04:34:13', 'expired'),
+(3, 103, NULL, NULL, '3021063D', '2025-10-10 11:58:36', '2025-10-14 04:52:47', 'active'),
 (4, 104, NULL, NULL, '0B5CE489', '2025-10-12 00:40:48', '2035-10-12 00:40:48', 'active');
 
 -- --------------------------------------------------------
@@ -238,6 +259,36 @@ CREATE TABLE `payments` (
   `amount` decimal(10,2) NOT NULL,
   `payment_mode` enum('cash','gcash') NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `payments`
+--
+
+INSERT INTO `payments` (`id`, `payment_date`, `amount`, `payment_mode`) VALUES
+(1, '2025-10-13 22:44:17', 100.00, 'cash'),
+(2, '2025-10-13 22:44:55', 20.00, 'cash'),
+(3, '2025-10-13 22:46:47', 100.00, 'cash'),
+(4, '2025-10-13 23:07:47', 20.00, 'cash'),
+(5, '2025-10-13 23:17:23', 100.00, 'cash'),
+(6, '2025-10-13 23:17:37', 20.00, 'cash'),
+(7, '2025-10-13 23:21:50', 50.00, 'cash'),
+(8, '2025-10-13 23:22:05', 70.00, 'cash'),
+(9, '2025-10-13 23:25:30', 120.00, 'cash'),
+(10, '2025-10-13 23:32:24', 120.00, 'cash'),
+(11, '2025-10-13 23:35:37', 140.00, 'cash'),
+(12, '2025-10-13 23:36:18', 100.00, 'cash'),
+(13, '2025-10-13 23:41:41', 100.00, 'cash'),
+(14, '2025-10-13 23:41:49', 20.00, 'cash'),
+(15, '2025-10-13 23:45:39', 100.00, 'cash'),
+(16, '2025-10-13 23:46:08', 20.00, 'cash'),
+(17, '2025-10-13 23:51:01', 20.00, 'cash'),
+(18, '2025-10-13 23:51:10', 100.00, 'cash'),
+(19, '2025-10-14 00:33:02', 140.00, 'cash'),
+(20, '2025-10-14 00:33:25', 100.00, 'cash'),
+(21, '2025-10-14 00:34:35', 100.00, 'cash'),
+(22, '2025-10-14 00:34:53', 20.00, 'cash'),
+(23, '2025-10-14 00:37:12', 100.00, 'cash'),
+(24, '2025-10-14 00:37:23', 20.00, 'cash');
 
 -- --------------------------------------------------------
 
@@ -292,9 +343,9 @@ CREATE TABLE `rooms` (
 --
 
 INSERT INTO `rooms` (`id`, `room_number`, `room_type`, `status`, `created_at`, `updated_at`, `price_3hrs`, `price_6hrs`, `price_12hrs`, `price_24hrs`, `price_ot`) VALUES
-(1, 101, 'standard_room', 'available', '2025-04-26 16:34:08', '2025-10-13 01:02:00', 400.00, 750.00, 1100.00, 1500.00, 120.00),
-(2, 102, 'standard_room', 'available', '2025-04-26 17:37:56', '2025-10-12 13:09:28', 400.00, 750.00, 1100.00, 1500.00, 120.00),
-(10, 103, 'standard_room', 'available', '2025-04-28 16:01:31', '2025-10-12 04:22:57', 300.00, 750.00, 1100.00, 1500.00, 120.00),
+(1, 101, 'standard_room', 'available', '2025-04-26 16:34:08', '2025-10-13 16:37:23', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+(2, 102, 'standard_room', 'available', '2025-04-26 17:37:56', '2025-10-13 16:34:53', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+(10, 103, 'standard_room', 'booked', '2025-04-28 16:01:31', '2025-10-21 13:36:10', 300.00, 750.00, 1100.00, 1500.00, 120.00),
 (12, 104, 'standard_room', 'available', '2025-04-29 13:29:43', '2025-10-12 04:22:57', 400.00, 750.00, 1100.00, 1500.00, 120.00),
 (13, 106, 'twin_room', 'available', '2025-05-07 06:15:36', '2025-10-11 07:28:10', 400.00, 750.00, 1100.00, 1500.00, 120.00),
 (18, 107, 'single', 'available', '2025-09-29 09:08:45', '2025-09-29 09:30:18', 400.00, 600.00, 1200.00, 1400.00, 120.00),
@@ -415,8 +466,7 @@ INSERT INTO `users` (`user_id`, `name`, `username`, `email`, `password`, `role`,
 (17, 'David Brown', 'David', 'davidbrown@gmail.com', '$2y$10$U7dy9bciBLhUV.85JPyKCecaFAL/N7aUJ3QllCH/9MVG.78IE8/v.', 'Receptionist', 'pending', NULL, NULL),
 (18, 'Michael Johnson', 'michael', 'michaeljohnson@gmail.com', '$2y$10$BGSXU2IlDvzQ9CjQu6qIsOzFI8F00i96qRN2wN4FeKQNsJfPFZKly', 'Receptionist', 'pending', NULL, NULL),
 (19, 'Toby Maguire', 'toby', 'toby@gmail.com', '$2y$10$DNG1bkEITaZunq6phIfPIOhJWNwiwhJgtPvbP.iSPWU5g985/iwYW', 'Guest', 'pending', NULL, NULL),
-(21, 'Makima', 'makima', 'makima@gmail.com', '$2y$10$iWMMQr/lEHmycuWaujWSGOxt9qp1qsl1wpsl5iQ5qoV.P2dC6atH2', 'Receptionist', 'approved', NULL, NULL),
-(27, 'Angelo Almonte', 'Gelo', 'kukuhuskar82@gmail.com', '$2y$10$DzWczH5EfdcDIfFAmTSL/.R3xXeZuTKmqlO/tKrSWdmSsLTrZys7G', 'Receptionist', 'approved', NULL, NULL);
+(21, 'Makima', 'makima', 'makima@gmail.com', '$2y$10$iWMMQr/lEHmycuWaujWSGOxt9qp1qsl1wpsl5iQ5qoV.P2dC6atH2', 'Receptionist', 'approved', NULL, NULL);
 
 --
 -- Indexes for dumped tables
@@ -533,13 +583,13 @@ ALTER TABLE `announcements`
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `checkins`
 --
 ALTER TABLE `checkins`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=90;
 
 --
 -- AUTO_INCREMENT for table `complaints`
@@ -575,7 +625,7 @@ ALTER TABLE `orders`
 -- AUTO_INCREMENT for table `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- AUTO_INCREMENT for table `receptionist_profiles`
