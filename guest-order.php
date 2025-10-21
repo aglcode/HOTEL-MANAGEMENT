@@ -164,11 +164,33 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
+        :root {
+          --maroon: #800000;
+          --maroon-dark: #5a0000;
+          --matte-black: #1c1c1c;
+          --text-gray: #6c757d;
+          --card-bg: #f8f8f8ff;
+          --hover-bg: #f3f3f3ff;
+        }
+
+        .text-maroon {
+          color: var(--maroon) !important; /* Classic maroon */
+        }
+
+        .text-black {
+          color: var(--matte-black) !important; /* Classic black */
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* centering the dashboard content */
 /* === Sidebar Container === */
     .sidebar {
       width: 260px;
       height: 100vh;
-      background: #fff;
+      background: var(--matte-black);
       border-right: 1px solid #e5e7eb;
       position: fixed;
       top: 0;
@@ -176,131 +198,21 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
       display: flex;
       flex-direction: column;
       padding: 20px 0;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
     }
 
     /* === Logo / Header === */
     .sidebar h4 {
       text-align: center;
       font-weight: 700;
-      color: #111827;
+      color: var(--card-bg);
       margin-bottom: 30px;
-    }
-
-    /* === User Info Section === */
-    .user-info {
-      text-align: center;
-      background: #f9fafb;
-      border-radius: 10px;
-      padding: 15px;
-      margin: 0 20px 25px 20px;
-    }
-
-    .user-info i {
-      font-size: 30px;
-      color: #6b7280;
-      margin-bottom: 5px;
-    }
- 
-    .user-info p {
-      margin: 0;
-      font-size: 14px;
-      color: #6b7280;
-    }
-
-    .user-info h6 {
-      margin: 0;
-      font-weight: 600;
-      color: #111827;
-    }
-
-    /* === Sidebar Navigation === */
-    .nav-links {
-      flex-grow: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 0 10px;
-    }
-
-    .nav-links a {
-    display: flex;
-    align-items: center;
-    gap: 14px; 
-    font-size: 16px; 
-    font-weight: 500;
-    color: #374151;
-    text-decoration: none;
-    padding: 12px 18px; 
-    border-radius: 8px;
-    margin: 4px 10px;
-    transition: all 0.2s ease;
-    }
-
-    .nav-links a i {
-    font-size: 19px; 
-    color: #374151;
-    transition: color 0.2s ease;
-    }
-
-    /* Hover state — icon & text both turn black */
-    .nav-links a:hover {
-    background: #f3f4f6;
-    color: #111827;
-    }
-
-    .nav-links a:hover i {
-    color: #111827;
-    }
-
-    /* Active state — white text & icon on dark background */
-    .nav-links a.active {
-    background: #871D2B;
-    color: #fff;
-    }
-
-    .nav-links a.active i {
-    color: #fff;
-    }
-    /* === Sign Out === */
-    .signout {
-    border-top: 1px solid #e5e7eb;
-    padding: 15px 20px 0;
-    }
-
-    .signout a {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: #dc2626;
-    text-decoration: none;
-    font-weight: 500;
-    font-size: 15px;
-    padding: 10px 15px;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-    }
-
-    /* Hover effect — same feel as the other links */
-    .signout a:hover {
-    background: #f3f4f6;
-    color: #dc2626;
-    }
-
-    .signout a:hover i {
-    color: #dc2626;
-    }
-
-    /* === Main Content Offset === */
-    .content {
-      margin-left: 270px;
-      padding: 30px;
-      max-width: 1400px;
     }
 
 /* === User Info === */
 .user-info {
   text-align: center;
-  background: #f9fafb;
+  background: var(--matte-black);
   border-radius: 10px;
   padding: 15px;
   margin: 0 20px 25px 20px;
@@ -308,20 +220,20 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 
 .user-info i {
   font-size: 40px;
-  color: #6b7280;
+  color: var(--card-bg);
   margin-bottom: 5px;
 }
 
 .user-info p {
   margin: 0;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--card-bg);
 }
 
 .user-info h6 {
   margin: 0;
   font-weight: 600;
-  color: #111827;
+  color: var(--card-bg);
 }
 
 .nav-links {
@@ -337,7 +249,7 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
   gap: 14px;
   font-size: 16px;
   font-weight: 500;
-  color: #374151;
+  color: var(--card-bg);
   text-decoration: none;
   padding: 12px 18px;
   border-radius: 8px;
@@ -347,7 +259,7 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 
 .nav-links a i {
   font-size: 19px;
-  color: #374151;
+  color: var(--card-bg);
   transition: color 0.2s ease;
 }
 
@@ -363,7 +275,7 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 
 /* Active state — white text & icon on dark background */
 .nav-links a.active {
-  background: #871D2B;
+  background: var(--maroon);
   color: #fff;
 }
 
@@ -406,71 +318,539 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
   padding: 30px;
   max-width: 1400px;
 }
-.card {
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+
+/* ---------- Sticky Navbar-Like Filter Bar ---------- */
+.sticky-filter-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1050; /* stays above most elements */
+  background-color: #fff;
+  border-bottom: 1px solid #dee2e6;
 }
-.card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+
+/* Smooth transition for sticky effect */
+.sticky-filter-bar {
+  transition: all 0.3s ease;
 }
-.card-title {
+
+/* Optional: Add shadow on scroll for visual depth */
+body.scrolled .sticky-filter-bar {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+      
+/* ---------- FILTER MENU STYLING (Animated & Elegant) ---------- */
+.btn-filter-toggle {
+  background-color: var(--matte-black);
+  color: #fff;
+  border: none;
   font-weight: 600;
+  padding: 8px 18px;
+  margin-left: 19px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
-.btn-warning:hover {
-  background-color: #e89f00 !important;
+
+.btn-filter-toggle i {
+  margin-right: 6px;
+  transition: transform 0.3s ease, color 0.3s ease;
 }
-.btn-success:hover {
-  background-color: #1b8a4b !important;
+
+.btn-filter-toggle:hover i {
+  transform: rotate(20deg);
+  color: #ffd1d1;
+}
+
+.btn-filter-toggle:hover,
+.btn-filter-toggle:focus {
+  background-color: var(--maroon);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(128, 0, 0, 0.3);
+}
+
+/* ---------- Dropdown Menu ---------- */
+.dropdown-menu {
+  border-radius: 14px;
+  background-color: #fff;
+  border: none;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  padding: 10px;
+  animation: fadeIn 0.3s ease;
+  transform-origin: top right;
+}
+
+/* ---------- Dropdown Items ---------- */
+.dropdown-item {
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 500;
+  color: #1c1c1c;
+  transition: all 0.25s ease;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-item:hover {
+  background-color: var(--maroon);
+  color: #fff;
+  transform: translateX(6px);
+}
+
+.dropdown-item.active {
+  background-color: var(--maroon);
+  color: #fff;
+}
+
+/* ---------- Divider ---------- */
+.dropdown-divider {
+  margin: 6px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* ---------- SEARCH BAR (Stylish & Animated) ---------- */
+.search-box {
+  width: 260px;
+  position: relative;
+}
+
+.search-box .input-group {
+  border-radius: 15px;
+  border: solid 1.5px #1c1c1c;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #fff, #f9f9f9);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+.search-box input {
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  padding-left: 5px;
+  transition: all 0.3s ease;
+}
+
+.search-box input:focus {
+  outline: none;
+  background: #fff7f7;
+  box-shadow: none;
+}
+
+.search-box .input-group-text {
+  background: transparent;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.search-box .bi-search {
+  transition: transform 0.3s ease, color 0.3s ease;
+  color: #777;
+}
+
+/* 🔍 Animation when focusing */
+.search-box input:focus + .input-group-text .bi-search,
+.search-box:hover .bi-search {
+  color: var(--maroon);
+  transform: scale(1.15) rotate(10deg);
+}
+
+/* 🌈 Glowing border animation when typing */
+.search-box input:focus {
+  animation: glowBorder 1s ease-in-out infinite alternate;
+}
+
+@keyframes glowBorder {
+  from {
+    box-shadow: 0 0 6px rgba(128, 0, 0, 0.2);
+  }
+  to {
+    box-shadow: 0 0 10px rgba(128, 0, 0, 0.4);
+  }
+}
+
+/* 🔥 Smooth fade animation for menu cards and titles */
+.menu-category,
+.menu-type,
+.menu-type h5,
+.menu-type .card,
+.menu-type .col-md-4,
+.menu-type .col-lg-3,
+.menu-type .col-sm-6 {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* ---------- Cart & View Buttons ---------- */
+.btn-cart,
+.btn-view {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px 18px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 🛒 CART BUTTON (Maroon Theme) */
+#cartButton {
+  position: relative;
+  overflow: visible;
+  background-color: var(--maroon);
+  color: #fff;
+  border: 1px solid var(--maroon);
+  font-weight: 600;
+  padding: 8px 18px;
+  transition: all 0.3s ease;
+}
+
+#cartButton i {
+  transition: transform 0.3s ease, color 0.3s ease;
+}
+
+/* Hover Effect Fix */
+#cartButton:hover {
+  background-color: #fff;
+  color: var(--maroon);
+  border-color: var(--maroon);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(128, 0, 0, 0.3);
+}
+
+#cartButton:hover i {
+  transform: rotate(-15deg) scale(1.2);
+  color: var(--maroon);
+}
+
+/* 🛍️ Cart Badge */
+#cartCount {
+  font-size: 0.75rem;
+  background-color: #dc3545;
+  color: #fff;
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: none; /* hidden by default */
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  border: 2px solid #fff;
+  box-shadow: 0 0 4px rgba(0,0,0,0.2);
+}
+
+/* Animate when bumping */
+#cartCount.bump {
+  animation: bump 0.3s ease;
+}
+
+@keyframes bump {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+/* ===== CART SIDEBAR ===== */
+.cart-sidebar {
+  position: fixed;
+  top: 0;
+  right: -400px;
+  width: 350px;
+  height: 100%;
+  background: #fff;
+  box-shadow: -4px 0 12px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  transition: right 0.4s ease;
+  z-index: 1050;
+}
+
+.cart-sidebar.active {
+  right: 0;
+}
+
+/* ===== EMPTY CART DESIGN ===== */
+.empty-cart {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+}
+
+.empty-cart i {
+  font-size: 4rem;
+  color: #ccc;
+  margin-bottom: 10px;
+  transition: transform 0.3s ease;
+}
+
+.empty-cart i:hover {
+  transform: rotate(-10deg) scale(1.1);
+}
+
+/* Hide footer when cart is empty */
+.cart-footer.hidden {
+  display: none !important;
+}
+
+/* 🎨 Stylish size dropdown for Lomi */
+.size-select {
+  background-color: #fdf3f3;
+  border: 1px solid var(--matte-black);
+  border-radius: 8px;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+  color: var(--matte-black);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.size-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.3)
+}
+
+.cart-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  z-index: 1040;
+}
+
+.cart-overlay.active {
+  display: block;
+}
+
+.cart-items {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.cart-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f9f9f9;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.cart-item img {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.cart-item-info {
+  flex: 1;
+  margin-left: 10px;
+}
+
+.cart-item h6 {
+  margin-bottom: 3px;
+  font-size: 0.95rem;
+}
+
+.qty-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 5px;
+}
+
+.qty-control button {
+  background: var(--maroon);
+  color: #fff;
+  border: none;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.btn-confirm {
+  background: var(--maroon);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 10px 0;
+}
+
+.btn-confirm:hover {
+  background: #a00000;
+}
+
+/* 👁️ VIEW ORDER BUTTON (Matte Black Theme) */
+.btn-view {
+  background-color: var(--matte-black);
+  color: #fff;
+  margin-right: 19px;
+  border-color: var(--matte-black);
+}
+
+.btn-view i {
+  transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.btn-view:hover {
+  background-color: #fff;
+  border: solid 1.5px var(--matte-black);
+  color: var(--matte-black);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+}
+
+.btn-view:hover i {
+  transform: scale(1.2);
+  color: var(--matte-black);
+}
+
+/* ---------- Pulse Animation ---------- */
+.pulse {
+  position: relative;
+  overflow: hidden;
+}
+
+.pulse::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease;
+}
+
+.pulse:active::after {
+  width: 200%;
+  height: 200%;
+}
+
+/* ---------- Fade-in Animation ---------- */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
         
-        .announcement-item {
-            transition: background-color 0.2s ease;
-        }
-        
-        .announcement-item:hover {
-            background-color: rgba(0, 0, 0, 0.02);
-        }
-        
-        .room-item {
-            padding: 10px 15px;
-            border-bottom: 1px solid #eee;
-            transition: background-color 0.2s ease;
-        }
-        
-        .room-item:hover {
-            background-color: rgba(0, 0, 0, 0.02);
-        }
-        
-        .room-item:last-child {
-            border-bottom: none;
-        }
-        
-        .booking-card {
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s ease;
-        }
-        
-        .booking-card:hover {
-            transform: translateY(-2px);
-        }
-        
-        .guest-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 16px;
-        }
+.menu-card {
+  border: none;
+  border-radius: 16px;
+  overflow: hidden;
+  background-color: var(--card-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); /* 🌟 Default soft shadow */
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.menu-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); /* 🌟 Stronger on hover */
+  background-color: var(--hover-bg);
+}
+
+    .category-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background-color: var(--maroon);
+      color: #fff;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .price {
+      color: var(--maroon);
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin: 0;
+    }
+
+.btn-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: #fff;
+  color: #000; /* Black text */
+  border: 2px solid #000; /* Black border */
+  border-radius: 50px;
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Add the + icon before the text */
+.btn-add::before {
+  content: "+";
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #000; /* Black icon */
+  transition: transform 0.3s ease, color 0.3s ease;
+}
+
+/* Hover animation */
+.btn-add:hover {
+  background-color: #000; /* Black background */
+  color: #fff; /* White text */
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Animate the + icon on hover */
+.btn-add:hover::before {
+  transform: rotate(180deg) scale(1.2);
+  color: #fff;
+}
+
+/* Optional: small press-down effect */
+.btn-add:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+    .card-body {
+      padding: 1rem 1.25rem 1.25rem;
+    }
+
+    .card-img-top {
+      height: 180px;
+      object-fit: cover;
+    }
     </style>
 </head>
 <body>
-<!-- Sidebar -->
 <<!-- Sidebar -->
 <div class="sidebar" id="sidebar">
   <h4>Gitarra Apartelle</h4>
@@ -480,7 +860,7 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
     <i class="fa-solid fa-user-circle"></i>
     <p>Welcome</p>
     <h6><?= htmlspecialchars($guest_name) ?></h6>
-    <p style="font-size: 14px; color: #6b7280;">Room <?= htmlspecialchars($room) ?></p>
+    <p style="font-size: 14px; color: #f8f8f8ff;">Room <?= htmlspecialchars($room) ?></p>
   </div>
 
   <!-- Nav Links -->
@@ -501,7 +881,6 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
     <a href="signin.php"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
   </div>
 </div>
-
 
 
     <!-- Content -->
@@ -536,106 +915,190 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 <!-- ==================== ORDER CARDS ==================== -->
 <div class="row mb-4">
 
-  <!-- ==================== FILTER MENU ==================== -->
-  <h6 class="fw-bold mb-3 text-uppercase text-dark d-flex flex-wrap justify-content-center">Filter Menu</h6>
-  <div class="d-flex flex-wrap justify-content-center gap-2 mb-2">
-    <button class="btn btn-outline-dark active filter-btn" data-filter="all">All</button>
-    <button class="btn btn-outline-dark filter-btn" data-filter="food">Food</button>
-    <button class="btn btn-outline-warning filter-btn" data-filter="noodles">Noodles</button>
-    <button class="btn btn-outline-warning filter-btn" data-filter="ricemeals">Rice Meals</button>
-    <button class="btn btn-outline-warning filter-btn" data-filter="lumpia">Lumpia</button>
-    <button class="btn btn-outline-warning filter-btn" data-filter="snacks">Snacks</button>
-    <button class="btn btn-outline-warning filter-btn" data-filter="drinks">Drinks</button>
-  </div>
-  <div class="d-flex flex-wrap justify-content-center gap-2">
-    <button class="btn btn-outline-dark filter-btn" data-filter="non-food">Non-Food</button>
-    <button class="btn btn-outline-primary filter-btn" data-filter="dental-care">Dental Care</button>
-    <button class="btn btn-outline-primary filter-btn" data-filter="shampoo">Shampoo</button>
-    <button class="btn btn-outline-primary filter-btn" data-filter="conditioner">Conditioner</button>
-    <button class="btn btn-outline-primary filter-btn" data-filter="utensils">Disposable Utensils</button>
+  <!-- ==================== FILTER, SEARCH, CART, AND ORDER BUTTON ==================== -->
+  <div class="filter-bar sticky-filter-bar d-flex flex-wrap justify-content-between align-items-center gap-3 py-2 px-3 shadow-sm bg-white border-bottom">
+
+        <!-- 🔽 Filter Dropdown (LEFT SIDE) -->
+        <div class="dropdown filter-dropdown">
+          <button class="btn btn-filter-toggle dropdown-toggle px-4 py-2" type="button" id="filterMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-funnel-fill me-2"></i> 
+            <span id="filterMenuLabel">Filter Menu</span>
+          </button>
+
+          <ul class="dropdown-menu shadow-sm border-0 p-2" aria-labelledby="filterMenuButton">
+            <li><button class="dropdown-item filter-btn active" data-filter="all"><i class="bi bi-grid me-2"></i>All</button></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><button class="dropdown-item filter-btn" data-filter="food"><i class="bi bi-egg-fried me-2"></i>Food</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="noodles"><i class="bi bi-cup-hot me-2"></i>Noodles</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="ricemeals"><i class="bi bi-bowl-rice me-2"></i>Rice Meals</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="lumpia"><i class="bi bi-bag-fill me-2"></i>Lumpia</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="snacks"><i class="bi bi-cookie me-2"></i>Snacks</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="drinks"><i class="bi bi-cup-straw me-2"></i>Drinks</button></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><button class="dropdown-item filter-btn" data-filter="non-food"><i class="bi bi-box-seam me-2"></i>Non-Food</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="dental-care"><i class="bi bi-tooth me-2"></i>Dental Care</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="shampoo"><i class="bi bi-droplet-half me-2"></i>Shampoo</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="conditioner"><i class="bi bi-bucket me-2"></i>Conditioner</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="utensils"><i class="bi bi-cup me-2"></i>Disposable Utensils</button></li>
+          </ul>
+        </div>
+
+        <!-- 🔍 Search, Cart, and View (RIGHT SIDE) -->
+        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+          <form class="d-flex search-box">
+            <div class="input-group shadow-sm overflow-hidden">
+              <span class="input-group-text border-0 bg-white ps-3">
+                <i class="bi bi-search text-muted"></i>
+              </span>
+              <input 
+                type="text" 
+                id="menuSearch" 
+                class="form-control border-0" 
+                placeholder="Search item..." 
+              />
+            </div>
+          </form>
+
+          <!-- 🛒 Cart Badge -->
+          <button class="btn btn-cart pulse position-relative" id="cartButton">
+            <i class="bi bi-cart-fill me-1"></i> Cart
+            <span id="cartCount" class="badge rounded-pill bg-danger position-absolute top-0 start-100 translate-middle">0</span>
+          </button>
+
+          <!-- 🧾 Cart Sidebar -->
+          <div id="cartSidebar" class="cart-sidebar">
+            <div class="cart-header d-flex justify-content-between align-items-center">
+              <h5 class="fw-bold mb-0"><i class="bi bi-cart-fill me-2"></i>Your Cart</h5>
+              <button id="closeCart" class="btn-close"></button>
+            </div>
+
+            <!-- Empty Cart Message -->
+            <div id="emptyCart" class="empty-cart text-center mt-5">
+              <i class="bi bi-bag-x fs-1 text-muted mb-3"></i>
+              <p class="fw-semibold text-muted mb-1">Your cart is empty</p>
+              <p class="small text-secondary">Add some quality items to get started!</p>
+            </div>
+
+            <div id="cartItems" class="cart-items mt-3"></div>
+
+            <div class="cart-footer mt-auto">
+              <div class="d-flex justify-content-between mb-2">
+                <span>Subtotal</span>
+                <span id="subtotal">₱0.00</span>
+              </div>
+              <div class="d-flex justify-content-between mb-2">
+                <span>Delivery Fee</span>
+                <span>₱50.00</span>
+              </div>
+              <hr>
+              <div class="d-flex justify-content-between fw-bold fs-5 mb-3">
+                <span>Total</span>
+                <span id="total">₱50.00</span>
+              </div>
+              <button class="btn w-100 btn-confirm" id="confirmOrderBtn">
+                Confirm Order
+              </button>
+            </div>
+          </div>
+
+          <!-- Cart Overlay -->
+          <div id="cartOverlay" class="cart-overlay"></div>
+
+          <button class="btn btn-view pulse" id="viewOrderBtn">
+            <i class="bi bi-eye me-1"></i> View Order
+          </button>
+        </div>
   </div>
 
   <!-- ==================== MENU CARD ==================== -->
-  <div class="card shadow-lg border-0 p-1 my-4">
-    <div class="card-body">
-    
-    <!-- ==================== VIEW ORDER BUTTON ==================== -->
-    <div class="d-flex justify-content-end mt-1 mb-1">
-      <button class="btn btn-primary rounded-pill px-4" id="viewOrderBtn">
-        <i class="bi bi-eye"></i> View Order
-      </button>
-    </div>
+  <div class="card shadow-lg border-0 p-1 my-2">
+    <div class="card-body" id="menuContainer">
 
       <!-- ==================== FOOD MENU ==================== -->
       <div class="menu-category food">
         <div class="container my-4">
-          <h3 class="text-center mb-4 fw-bold text-uppercase">🍴 Food Menu</h3>
+          <h3 class="text-center text-maroon mb-4 fw-bold text-uppercase">Food Menu</h3>
 
           <!-- ==================== NOODLES ==================== -->
           <div class="menu-type noodles">
-            <h5 class="fw-bold mt-4 mb-3 text-warning">🍜 Noodles</h5>
-
-            <div class="row g-4">
+            <h5 class="fw-bold mt-5 mb-3 text-maroon">Noodles</h5>
+            <div class="row g-4 mb-4">
               <!-- Lomi -->
-              <div class="col-md-4 col-lg-3">
-                <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-                  <img src="image/Lomi.jpg" class="card-img-top" alt="Lomi">
-                  <div class="card-body text-center d-flex flex-column justify-content-between">
-                    <h5 class="card-title">Lomi</h5>
-                    <p class="text-muted small">Small ₱60 | Medium ₱70 | Large ₱80</p>
-                    <button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button>
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Noodle</span>
+                  <img src="image/Lomi.png" class="card-img-top" alt="Lomi">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Lomi</h6>
+                    <p class="text-muted small mb-4">Thick savory noodles</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">S-₱60 M-₱70 L-₱80</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <!-- Mami -->
-              <div class="col-md-4 col-lg-3">
-                <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-                  <img src="image/Mami.jpg" class="card-img-top" alt="Mami">
-                  <div class="card-body text-center d-flex flex-column justify-content-between">
-                    <h5 class="card-title">Mami</h5>
-                    <p class="text-muted small">₱70</p>
-                    <button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button>
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Noodle</span>
+                  <img src="image/Mami.png" class="card-img-top" alt="Mami">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Mami</h6>
+                    <p class="text-muted small mb-4">Warm comforting soup</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱70</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <!-- INSTANT NOODLES -->
-            <h5 class="fw-bold mt-5 mb-3 text-warning">🍲 Instant Noodles</h5>
-            <div class="row g-4">
               <!-- Nissin Cup (Beef) -->
-              <div class="col-md-4 col-lg-3">
-                <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Instant Noodle</span>
                   <img src="image/Nissin Beef.png" class="card-img-top" alt="Nissin Cup Beef">
-                  <div class="card-body text-center d-flex flex-column justify-content-between">
-                    <h5 class="card-title">Nissin Cup (Beef)</h5>
-                    <p class="text-muted small">₱40</p>
-                    <button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button>
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Nissin Cup (Beef)</h6>
+                    <p class="text-muted small mb-4">Rich beef-flavored noodles</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱40</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <!-- Nissin Cup (Chicken) -->
-              <div class="col-md-4 col-lg-3">
-                <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Instant Noodle</span>
                   <img src="image/Nissin Chicken.png" class="card-img-top" alt="Nissin Cup Chicken">
-                  <div class="card-body text-center d-flex flex-column justify-content-between">
-                    <h5 class="card-title">Nissin Cup (Chicken)</h5>
-                    <p class="text-muted small">₱40</p>
-                    <button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button>
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Nissin Cup (Chicken)</h6>
+                    <p class="text-muted small mb-4">Classic chicken broth flavor</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱40</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <!-- Nissin Cup (Spicy Seafood) -->
-              <div class="col-md-4 col-lg-3">
-                <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-                  <img src="image/Nissin Spicy Seafood.png" class="card-img-top" alt="Spicy Seafood">
-                  <div class="card-body text-center d-flex flex-column justify-content-between">
-                    <h5 class="card-title">Nissin Cup (Spicy Seafood)</h5>
-                    <p class="text-muted small">₱40</p>
-                    <button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button>
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Instant Noodle</span>
+                  <img src="image/Nissin Spicy Seafood.png" class="card-img-top" alt="Nissin Cup Spicy Seafood">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Nissin Cup (Spicy Seafood)</h6>
+                    <p class="text-muted small mb-4">A bold mix of seafood goodness</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱40</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -644,60 +1107,182 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 
           <!-- ==================== RICE MEALS ==================== -->
           <div class="menu-type ricemeals">
-            <h5 class="fw-bold mt-5 mb-3 text-warning">🍛 Rice Meals</h5>
-            <div class="row g-4">
-              <div class="col-md-4 col-lg-3">
-                <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-                  <img src="images/default-food.jpg" class="card-img-top" alt="Longganisa">
-                  <div class="card-body text-center d-flex flex-column justify-content-between">
-                    <h5 class="card-title">Longganisa</h5>
-                    <p class="text-muted small">₱100</p>
-                    <button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button>
-                  </div>
-                </div>
-              </div>
-            <div class="col-md-4 col-lg-3">
-                <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-                    <img src="images/default-food.jpg" class="card-img-top" alt="Sisig">
-                    <div class="card-body text-center d-flex flex-column justify-content-between">
-                        <h5 class="card-title">Sisig</h5>
-                        <p class="text-muted small">₱100</p>
-                        <button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button>
+            <h5 class="fw-bold mt-5 mb-3 text-maroon">Rice Meals</h5>
+            <div class="row g-4 mb-4">
+
+              <!-- Longganisa -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Rice Meal</span>
+                  <img src="image/Longganisa.jpg" class="card-img-top" alt="Longganisa">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Longganisa</h6>
+                    <p class="text-muted small mb-4">Savory Filipino sausage</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱100</p>
+                      <button class="btn btn-add">Add</button>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5 class="card-title">Bopis</h5><p class="text-muted small">₱100</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5 class="card-title">Tocino</h5><p class="text-muted small">₱100</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5 class="card-title">Tapa</h5><p class="text-muted small">₱100</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5 class="card-title">Hotdog</h5><p class="text-muted small">₱100</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5 class="card-title">Dinuguan</h5><p class="text-muted small">₱115</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5 class="card-title">Chicken Adobo</h5><p class="text-muted small">₱120</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5 class="card-title">Bicol Express</h5><p class="text-muted small">₱125</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-
-
-            </div>
-
-            <!-- ==================== ADD-ONS ==================== -->
-            <h5 class="fw-bold mt-5 mb-3 text-warning">🍗 Add-Ons</h5>
-            <div class="row g-4">
-              <div class="col-md-4 col-lg-3">
-                <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-                  <img src="images/default-food.jpg" class="card-img-top" alt="Chicharon">
-                  <div class="card-body text-center d-flex flex-column justify-content-between">
-                    <h5 class="card-title">Chicharon</h5>
-                    <p class="text-muted small">₱60</p>
-                    <button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button>
                   </div>
                 </div>
               </div>
 
-              <div class="col-md-4 col-lg-3">
-                <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-                  <img src="images/default-food.jpg" class="card-img-top" alt="Chicken Skin">
-                  <div class="card-body text-center d-flex flex-column justify-content-between">
-                    <h5 class="card-title">Chicken Skin</h5>
-                    <p class="text-muted small">₱60</p>
-                    <button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button>
+              <!-- Sisig -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Rice Meal</span>
+                  <img src="image/Sisig.jpg" class="card-img-top" alt="Sisig">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Sisig</h6>
+                    <p class="text-muted small mb-4">Crispy pork bits chili and egg</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱100</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bopis -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Rice Meal</span>
+                  <img src="image/Bopis.jpg" class="card-img-top" alt="Bopis">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Bopis</h6>
+                    <p class="text-muted small mb-4">Spicy pork lungs</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱100</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tocino -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Rice Meal</span>
+                  <img src="image/Tocino.jpg" class="card-img-top" alt="Tocino">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Tocino</h6>
+                    <p class="text-muted small mb-4">Sweet cured pork</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱100</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tapa -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Rice Meal</span>
+                  <img src="image/Tapa.jpg" class="card-img-top" alt="Tapa">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Tapa</h6>
+                    <p class="text-muted small mb-4">Marinated beef slices</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱100</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hotdog -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Rice Meal</span>
+                  <img src="image/Hotdog.jpg" class="card-img-top" alt="Hotdog">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Hotdog</h6>
+                    <p class="text-muted small mb-4">Grilled hotdog</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱100</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Dinuguan -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Rice Meal</span>
+                  <img src="image/Dinuguan.jpg" class="card-img-top" alt="Dinuguan">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Dinuguan</h6>
+                    <p class="text-muted small mb-4">Pork blood stew</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱115</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Chicken Adobo -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Rice Meal</span>
+                  <img src="image/Chicken Adobo.jpg" class="card-img-top" alt="Chicken Adobo">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Chicken Adobo</h6>
+                    <p class="text-muted small mb-4">Filipino chicken stew</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱120</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bicol Express -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Rice Meal</span>
+                  <img src="image/Bicol Express.jpg" class="card-img-top" alt="Bicol Express">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Bicol Express</h6>
+                    <p class="text-muted small mb-4">Spicy pork with coconut milk</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱125</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ==================== ADD-ONS ==================== -->
+              <!-- Chicharon -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Add-On</span>
+                  <img src="image/Chicharon.jpg" class="card-img-top" alt="Chicharon">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Chicharon</h6>
+                    <p class="text-muted small mb-4">Crispy fried pork</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱60</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Chicken Skin -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Add-On</span>
+                  <img src="image/Chicken Skin.jpg" class="card-img-top" alt="Chicken Skin">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Chicken Skin</h6>
+                    <p class="text-muted small mb-4">Crispy golden bites</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱60</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -706,197 +1291,833 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 
           <!-- ==================== LUMPIA ==================== -->
           <div class="menu-type lumpia">
-            <h5 class="fw-bold mt-5 mb-3 text-warning">🥟 Lumpia</h5>
-            <div class="row g-4">
-              <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5 class="card-title">Shanghai (3pcs)</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-              <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5 class="card-title">Gulay (3pcs)</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-              <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5 class="card-title">Toge (4pcs)</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
+            <h5 class="fw-bold mt-5 mb-3 text-maroon">Lumpia</h5>
+            <div class="row g-4 mb-4">
+              <!-- Shanghai -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Lumpia</span>
+                  <img src="image/Lumpia Shanghai.jpg" class="card-img-top" alt="Shanghai">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Shanghai (3pcs)</h6>
+                    <p class="text-muted small mb-4">Crispy savory rolls</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱40</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Gulay -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Lumpia</span>
+                  <img src="image/Lumpia Gulay.jpg" class="card-img-top" alt="Gulay">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Gulay (3pcs)</h6>
+                    <p class="text-muted small mb-4">Fresh veggie rolls</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱40</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Toge -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Lumpia</span>
+                  <img src="image/Lumpia Toge.jpg" class="card-img-top" alt="Toge">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Toge (4pcs)</h6>
+                    <p class="text-muted small mb-4">Crispy bean delight</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱40</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           <!-- ==================== SNACKS ==================== -->
           <div class="menu-type snacks">
-            <h5 class="fw-bold mt-5 mb-3 text-warning">🍟 Snacks</h5>
-            <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>French Fries (BBQ)</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>French Fries (Sour Cream)</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>French Fries (Cheese)</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Cheese Sticks (12pcs)</h5><p class="text-muted small">₱30</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Tinapay (3pcs)</h5><p class="text-muted small">₱20</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Tinapay with Spread (3pcs)</h5><p class="text-muted small">₱30</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Burger Regular</h5><p class="text-muted small">₱35</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Burger with Cheese</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Nagaraya Butter Yellow (Small)</h5><p class="text-muted small">₱20</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Nova Country Cheddar (Small)</h5><p class="text-muted small">₱25</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
+            <h5 class="fw-bold mt-5 mb-3 text-maroon">Snacks</h5>
+            <div class="row g-4 mb-4">
+
+              <!-- French Fries (BBQ) -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Snack</span>
+                  <img src="image/French Fries BBQ.jpg" class="card-img-top" alt="French Fries BBQ">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">French Fries (BBQ)</h6>
+                    <p class="text-muted small mb-4">Savory barbecue flavor</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱40</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- French Fries (Sour Cream) -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Snack</span>
+                  <img src="image/French Fries Sour Cream.jpg" class="card-img-top" alt="French Fries Sour Cream">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">French Fries (Sour Cream)</h6>
+                    <p class="text-muted small mb-4">Creamy tangy taste</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱40</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- French Fries (Cheese) -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Snack</span>
+                  <img src="image/French Fries Cheese.jpg" class="card-img-top" alt="French Fries Cheese">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">French Fries (Cheese)</h6>
+                    <p class="text-muted small mb-4">Cheesy salty goodness</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱40</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Cheese Sticks (12pcs) -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Snack</span>
+                  <img src="image/Cheese Sticks 12pcs.jpg" class="card-img-top" alt="Cheese Sticks">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Cheese Sticks (12pcs)</h6>
+                    <p class="text-muted small mb-4">Crispy cheesy delight</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱30</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tinapay (3pcs) -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Snack</span>
+                  <img src="image/Tinapay 3pcs.jpg" class="card-img-top" alt="Tinapay">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Tinapay (3pcs)</h6>
+                    <p class="text-muted small mb-4">Soft fresh bread</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱20</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tinapay with Spread (3pcs) -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Snack</span>
+                  <img src="image/Tinapay with Spread 3pcs.jpg" class="card-img-top" alt="Tinapay with Spread">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Tinapay with Spread (3pcs)</h6>
+                    <p class="text-muted small mb-4">Sweet buttery bread</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱30</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Burger Regular -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Snack</span>
+                  <img src="image/Burger Regular.jpg" class="card-img-top" alt="Burger Regular">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Burger Regular</h6>
+                    <p class="text-muted small mb-4">Juicy classic patty</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱35</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Burger with Cheese -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Snack</span>
+                  <img src="image/Burger with Cheese.jpg" class="card-img-top" alt="Burger with Cheese">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Burger with Cheese</h6>
+                    <p class="text-muted small mb-4">Melty cheesy burger</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱40</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Nagaraya Butter Yellow (Small) -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Snack</span>
+                  <img src="image/Nagaraya Butter Yellow Small.jpg" class="card-img-top" alt="Nagaraya Butter Yellow">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Nagaraya Butter Yellow (Small)</h6>
+                    <p class="text-muted small mb-4">Crunchy butter nuts</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱20</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Nova Country Cheddar (Small) -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Snack</span>
+                  <img src="image/Nova Country Cheddar Small.jpg" class="card-img-top" alt="Nova Country Cheddar">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Nova Country Cheddar (Small)</h6>
+                    <p class="text-muted small mb-4">Cheesy crunchy chips</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱25</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 
           <!-- ==================== DRINKS ==================== -->
           <div class="menu-type drinks">
-            <h5 class="fw-bold mt-5 mb-3 text-warning">💧 Water</h5>
+            <h5 class="fw-bold mt-5 mb-3 text-maroon">Water</h5>
             <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Bottled Water (500ml)</h5><p class="text-muted small">₱25</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Purified Hot Water Only (Mug)</h5><p class="text-muted small">₱10</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
+              <!-- Bottled Water -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Water</span>
+                  <img src="image/Bottled Water.jpg" class="card-img-top" alt="Bottled Water">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Bottled Water (500ml)</h6>
+                    <p class="text-muted small mb-4">Refreshing purified water</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱25</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Purified Hot Water -->
+              <div class="col-md-4 col-lg-4">
+                <div class="card menu-card position-relative">
+                  <span class="category-badge">Water</span>
+                  <img src="image/Purified Hot Water Mug.jpg" class="card-img-top" alt="Purified Hot Water">
+                  <div class="card-body">
+                    <h6 class="fw-bold mb-1">Purified Hot Water Only (Mug)</h6>
+                    <p class="text-muted small mb-4">Served hot and ready to sip</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <p class="price mb-0">₱10</p>
+                      <button class="btn btn-add">Add</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-
         <!-- ICE -->
-        <h5 class="fw-bold mt-5 mb-3 text-warning">🧊 Ice</h5>
+        <h5 class="fw-bold mt-5 mb-3 text-maroon">Ice</h5>
         <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Ice Bucket</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
+          <!-- Ice Bucket -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Ice</span>
+              <img src="image/Ice Bucket.jpg" class="card-img-top" alt="Ice Bucket">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Ice Bucket</h6>
+                <p class="text-muted small mb-4">Cold refreshing ice</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱40</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- SOFTDRINKS -->
-        <h5 class="fw-bold mt-5 mb-3 text-warning">🥤 Softdrinks</h5>
+        <h5 class="fw-bold mt-5 mb-3 text-maroon">Softdrinks</h5>
         <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Coke Mismo</h5><p class="text-muted small">₱25</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Royal Mismo</h5><p class="text-muted small">₱25</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Sting Energy Drink</h5><p class="text-muted small">₱30</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
+          <!-- Coke Mismo -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Softdrink</span>
+              <img src="image/Coke Mismo.jpg" class="card-img-top" alt="Coke Mismo">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Coke Mismo</h6>
+                <p class="text-muted small mb-4">Classic fizzy cola</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱25</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Royal Mismo -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Softdrink</span>
+              <img src="image/Royal Mismo.jpg" class="card-img-top" alt="Royal Mismo">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Royal Mismo</h6>
+                <p class="text-muted small mb-4">Sweet orange soda</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱25</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sting Energy Drink -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Softdrink</span>
+              <img src="image/Sting Energy Drink.jpg" class="card-img-top" alt="Sting Energy Drink">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Sting Energy Drink</h6>
+                <p class="text-muted small mb-4">Bold energizing flavor</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱30</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- SHAKES -->
-        <h5 class="fw-bold mt-5 mb-3 text-warning">🥤 Shakes</h5>
+        <h5 class="fw-bold mt-5 mb-3 text-maroon">Shakes</h5>
         <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Dragon Fruit</h5><p class="text-muted small">₱70</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Mango</h5><p class="text-muted small">₱70</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Cucumber</h5><p class="text-muted small">₱70</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Avocado</h5><p class="text-muted small">₱70</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Chocolate</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Taro</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Ube</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Strawberry</h5><p class="text-muted small">₱40</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
+          <!-- Dragon Fruit -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Shake</span>
+              <img src="image/Dragon Fruit Shake.jpg" class="card-img-top" alt="Dragon Fruit Shake">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Dragon Fruit</h6>
+                <p class="text-muted small mb-4">Fresh tropical blend</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱70</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mango -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Shake</span>
+              <img src="image/Mango Shake.jpg" class="card-img-top" alt="Mango Shake">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Mango</h6>
+                <p class="text-muted small mb-4">Sweet creamy delight</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱70</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cucumber -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Shake</span>
+              <img src="image/Cucumber Shake.jpg" class="card-img-top" alt="Cucumber Shake">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Cucumber</h6>
+                <p class="text-muted small mb-4">Cool refreshing mix</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱70</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Avocado -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Shake</span>
+              <img src="image/Avocado Shake.jpg" class="card-img-top" alt="Avocado Shake">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Avocado</h6>
+                <p class="text-muted small mb-4">Rich creamy flavor</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱70</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chocolate -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Shake</span>
+              <img src="image/Chocolate Shake.jpg" class="card-img-top" alt="Chocolate Shake">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Chocolate</h6>
+                <p class="text-muted small mb-4">Smooth cocoa blend</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱40</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Taro -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Shake</span>
+              <img src="image/Taro Shake.jpg" class="card-img-top" alt="Taro Shake">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Taro</h6>
+                <p class="text-muted small mb-4">Sweet nutty taste</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱40</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ube -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Shake</span>
+              <img src="image/Ube Shake.jpg" class="card-img-top" alt="Ube Shake">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Ube</h6>
+                <p class="text-muted small mb-4">Creamy purple blend</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱40</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Strawberry -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Shake</span>
+              <img src="image/Strawberry Shake.jpg" class="card-img-top" alt="Strawberry Shake">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Strawberry</h6>
+                <p class="text-muted small mb-4">Sweet berry flavor</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱40</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- JUICE -->
-        <h5 class="fw-bold mt-5 mb-3 text-warning">🍹 Juice</h5>
+        <h5 class="fw-bold mt-5 mb-3 text-maroon">Juice</h5>
         <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Del Monte Pineapple Juice</h5><p class="text-muted small">₱60</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
+          <!-- Del Monte Pineapple Juice -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Juice</span>
+              <img src="image/Pineapple Juice.jpg" class="card-img-top" alt="Del Monte Pineapple Juice">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Pineapple Juice</h6>
+                <p class="text-muted small mb-4">Fresh tangy flavor</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱60</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- COFFEE -->
-        <h5 class="fw-bold mt-5 mb-3 text-warning">☕ Coffee</h5>
+        <h5 class="fw-bold mt-5 mb-3 text-maroon">Coffee</h5>
         <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Instant Coffee</h5><p class="text-muted small">₱25</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Brewed Coffee</h5><p class="text-muted small">₱45</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
+          <!-- Instant Coffee -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Coffee</span>
+              <img src="image/Instant Coffee.jpg" class="card-img-top" alt="Instant Coffee">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Instant Coffee</h6>
+                <p class="text-muted small mb-4">Quick hot brew</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱25</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Brewed Coffee -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Coffee</span>
+              <img src="image/Brewed Coffee.jpg" class="card-img-top" alt="Brewed Coffee">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Brewed Coffee</h6>
+                <p class="text-muted small mb-4">Rich aroma flavor</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱45</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- TEA -->
-        <h5 class="fw-bold mt-5 mb-3 text-warning">🍵 Tea</h5>
+        <h5 class="fw-bold mt-5 mb-3 text-maroon">Teas</h5>
         <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Hot Tea (Green)</h5><p class="text-muted small">₱25</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Hot Tea (Black)</h5><p class="text-muted small">₱25</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
+          <!-- Hot Tea (Green) -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Tea</span>
+              <img src="image/Hot Tea Green.jpg" class="card-img-top" alt="Hot Tea Green">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Hot Tea (Green)</h6>
+                <p class="text-muted small mb-4">Soothing herbal warmth</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱25</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hot Tea (Black) -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Tea</span>
+              <img src="image/Hot Tea Black.jpg" class="card-img-top" alt="Hot Tea Black">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Hot Tea (Black)</h6>
+                <p class="text-muted small mb-4">Bold smooth flavor</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱25</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- MILO -->
-        <h5 class="fw-bold mt-5 mb-3 text-warning">🍫 Other Drinks</h5>
+        <h5 class="fw-bold mt-5 mb-3 text-maroon">Other Drinks</h5>
         <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-food.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Milo Hot Chocolate Drink</h5><p class="text-muted small">₱25</p><button class="btn btn-warning text-white rounded-pill px-4 mt-auto">Add to Order</button></div></div></div>
+          <!-- Milo Hot Chocolate Drink -->
+          <div class="col-md-4 col-lg-4">
+            <div class="card menu-card position-relative">
+              <span class="category-badge">Milo</span>
+              <img src="image/Milo Hot Chocolate.jpg" class="card-img-top" alt="Milo Hot Chocolate Drink">
+              <div class="card-body">
+                <h6 class="fw-bold mb-1">Milo Hot Chocolate Drink</h6>
+                <p class="text-muted small mb-4">Creamy chocolate energy</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <p class="price mb-0">₱25</p>
+                  <button class="btn btn-add">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         </div>
         </div>
       </div>
 
-<!-- ==================== NON FOOD ==================== -->
-<div class="menu-category non-food">
-  <div class="container my-4">
-    <h3 class="text-center mb-4 fw-bold text-uppercase">🧺 Non-Food Items</h3>
+    <!-- ==================== NON FOOD ==================== -->
+    <div class="menu-category non-food">
+      <div class="container my-4">
+        <h3 class="text-center mb-4 fw-bold text-uppercase">Non-Food Menu</h3>
 
-    <!-- Essentials -->
-    <div class="menu-type essentials">
-      <h5 class="fw-bold mt-4 mb-3 text-primary">😷 Essentials</h5>
-      <div class="row g-4">
-        <div class="col-md-4 col-lg-3">
-          <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-            <img src="images/default-nonfood.jpg" class="card-img-top" alt="Face Mask">
-            <div class="card-body text-center d-flex flex-column justify-content-between">
-              <h5>Face Mask Disposable</h5>
-              <p class="text-muted small">₱5</p>
-              <button class="btn btn-primary rounded-pill px-4 mt-auto">Add to Order</button>
+        <!-- Essentials -->
+        <div class="menu-type essentials">
+          <h5 class="fw-bold mt-5 mb-3 text-black">Essentials</h5>
+          <div class="row g-4">
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Essentials</span>
+                <img src="image/Face Mask Disposable.jpg" class="card-img-top" alt="Face Mask Disposable">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Face Mask Disposable</h6>
+                  <p class="text-muted small mb-4">Protective daily wear</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱5</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Dental Care -->
-    <div class="menu-type dental-care">
-      <h5 class="fw-bold mt-5 mb-3 text-primary">🦷 Dental Care</h5>
-      <div class="row g-4">
-        <div class="col-md-4 col-lg-3">
-          <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-            <img src="images/default-nonfood.jpg" class="card-img-top">
-            <div class="card-body text-center d-flex flex-column justify-content-between">
-              <h5>Toothbrush with Toothpaste</h5>
-              <p class="text-muted small">₱25</p>
-              <button class="btn btn-primary rounded-pill px-4">Add to Order</button>
+        <!-- Dental Care -->
+        <div class="menu-type dental-care">
+          <h5 class="fw-bold mt-5 mb-3 text-black">Dental Care</h5>
+          <div class="row g-4">
+            <!-- Toothbrush with Toothpaste -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Dental</span>
+                <img src="image/Toothbrush with Toothpaste.jpg" class="card-img-top" alt="Toothbrush with Toothpaste">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Toothbrush with Toothpaste</h6>
+                  <p class="text-muted small mb-4">Fresh morning care</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱25</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        <div class="col-md-4 col-lg-3">
-          <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-            <img src="images/default-nonfood.jpg" class="card-img-top">
-            <div class="card-body text-center d-flex flex-column justify-content-between">
-              <h5>Colgate Toothpaste</h5>
-              <p class="text-muted small">₱20</p>
-              <button class="btn btn-primary rounded-pill px-4">Add to Order</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Feminine Hygiene -->
-    <div class="menu-type feminine-hygiene">
-      <h5 class="fw-bold mt-5 mb-3 text-primary">🚺 Feminine Hygiene</h5>
-      <div class="row g-4">
-        <div class="col-md-4 col-lg-3">
-          <div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-            <img src="images/default-nonfood.jpg" class="card-img-top">
-            <div class="card-body text-center d-flex flex-column justify-content-between">
-              <h5>Modess All Night Extra Long Pad</h5>
-              <p class="text-muted small">₱20</p>
-              <button class="btn btn-primary rounded-pill px-4">Add to Order</button>
+            <!-- Colgate Toothpaste -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Dental</span>
+                <img src="image/Colgate Toothpaste.jpg" class="card-img-top" alt="Colgate Toothpaste">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Colgate Toothpaste</h6>
+                  <p class="text-muted small mb-4">Minty clean smile</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱20</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+
+        <!-- Feminine Hygiene -->
+        <div class="menu-type feminine-hygiene">
+          <h5 class="fw-bold mt-5 mb-3 text-black">Feminine Hygiene</h5>
+          <div class="row g-4">
+            <!-- Modess All Night Extra Long Pad -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Hygiene</span>
+                <img src="image/Modess All Night Extra Long Pad.jpg" class="card-img-top" alt="Modess All Night Extra Long Pad">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Modess All Night Extra Long Pad</h6>
+                  <p class="text-muted small mb-4">Comfort overnight protection</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱20</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Shampoo -->
-         <div class="menu-type shampoo">
-        <h5 class="fw-bold mt-5 mb-3 text-primary">🧴 Shampoo</h5>
-        <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-nonfood.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Sunsilk</h5><p class="text-muted small">₱15</p><button class="btn btn-primary rounded-pill px-4">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-nonfood.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Creamsilk</h5><p class="text-muted small">₱15</p><button class="btn btn-primary rounded-pill px-4">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-nonfood.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Palmolive Anti-Dandruff</h5><p class="text-muted small">₱15</p><button class="btn btn-primary rounded-pill px-4">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card h-100 shadow-sm border-0 rounded-4 overflow-hidden"><img src="images/default-nonfood.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Dove</h5><p class="text-muted small">₱15</p><button class="btn btn-primary rounded-pill px-4">Add to Order</button></div></div></div>
+        <div class="menu-type shampoo">
+          <h5 class="fw-bold mt-5 mb-3 text-black">Shampoo</h5>
+          <div class="row g-4">
+            <!-- Sunsilk -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Shampoo</span>
+                <img src="image/Sunsilk Shampoo.jpg" class="card-img-top" alt="Sunsilk">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Sunsilk</h6>
+                  <p class="text-muted small mb-4">Smooth daily shine</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱15</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Creamsilk -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Shampoo</span>
+                <img src="image/Creamsilk Shampoo.jpg" class="card-img-top" alt="Creamsilk">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Creamsilk Shampoo</h6>
+                  <p class="text-muted small mb-4">Soft silky finish</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱15</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Palmolive Anti-Dandruff -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Shampoo</span>
+                <img src="image/Palmolive Anti-Dandruff Shampoo.jpg" class="card-img-top" alt="Palmolive Anti-Dandruff">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Palmolive Anti-Dandruff</h6>
+                  <p class="text-muted small mb-4">Fresh scalp care</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱15</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dove -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Shampoo</span>
+                <img src="image/Dove Shampoo.jpg" class="card-img-top" alt="Dove">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Dove</h6>
+                  <p class="text-muted small mb-4">Gentle moisture care</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱15</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-         </div>
 
         <!-- Conditioner -->
          <div class="menu-type conditioner">
-        <h5 class="fw-bold mt-5 mb-3 text-primary">💆 Conditioner</h5>
-        <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-nonfood.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Empress Keratin</h5><p class="text-muted small">₱15</p><button class="btn btn-primary rounded-pill px-4">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-nonfood.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Creamsilk</h5><p class="text-muted small">₱15</p><button class="btn btn-primary rounded-pill px-4">Add to Order</button></div></div></div>
-        </div>
+          <h5 class="fw-bold mt-5 mb-3 text-black">Conditioner</h5>
+          <div class="row g-4">
+            <!-- Empress Keratin -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Conditioner</span>
+                <img src="image/Empress Keratin Conditioner.jpg" class="card-img-top" alt="Empress Keratin">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Empress Keratin</h6>
+                  <p class="text-muted small mb-4">Smooth frizz control</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱15</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Creamsilk -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Conditioner</span>
+                <img src="image/Creamsilk Conditioner.jpg" class="card-img-top" alt="Creamsilk">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Creamsilk Conditioner</h6>
+                  <p class="text-muted small mb-4">Soft silky finish</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱15</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
          </div>
 
         <!-- Trust Condom -->
          <div class="menu-type personal-protection">
-                    <h5 class="fw-bold mt-5 mb-3 text-primary">🩺 Personal Protection</h5>
-        <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-nonfood.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Trust Condom (3pcs)</h5><p class="text-muted small">₱60</p><button class="btn btn-primary rounded-pill px-4">Add to Order</button></div></div></div>
-        </div>
+          <h5 class="fw-bold mt-5 mb-3 text-black">Personal Protection</h5>
+          <div class="row g-4">
+            <!-- Trust Condom (3pcs) -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Personal Care</span>
+                <img src="image/Trust Condom Boxed 3pcs.jpg" class="card-img-top" alt="Trust Condom (3pcs)">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Trust Condom (3pcs)</h6>
+                  <p class="text-muted small mb-4">Safe reliable protection</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱60</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
          </div>
 
         <!-- Disposable Utensils -->
          <div class="menu-type utensils">
-        <h5 class="fw-bold mt-5 mb-3 text-primary">🥄 Disposable Utensils</h5>
-        <div class="row g-4">
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-nonfood.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Disposable Spoon</h5><p class="text-muted small">₱2.50</p><button class="btn btn-primary rounded-pill px-4">Add to Order</button></div></div></div>
-            <div class="col-md-4 col-lg-3"><div class="card shadow-sm border-0 rounded-4 overflow-hidden h-100"><img src="images/default-nonfood.jpg" class="card-img-top"><div class="card-body text-center d-flex flex-column justify-content-between"><h5>Disposable Fork</h5><p class="text-muted small">₱2.50</p><button class="btn btn-primary rounded-pill px-4">Add to Order</button></div></div></div>
-        </div>
+          <h5 class="fw-bold mt-5 mb-3 text-black">Disposable Utensils</h5>
+          <div class="row g-4">
+            <!-- Disposable Spoon -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Utensils</span>
+                <img src="image/Disposable Spoon.jpg" class="card-img-top" alt="Disposable Spoon">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Disposable Spoon</h6>
+                  <p class="text-muted small mb-4">Light easy serve</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱2.50</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Disposable Fork -->
+            <div class="col-md-4 col-lg-4">
+              <div class="card menu-card position-relative">
+                <span class="category-badge">Utensils</span>
+                <img src="image/Disposable Fork.jpg" class="card-img-top" alt="Disposable Fork">
+                <div class="card-body">
+                  <h6 class="fw-bold mb-1">Disposable Fork</h6>
+                  <p class="text-muted small mb-4">Durable plastic use</p>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <p class="price mb-0">₱2.50</p>
+                    <button class="btn btn-add">Add</button>
+                  </div>
+                </div>
+              </div>
+            </div>
          </div>
         </div>
        </div>
@@ -904,459 +2125,783 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
   </div>
 </div>
 
-    <script>
-        // Update clock
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+<script>
+document.addEventListener("scroll", () => {
+  if (window.scrollY > 10) {
+    document.body.classList.add("scrolled");
+  } else {
+    document.body.classList.remove("scrolled");
+  }
+});
+</script>
+
+<script>
+  // ==================== CLOCK SCRIPT ====================
+  function updateClock() {
+    const now = new Date();
+    const dateEl = document.getElementById("currentDate");
+    const timeEl = document.getElementById("currentTime");
+
+    if (dateEl) {
+      dateEl.textContent = now.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    }
+
+    if (timeEl) {
+      timeEl.textContent = now.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    }
+  }
+
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ==================== FILTER MENU SCRIPT ====================
+  document.addEventListener("DOMContentLoaded", function () {
+    const filterButtons = document.querySelectorAll(".filter-btn");
+    const filterLabel = document.getElementById("filterMenuLabel");
+    const dropdownBtn = document.getElementById("filterMenuButton");
+
+    // ✅ Safely initialize Bootstrap dropdown (only if available)
+    let dropdownMenu = null;
+    if (window.bootstrap && dropdownBtn) {
+      dropdownMenu = bootstrap.Dropdown.getOrCreateInstance(dropdownBtn);
+    }
+
+    // Main sections
+    const foodMenu = document.querySelector(".menu-category.food");
+    const nonFoodMenu = document.querySelector(".menu-category.non-food");
+
+    // Subtypes
+    const foodTypes = document.querySelectorAll(".menu-category.food .menu-type");
+    const nonFoodTypes = document.querySelectorAll(".menu-category.non-food .menu-type");
+
+    // Helper functions
+    function hideAll() {
+      if (foodMenu) foodMenu.style.display = "none";
+      if (nonFoodMenu) nonFoodMenu.style.display = "none";
+      foodTypes.forEach((type) => (type.style.display = "none"));
+      nonFoodTypes.forEach((type) => (type.style.display = "none"));
+    }
+
+    function showType(selector) {
+      document.querySelectorAll(selector).forEach((sec) => {
+        sec.style.display = "block";
+      });
+    }
+
+    // Default: show everything
+    if (foodMenu) foodMenu.style.display = "block";
+    if (nonFoodMenu) nonFoodMenu.style.display = "block";
+    foodTypes.forEach((type) => (type.style.display = "block"));
+    nonFoodTypes.forEach((type) => (type.style.display = "block"));
+
+    // Filter button logic
+    filterButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const filter = btn.dataset.filter;
+
+        // Reset active state
+        filterButtons.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        // ✅ Update dropdown label text dynamically
+        if (filterLabel) {
+          filterLabel.textContent = btn.textContent.trim();
         }
 
-        setInterval(updateClock, 1000);
-        updateClock();
+        // ✅ Close dropdown (if Bootstrap is available)
+        if (dropdownMenu) dropdownMenu.hide();
 
-// Filter buttons
-document.addEventListener("DOMContentLoaded", function () {
-  const filterButtons = document.querySelectorAll(".filter-btn");
+        // Filter logic
+        hideAll();
 
-  // Main sections
-  const foodMenu = document.querySelector(".menu-category.food");
-  const nonFoodMenu = document.querySelector(".menu-category.non-food");
+        switch (filter) {
+          case "all":
+            if (foodMenu) foodMenu.style.display = "block";
+            if (nonFoodMenu) nonFoodMenu.style.display = "block";
+            foodTypes.forEach((t) => (t.style.display = "block"));
+            nonFoodTypes.forEach((t) => (t.style.display = "block"));
+            break;
 
-  // Subtypes
-  const foodTypes = document.querySelectorAll(".menu-category.food .menu-type");
-  const nonFoodTypes = document.querySelectorAll(".menu-category.non-food .menu-type");
+          case "food":
+            if (foodMenu) foodMenu.style.display = "block";
+            foodTypes.forEach((t) => (t.style.display = "block"));
+            break;
 
-  // Helper functions
-  function hideAll() {
-    if (foodMenu) foodMenu.style.display = "none";
-    if (nonFoodMenu) nonFoodMenu.style.display = "none";
+          case "non-food":
+            if (nonFoodMenu) nonFoodMenu.style.display = "block";
+            nonFoodTypes.forEach((t) => (t.style.display = "block"));
+            break;
 
-    foodTypes.forEach(type => (type.style.display = "none"));
-    nonFoodTypes.forEach(type => (type.style.display = "none"));
-  }
+          // ---- FOOD CATEGORIES ----
+          case "noodles":
+          case "instant-noodles":
+          case "ricemeals":
+          case "snacks":
+          case "drinks":
+          case "lumpia":
+            if (foodMenu) foodMenu.style.display = "block";
+            showType(`.menu-type.${filter}`);
+            break;
 
-  function showType(selector) {
-    document.querySelectorAll(selector).forEach(sec => {
-      sec.style.display = "block";
-    });
-  }
+          // ---- NON-FOOD CATEGORIES ----
+          case "dental-care":
+          case "shampoo":
+          case "conditioner":
+          case "utensils":
+            if (nonFoodMenu) nonFoodMenu.style.display = "block";
+            showType(`.menu-type.${filter}`);
+            break;
 
-  // Default: show everything
-  if (foodMenu) foodMenu.style.display = "block";
-  if (nonFoodMenu) nonFoodMenu.style.display = "block";
-  foodTypes.forEach(type => (type.style.display = "block"));
-  nonFoodTypes.forEach(type => (type.style.display = "block"));
-
-  // Add button filter logic
-  filterButtons.forEach(btn => {
-    btn.addEventListener("click", () => {
-      const filter = btn.dataset.filter;
-
-      // Reset active state
-      filterButtons.forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-
-      hideAll();
-
-      switch (filter) {
-        case "all":
-          if (foodMenu) foodMenu.style.display = "block";
-          if (nonFoodMenu) nonFoodMenu.style.display = "block";
-          foodTypes.forEach(type => (type.style.display = "block"));
-          nonFoodTypes.forEach(type => (type.style.display = "block"));
-          break;
-
-        case "food":
-          if (foodMenu) foodMenu.style.display = "block";
-          foodTypes.forEach(type => (type.style.display = "block"));
-          break;
-
-        case "non-food":
-          if (nonFoodMenu) nonFoodMenu.style.display = "block";
-          // Show all non-food, including Essentials, Hygiene, Protection
-          nonFoodTypes.forEach(type => (type.style.display = "block"));
-          break;
-
-        // ---- FOOD CATEGORIES ----
-        case "noodles":
-        case "instant-noodles":
-        case "ricemeals":
-        case "snacks":
-        case "drinks":
-        case "lumpia":
-          if (foodMenu) foodMenu.style.display = "block";
-          showType(`.menu-type.${filter}`);
-          break;
-
-        // ---- NON-FOOD CATEGORIES ----
-        case "dental-care":
-        case "shampoo":
-        case "conditioner":
-        case "utensils":
-          if (nonFoodMenu) nonFoodMenu.style.display = "block";
-          showType(`.menu-type.${filter}`);
-          break;
-
-        default:
-          // Show everything as fallback
-          if (foodMenu) foodMenu.style.display = "block";
-          if (nonFoodMenu) nonFoodMenu.style.display = "block";
-          foodTypes.forEach(type => (type.style.display = "block"));
-          nonFoodTypes.forEach(type => (type.style.display = "block"));
-      }
+          default:
+            if (foodMenu) foodMenu.style.display = "block";
+            if (nonFoodMenu) nonFoodMenu.style.display = "block";
+            foodTypes.forEach((t) => (t.style.display = "block"));
+            nonFoodTypes.forEach((t) => (t.style.display = "block"));
+        }
+      });
     });
   });
-});
-    </script>
+</script>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  const addButtons = document.querySelectorAll(".card .btn-warning, .card .btn-primary");
+  const searchInput = document.getElementById("menuSearch");
+  const allCategories = document.querySelectorAll(".menu-category");
+  const menuContainer = document.querySelector("#menuContainer") || document.body;
 
-  addButtons.forEach(button => {
-    button.addEventListener("click", () => {
-      const card = button.closest(".card");
-      if (!card) return;
+  // --- Add smooth fade animation ---
+  const fadeOut = (el) => {
+    el.style.transition = "opacity 0.3s ease";
+    el.style.opacity = "0";
+    setTimeout(() => (el.style.display = "none"), 300);
+  };
 
-      // Extract item info
-      const titleEl = card.querySelector("h5.card-title, .card-title, h5");
-      const itemName = titleEl ? titleEl.textContent.trim() : "Item";
+  const fadeIn = (el) => {
+    el.style.display = "";
+    el.style.opacity = "0";
+    el.style.transition = "opacity 0.3s ease";
+    setTimeout(() => (el.style.opacity = "1"), 20);
+  };
 
-      const priceEl = card.querySelector("p.text-muted, .card-body p");
-      const priceText = priceEl ? priceEl.textContent.trim() : "";
+  searchInput.addEventListener("input", function () {
+    const query = this.value.toLowerCase().trim();
+    let anyVisible = false;
 
-      // Parse price options
-      const rawSegments = priceText
-        .split(/\||\n|,/)
-        .map(s => s.trim())
-        .filter(Boolean);
+    // Remove old "No Results"
+    const oldMsg = document.getElementById("noResults");
+    if (oldMsg) oldMsg.remove();
 
-      const options = [];
-      const priceRegex = /(?:([A-Za-z0-9().\s\-]+?)\s*)?₱\s*([\d,]+(?:\.\d+)?)/;
-
-      rawSegments.forEach(seg => {
-        const m = seg.match(priceRegex);
-        if (m) {
-          options.push({
-            label: (m[1] || "Unit").trim(),
-            price: parseFloat(m[2].replace(/,/g, ""))
+    // If empty — show everything
+    if (!query) {
+      allCategories.forEach(category => {
+        fadeIn(category);
+        category.querySelectorAll(".menu-type").forEach(type => {
+          fadeIn(type);
+          type.querySelectorAll(".card").forEach(card => {
+            const col = card.closest(".col-md-4, .col-lg-3, .col-sm-6");
+            fadeIn(col);
+            fadeIn(card);
           });
-        }
-      });
-
-      if (options.length === 0) options.push({ label: "Unit", price: 0 });
-
-      // 🟢 Step 1: Show Informative Reminder before opening order form
-      Swal.fire({
-title: "🕒 Important Reminder",
-html: `
-  <div style="
-    text-align:left;
-    font-size:0.95em;
-    line-height:1.7;
-    color:#2d2d2d;
-    background:#fff8f8;
-    padding:18px 22px;
-    border-radius:14px;
-    border-left:6px solid #800000;
-    box-shadow:0 3px 10px rgba(128,0,0,0.15);
-  ">
-    <p style="font-weight:700;font-size:1.05em;margin-bottom:10px;color:#800000;">
-      ⚠️ Please review before placing your order:
-    </p>
-    <ul style="list-style:none;padding-left:0;margin:0;">
-      <li style="margin:6px 0;">
-        ⏳ You can <b>update</b> or <b>delete</b> your order within 
-        <span style="color:#b71c1c;font-weight:600;">5 minutes</span> of placing it.
-      </li>
-      <li style="margin:6px 0;">
-        🔒 After 5 minutes, your order will be <b>locked</b> for preparation.
-      </li>
-      <li style="margin:6px 0;">
-        🍽️ Orders that are already <b>served</b> cannot be changed or removed.
-      </li>
-    </ul>
-    <div style="
-      margin-top:18px;
-      text-align:center;
-      background:#fff0f0;
-      border:1px dashed #b71c1c;
-      padding:10px;
-      border-radius:8px;
-      font-weight:500;
-      color:#5a1a1a;
-    ">
-      Do you want to continue ordering 
-      <strong style="color:#800000;">${escapeHtml(itemName)}</strong>?
-    </div>
-  </div>
-`,
-iconHtml: '<i class="fas fa-exclamation-circle" style="color:#800000;font-size:2em;"></i>',
-customClass: {
-  icon: "no-border",
-  popup: "swal2-rounded swal2-large"
-},
-showCancelButton: true,
-confirmButtonText: "Yes, Proceed",
-cancelButtonText: "Cancel",
-confirmButtonColor: "#333333ff",
-cancelButtonColor: "#9c2b27ff",
-background: "#ffffff",
-allowOutsideClick: false,
-allowEscapeKey: false
-      }).then(result => {
-        if (!result.isConfirmed) return;
-
-        // 🟢 Step 2: Proceed to original order form (your existing logic)
-        let html = `
-          <div style="text-align:left;display:flex;flex-direction:column;gap:15px;">
-
-            <!-- Size / Variant -->
-            ${
-              options.length > 1
-                ? `
-                  <div>
-                    <label style="font-weight:600;display:block;margin-bottom:5px;">⚙️ Size / Variant</label>
-                    <select id="sizeSelect" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;">
-                      ${options
-                        .map(
-                          (opt, i) =>
-                            `<option value="${i}">${escapeHtml(opt.label)} — ₱${opt.price.toFixed(2)}</option>`
-                        )
-                        .join("")}
-                    </select>
-                  </div>`
-                : `<p><strong>Price:</strong> ₱${options[0].price.toFixed(2)}</p>`
-            }
-
-            <!-- Quantity -->
-            <div>
-              <label style="font-weight:600;display:block;margin-bottom:5px;">🔢 Quantity</label>
-              <input id="qty" type="number" min="1" value="1"
-                style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;">
-            </div>
-
-            <div id="totalDisplay"
-                 style="font-weight:bold;background:#f8f9fa;padding:10px;border-radius:8px;text-align:center;">
-              Total: ₱${options[0].price.toFixed(2)}
-            </div>
-
-            <!-- Mode of Payment -->
-            <div>
-              <label style="font-weight:600;display:block;margin-bottom:5px;">💳 Mode of Payment</label>
-              <select id="modePayment" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;">
-                <option value="cash">Cash</option>
-                <option value="gcash">GCash</option>
-              </select>
-            </div>
-
-            <!-- GCash Info -->
-            <div id="gcashDetails"
-                 style="display:none;background:#222;color:white;padding:15px;border-radius:10px;margin-top:5px;">
-              <p style="margin:0 0 10px 0;font-weight:600;">📱 GCash Payment Information</p>
-              <p style="margin:0 0 5px 0;">📞 <strong>Account Number:</strong> 09171234567</p>
-              <p style="margin:0 0 10px 0;">👤 <strong>Account Name:</strong> Juan Dela Cruz</p>
-
-              <label for="refNumber" style="font-weight:600;display:block;margin-bottom:5px;">🔢 Enter Reference Number</label>
-              <input id="refNumber" type="text"
-                placeholder="Enter 12–14 digit Ref No."
-                maxlength="14"
-                style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;">
-            </div>
-          </div>
-        `;
-
-        Swal.fire({
-          title: `Order ${escapeHtml(itemName)}`,
-          html,
-          showCancelButton: true,
-          confirmButtonText: "Add Order",
-          cancelButtonText: "Cancel",
-          confirmButtonColor: "#333333ff",
-          cancelButtonColor: "#9c2b27ff",
-          focusConfirm: false,
-          customClass: { popup: "swal2-rounded swal2-large" },
-
-          didOpen: () => {
-            const qtyInput = document.getElementById("qty");
-            const sizeSelect = document.getElementById("sizeSelect");
-            const totalDisplay = document.getElementById("totalDisplay");
-            const modePayment = document.getElementById("modePayment");
-            const gcashDetails = document.getElementById("gcashDetails");
-
-            const updateTotal = () => {
-              const qty = Math.max(1, parseInt(qtyInput.value) || 1);
-              const idx = sizeSelect ? parseInt(sizeSelect.value) : 0;
-              const price = options[idx].price;
-              totalDisplay.textContent = `Total: ₱${(qty * price).toFixed(2)}`;
-            };
-
-            qtyInput.addEventListener("input", updateTotal);
-            if (sizeSelect) sizeSelect.addEventListener("change", updateTotal);
-            modePayment.addEventListener("change", () => {
-              gcashDetails.style.display = modePayment.value === "gcash" ? "block" : "none";
-            });
-          },
-
-          preConfirm: () => {
-            const qty = Math.max(1, parseInt(document.getElementById("qty").value) || 1);
-            const idx = document.getElementById("sizeSelect")
-              ? parseInt(document.getElementById("sizeSelect").value)
-              : 0;
-            const mode_payment = document.getElementById("modePayment").value;
-            const ref_number = document.getElementById("refNumber")?.value.trim() || null;
-            const chosen = options[idx];
-            const total = qty * chosen.price;
-
-            if (mode_payment === "gcash" && !/^[0-9]{12,14}$/.test(ref_number)) {
-              Swal.showValidationMessage("Please enter a valid 12–14 digit GCash reference number.");
-              return false;
-            }
-
-            return {
-              item_name: itemName,
-              size: chosen.label,
-              price: total,
-              quantity: qty,
-              total,
-              mode_payment,
-              ref_number: mode_payment === "gcash" ? ref_number : null
-            };
-          }
-        }).then(result2 => {
-          if (result2.isConfirmed && result2.value) {
-            const orderData = result2.value;
-
-            // Continue with your existing receipt + PDF generation flow
-            // (All existing fetch, confirmation, receipt, reload logic remains unchanged)
-            Swal.fire({
-              title: "Confirm Order?",
-              html: `
-                <div style="
-                  font-family: 'Courier New', monospace;
-                  text-align: left;
-                  background: #fff;
-                  border: 2px dashed #ccc;
-                  border-radius: 10px;
-                  padding: 15px 20px;
-                  max-width: 320px;
-                  margin: 10px auto;
-                  color: #222;
-                ">
-                  <p style="text-align:center; font-weight:bold; margin:0 0 10px;">🧾 Order Confirmation</p>
-                  <hr style="border:none; border-top:1px dashed #ccc; margin:10px 0;">
-                  <p><strong>Item:</strong> ${escapeHtml(orderData.item_name)}</p>
-                  <p><strong>Variant:</strong> ${orderData.size !== "Unit" ? escapeHtml(orderData.size) : "N/A"}</p>
-                  <p><strong>Quantity:</strong> ${orderData.quantity}</p>
-                  <p><strong>Payment:</strong> ${orderData.mode_payment.toUpperCase()}</p>
-                  ${
-                    orderData.mode_payment === "gcash"
-                      ? `<p><strong>GCash Ref #:</strong> ${escapeHtml(orderData.ref_number)}</p>`
-                      : ""
-                  }
-                  <hr style="border:none; border-top:2px dashed #000; margin:12px 0;">
-                  <p style="font-size:1.2em; font-weight:bold; text-align:right; color:#28a745;">
-                    Total: ₱${orderData.total.toFixed(2)}
-                  </p>
-                </div>
-              `,
-              icon: "question",
-              showCancelButton: true,
-              confirmButtonText: "Yes, Confirm Order",
-              cancelButtonText: "Cancel",
-              confirmButtonColor: "#28a745",
-              cancelButtonColor: "#6c757d",
-              allowOutsideClick: false,
-              allowEscapeKey: false
-            }).then(confirmRes => {
-              if (!confirmRes.isConfirmed) return;
-
-              // ✅ Proceed with saving order + receipt generation (unchanged)
-              fetch("guest_add_order.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(orderData)
-              })
-              .then(res => res.json())
-              .then(async response => {
-                if (response.success) {
-                  const swalInstance = Swal.mixin({
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    showCancelButton: true,
-                    cancelButtonText: "Download Receipt",
-                    confirmButtonText: "Done",
-                    cancelButtonColor: "#bb2020",
-                    confirmButtonColor: "#181a18"
-                  });
-
-                  const htmlReceipt = `
-                    <div id="receipt-content" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;font-family:'Courier New', monospace;">
-                      <img src="image/logo-light.png" style="width:80px;height:auto;margin-top:15px;margin-bottom:5px;">
-                      <h3 style="margin:5px 0;color:#111;font-weight:700;">ORDER RECEIPT</h3>
-                      <div style="background:#fff;border:2px dashed #ccc;border-radius:10px;padding:15px 20px;width:100%;max-width:320px;text-align:left;color:#222;">
-                        <p style="text-align:center;font-weight:bold;">🧾 Order Summary</p>
-                        <hr style="border:none;border-top:1px dashed #ccc;margin:10px 0;">
-                        <p><strong>Item:</strong> ${escapeHtml(orderData.item_name)}</p>
-                        <p><strong>Variant:</strong> ${orderData.size !== "Unit" ? escapeHtml(orderData.size) : "N/A"}</p>
-                        <p><strong>Quantity:</strong> ${orderData.quantity}</p>
-                        <p><strong>Payment:</strong> ${orderData.mode_payment.toUpperCase()}</p>
-                        ${
-                          orderData.mode_payment === "gcash"
-                            ? `<p><strong>GCash Ref #:</strong> ${escapeHtml(orderData.ref_number)}</p>`
-                            : ""
-                        }
-                        <hr style="border:none;border-top:2px dashed #000;margin:12px 0;">
-                        <p style="font-size:1.2em;font-weight:bold;text-align:right;color:#28a745;">
-                          Total: ₱${orderData.total.toFixed(2)}
-                        </p>
-                      </div>
-                      <p style="font-size:0.85em;color:#555;margin-top:15px;">
-                        Thank you for ordering at <strong>Gitarra Apartelle</strong>!
-                      </p>
-                    </div>
-                  `;
-
-                  const popupResult = await swalInstance.fire({
-                    title: "✅ Order Confirmed!",
-                    html: htmlReceipt,
-                    icon: "success",
-                    background: "#fdfdfd"
-                  });
-
-                  if (popupResult.dismiss === Swal.DismissReason.cancel) {
-                    const receiptElement = document.getElementById("receipt-content");
-                    const canvas = await html2canvas(receiptElement, { scale: 2, useCORS: true });
-                    const imgData = canvas.toDataURL("image/png");
-                    const { jsPDF } = window.jspdf;
-                    const pdf = new jsPDF({ orientation: "p", unit: "px", format: "a6" });
-                    const pdfWidth = pdf.internal.pageSize.getWidth();
-                    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-                    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, imgHeight);
-                    pdf.save(`receipt_${Date.now()}.pdf`);
-                    return;
-                  }
-
-                  if (popupResult.isConfirmed) window.location.reload();
-                } else {
-                  Swal.fire("❌ Error", response.message || "Failed to save order.", "error");
-                }
-              })
-              .catch(() => Swal.fire("Error", "Server error. Please try again later.", "error"));
-            });
-          }
         });
       });
+      // ✅ Show all subcategory titles again
+      document.querySelectorAll("h5.fw-bold.mt-5.mb-3.text-maroon").forEach(h5 => fadeIn(h5));
+      return;
+    }
+
+    // Main search logic
+    allCategories.forEach(category => {
+      const categoryTitle = category.querySelector("h3")?.textContent.toLowerCase() || "";
+      const menuTypes = category.querySelectorAll(".menu-type");
+      let categoryHasMatch = false;
+
+      // Match "Food" or "Non-Food"
+      if (categoryTitle.includes(query)) {
+        fadeIn(category);
+        menuTypes.forEach(type => {
+          fadeIn(type);
+          type.querySelectorAll(".card").forEach(card => {
+            const col = card.closest(".col-md-4, .col-lg-3, .col-sm-6");
+            fadeIn(col);
+            fadeIn(card);
+          });
+        });
+        anyVisible = true;
+        categoryHasMatch = true;
+      } else {
+        // Check subcategories and cards
+        menuTypes.forEach(type => {
+          const typeTitle = type.querySelector("h5")?.textContent.toLowerCase() || "";
+          const cards = type.querySelectorAll(".card");
+          let typeHasMatch = false;
+
+          // If subcategory title matches query
+          if (typeTitle.includes(query)) {
+            fadeIn(type);
+            cards.forEach(card => {
+              const col = card.closest(".col-md-4, .col-lg-3, .col-sm-6");
+              fadeIn(col);
+              fadeIn(card);
+            });
+            typeHasMatch = true;
+            categoryHasMatch = true;
+            anyVisible = true;
+          } else {
+            // Otherwise, check individual cards
+            cards.forEach(card => {
+              const name = card.querySelector("h6")?.textContent.toLowerCase() || "";
+              const desc = card.querySelector("p")?.textContent.toLowerCase() || "";
+              const col = card.closest(".col-md-4, .col-lg-3, .col-sm-6");
+
+              if (name.includes(query) || desc.includes(query)) {
+                fadeIn(col);
+                fadeIn(card);
+                typeHasMatch = true;
+                categoryHasMatch = true;
+                anyVisible = true;
+              } else {
+                fadeOut(col);
+                fadeOut(card);
+              }
+            });
+          }
+
+          // ✅ Hide subcategory (like “Instant Noodles”) if no visible cards
+          if (typeHasMatch) fadeIn(type);
+          else fadeOut(type);
+        });
+
+        // ✅ Hide category (like “Food Menu” or “Non-Food Menu”) if no visible types
+        if (categoryHasMatch) fadeIn(category);
+        else fadeOut(category);
+      }
+    });
+
+    // ✅ Hide "Instant Noodles" and all other subcategory titles if no items under them
+    document.querySelectorAll("h5.fw-bold.mt-5.mb-3.text-maroon").forEach(h5 => {
+      const title = h5.textContent.toLowerCase().trim();
+      let hasVisibleCards = false;
+
+      // Check if there are visible cards under this title
+      const nextType = h5.nextElementSibling;
+      if (nextType && nextType.querySelectorAll(".card").length > 0) {
+        nextType.querySelectorAll(".card").forEach(card => {
+          if (card.offsetParent !== null) hasVisibleCards = true;
+        });
+      }
+
+      if (hasVisibleCards) fadeIn(h5);
+      else fadeOut(h5);
+    });
+
+    // ✅ Show "No Results" message
+    if (!anyVisible) {
+      const msg = document.createElement("div");
+      msg.id = "noResults";
+      msg.innerHTML = `
+        <div style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          padding: 60px 20px;
+          background: #f8f8f8;
+          border-radius: 12px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+          color: #555;
+          font-family: 'Poppins', sans-serif;
+          animation: fadeInMsg 0.3s ease;
+        ">
+          <div style="font-size: 3rem; line-height: 1;">🕵️‍♂️</div>
+          <div style="font-size: 1.3rem; font-weight: 600; margin-top: 10px;">No matching items found.</div>
+        </div>
+      `;
+
+      // Add smooth fade-in
+      msg.style.opacity = "0";
+      msg.style.transition = "opacity 0.3s ease";
+      menuContainer.appendChild(msg);
+      setTimeout(() => (msg.style.opacity = "1"), 50);
+    }
+  });
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const addButtons = document.querySelectorAll(".btn-add");
+  const cartButton = document.getElementById("cartButton");
+  const cartSidebar = document.getElementById("cartSidebar");
+  const cartOverlay = document.getElementById("cartOverlay");
+  const closeCart = document.getElementById("closeCart");
+  const cartCount = document.getElementById("cartCount");
+  const cartItemsContainer = document.getElementById("cartItems");
+  const subtotalEl = document.getElementById("subtotal");
+  const totalEl = document.getElementById("total");
+  const emptyCartEl = document.getElementById("emptyCart");
+  const cartFooter = document.querySelector(".cart-footer");
+  const confirmOrderBtn = document.getElementById("confirmOrderBtn");
+  const DELIVERY_FEE = 50;
+
+  let cart = JSON.parse(localStorage.getItem("cartData")) || [];
+
+  // === SIDEBAR TOGGLE ===
+  const toggleCart = (show) => {
+    if (show) {
+      cartSidebar.classList.add("active");
+      cartOverlay.classList.add("active");
+    } else {
+      cartSidebar.classList.remove("active");
+      cartOverlay.classList.remove("active");
+    }
+  };
+  cartButton.addEventListener("click", () => toggleCart(true));
+  closeCart.addEventListener("click", () => toggleCart(false));
+  cartOverlay.addEventListener("click", () => toggleCart(false));
+
+  // === ADD TO CART ===
+  addButtons.forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const card = e.target.closest(".card");
+      if (!card) return;
+
+      const name = card.querySelector("h5, h6")?.textContent.trim() || "Unnamed";
+      const img = card.querySelector("img")?.src || "";
+      let price = 0;
+      let size = "Unit";
+
+      if (name === "Lomi") {
+        price = 60;
+        size = "Small";
+      } else {
+        const priceText = card.querySelector(".price")?.textContent.trim() || "₱0";
+        price = parseFloat(priceText.replace(/[^\d.]/g, "")) || 0;
+      }
+
+      const existing = cart.find((i) => i.name === name && i.size === size);
+      if (existing) existing.qty++;
+      else cart.push({ name, size, price, qty: 1, img });
+
+      updateCart();
     });
   });
 
-  // Prevent HTML injection
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, s =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s])
-    );
+  // === UPDATE CART DISPLAY ===
+  function updateCart() {
+    cartItemsContainer.innerHTML = "";
+    let subtotal = 0, totalQty = 0;
+
+    cart.forEach((item, index) => {
+      subtotal += item.price * item.qty;
+      totalQty += item.qty;
+
+      const sizeSelect = item.name === "Lomi" ? `
+        <select class="form-select form-select-sm size-select" data-index="${index}">
+          <option value="Small" ${item.size === "Small" ? "selected" : ""}>Small (₱60)</option>
+          <option value="Medium" ${item.size === "Medium" ? "selected" : ""}>Medium (₱70)</option>
+          <option value="Large" ${item.size === "Large" ? "selected" : ""}>Large (₱80)</option>
+        </select>
+      ` : `<p class="text-muted small mb-1">${item.size}</p>`;
+
+      const cartItem = document.createElement("div");
+      cartItem.classList.add("cart-item");
+      cartItem.innerHTML = `
+        <img src="${item.img}" alt="${item.name}">
+        <div class="cart-item-info">
+          <h6>${item.name}</h6>
+          ${sizeSelect}
+          <p class="fw-bold mb-1">₱${(item.price * item.qty).toFixed(2)}</p>
+        </div>
+        <div class="qty-control">
+          <button class="btn-minus" data-index="${index}">−</button>
+          <span>${item.qty}</span>
+          <button class="btn-plus" data-index="${index}">+</button>
+        </div>
+      `;
+      cartItemsContainer.appendChild(cartItem);
+    });
+
+    subtotalEl.textContent = `₱${subtotal.toFixed(2)}`;
+    totalEl.textContent = `₱${(subtotal + DELIVERY_FEE).toFixed(2)}`;
+    cartCount.textContent = totalQty;
+
+    const isEmpty = cart.length === 0;
+    emptyCartEl.style.display = isEmpty ? "flex" : "none";
+    cartFooter.classList.toggle("hidden", isEmpty);
+    cartCount.style.display = totalQty > 0 ? "flex" : "none";
+
+    localStorage.setItem("cartData", JSON.stringify(cart));
+
+    document.querySelectorAll(".btn-minus").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const i = e.target.dataset.index;
+        if (cart[i].qty > 1) cart[i].qty--;
+        else cart.splice(i, 1);
+        updateCart();
+      });
+    });
+
+    document.querySelectorAll(".btn-plus").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const i = e.target.dataset.index;
+        cart[i].qty++;
+        updateCart();
+      });
+    });
+
+    document.querySelectorAll(".size-select").forEach((sel) => {
+      sel.addEventListener("change", (e) => {
+        const i = e.target.dataset.index;
+        const newSize = e.target.value;
+        cart[i].size = newSize;
+        if (newSize === "Small") cart[i].price = 60;
+        if (newSize === "Medium") cart[i].price = 70;
+        if (newSize === "Large") cart[i].price = 80;
+        updateCart();
+      });
+    });
   }
+
+  updateCart();
+
+  // === CONFIRM ORDER FLOW ===
+  confirmOrderBtn.addEventListener("click", async () => {
+    if (cart.length === 0) {
+      Swal.fire("Empty Cart", "Please add items before confirming.", "warning");
+      return;
+    }
+
+    // Step 1: Review Order
+    let summaryHtml = `
+      <div style="
+        font-family:'Poppins',sans-serif;
+        color:#333;
+        background:#fff;
+        border:2px dashed #9c2b27;
+        border-radius:10px;
+        padding:15px;
+        text-align:left;
+        max-width:360px;
+        margin:0 auto;
+      ">
+
+        <!-- Receipt Header -->
+        <div style="text-align:center;border-bottom:2px dashed #ccc;padding-bottom:8px;margin-bottom:10px;">
+          <h3 style="margin:0;color:#9c2b27;">Gitarra Apartelle</h3>
+          <p style="margin:0;font-size:0.85em;color:#666;">Order Receipt</p>
+          <p style="margin:3px 0 0 0;font-size:0.8em;">Date: ${new Date().toLocaleString()}</p>
+        </div>
+
+        <!-- Receipt Body -->
+        <ul style="list-style:none;padding-left:0;margin:0;">
+    `;
+    cart.forEach((i) => {
+      summaryHtml += `
+        <li style="
+          padding:6px 0;
+          border-bottom:1px dotted #ccc;
+          display:grid;
+          grid-template-columns: 1fr auto;
+          align-items:flex-start;
+          font-size:0.9em;
+          gap:8px;
+        ">
+          <span style="word-break:break-word;">
+            <b>${i.name}</b> (${i.size}) × ${i.qty}
+          </span>
+          <span style="
+            text-align:right;
+            white-space:nowrap;
+            min-width:70px;
+            font-weight:600;
+          ">
+            ₱${(i.price * i.qty).toFixed(2)}
+          </span>
+        </li>
+      `;
+    });
+    summaryHtml += `
+        </ul>
+
+        <!-- Totals -->
+        <div style="
+          border-top:2px dashed #ccc;
+          padding-top:10px;
+          margin-top:10px;
+          font-size:0.9em;
+        ">
+          <p style="margin:3px 0;"><b>Subtotal:</b> ₱${cart.reduce((a,b)=>a+b.price*b.qty,0).toFixed(2)}</p>
+          <p style="margin:3px 0;"><b>Delivery Fee:</b> ₱${DELIVERY_FEE.toFixed(2)}</p>
+          <p style="
+            margin:8px 0 0;
+            font-weight:700;
+            color:#9c2b27;
+            border-top:1px dotted #ccc;
+            padding-top:6px;
+            font-size:1em;
+          ">
+            Total: ₱${(cart.reduce((a,b)=>a+b.price*b.qty,0)+DELIVERY_FEE).toFixed(2)}
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="
+          border-top:2px dashed #ccc;
+          margin-top:10px;
+          text-align:center;
+          padding-top:8px;
+          font-size:0.8em;
+          color:#555;
+        ">
+          <p style="margin:0;">Thank you for ordering with ❤️</p>
+          <p style="margin:0;color:#9c2b27;font-weight:600;">Gitarra Apartelle</p>
+        </div>
+      </div>
+    `;
+
+    const confirmRes = await Swal.fire({
+      title: "🧾 Confirm Your Order?",
+      html: summaryHtml,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, Proceed",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#9c2b27",
+      cancelButtonColor: "#555",
+      background: "#fff",
+      customClass: {
+        popup: 'swal2-rounded',
+        title: 'swal2-title-styled'
+      },
+      allowOutsideClick: false
+    });
+
+    if (!confirmRes.isConfirmed) return;
+
+    // Step 2: Payment Info
+    const payRes = await Swal.fire({
+      title: "💳 Select Payment Option",
+      html: `
+        <div style="text-align:left;display:flex;flex-direction:column;gap:15px;">
+          <select id="modePayment" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;">
+            <option value="cash">Cash</option>
+            <option value="gcash">GCash</option>
+          </select>
+          <div id="gcashDetails"
+              style="display:none;background:#222;color:white;padding:15px;border-radius:10px;margin-top:5px;">
+            <p><strong>📱 GCash Payment Info</strong></p>
+            <p>📞 09171234567</p>
+            <p>👤 Juan Dela Cruz</p>
+            <label for="refNumber">🔢 Reference Number</label>
+            <input id="refNumber" type="text" maxlength="14"
+              placeholder="Enter 12–14 digit Ref No."
+              style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;">
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "Next",
+      cancelButtonText: "Back",
+      confirmButtonColor: "#333",
+      cancelButtonColor: "#9c2b27",
+      allowOutsideClick: false,
+
+      didOpen: () => {
+        const modeSelect = document.getElementById("modePayment");
+        const gcashDetails = document.getElementById("gcashDetails");
+        modeSelect.addEventListener("change", () => {
+          gcashDetails.style.display = modeSelect.value === "gcash" ? "block" : "none";
+        });
+      },
+
+      preConfirm: () => {
+        const mode = document.getElementById("modePayment").value;
+        const ref = document.getElementById("refNumber")?.value.trim() || null;
+        if (mode === "gcash" && !/^[0-9]{12,14}$/.test(ref)) {
+          Swal.showValidationMessage("Enter a valid 12–14 digit GCash Ref No.");
+          return false;
+        }
+        return { mode_payment: mode, ref_number: mode === "gcash" ? ref : null };
+      }
+    });
+
+    if (!payRes.isConfirmed) return;
+    const { mode_payment, ref_number } = payRes.value;
+
+    // Step 3: Receipt Preview
+    const total = cart.reduce((a, b) => a + b.price * b.qty, 0) + DELIVERY_FEE;
+    const receiptHTML = `
+      <div id="receipt-content" style="
+        font-family:'Poppins','Courier New',monospace;
+        color:#333;
+        background:#fff;
+        border:2px dashed #9c2b27;
+        border-radius:10px;
+        padding:15px 20px;
+        width:350px;
+        margin:0 auto;
+        text-align:left;
+      ">
+
+        <!-- Header -->
+        <div style="text-align:center;border-bottom:2px dashed #ccc;padding-bottom:8px;margin-bottom:10px;">
+          <img src="image/logo-light.png" style="width:70px;margin-bottom:6px;">
+          <h3 style="margin:0;color:#9c2b27;">Gitarra Apartelle</h3>
+          <p style="margin:0;font-size:0.85em;color:#555;">Official Receipt</p>
+          <p style="margin:3px 0 0;font-size:0.8em;">${new Date().toLocaleString()}</p>
+        </div>
+
+        <!-- Items Table -->
+        <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+          <thead>
+            <tr style="border-bottom:1px dotted #ccc;">
+              <th align="left">Item</th>
+              <th align="center" style="width:40px;">Qty</th>
+              <th align="right">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cart.map(i => `
+              <tr style="border-bottom:1px dotted #eee;">
+                <td style="padding:4px 0;word-break:break-word;">
+                  <b>${i.name}</b> (${i.size})
+                </td>
+                <td align="center">${i.qty}</td>
+                <td align="right" style="white-space: nowrap; word-break: keep-all;">₱${(i.price * i.qty).toFixed(2)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+
+        <!-- Summary Section -->
+        <div style="
+          border-top:2px dashed #ccc;
+          padding-top:10px;
+          margin-top:10px;
+          font-size:0.9em;
+        ">
+          <p style="margin:4px 0;"><b>Subtotal:</b> ₱${cart.reduce((a,b)=>a+b.price*b.qty,0).toFixed(2)}</p>
+          <p style="margin:4px 0;"><b>Delivery Fee:</b> ₱${DELIVERY_FEE.toFixed(2)}</p>
+          <p style="
+            margin:8px 0;
+            font-weight:700;
+            color:#9c2b27;
+            border-top:1px dotted #ccc;
+            padding-top:6px;
+            font-size:1em;
+          ">
+            Total: ₱${total.toFixed(2)}
+          </p>
+          <p style="margin:4px 0;text-align:center"><b>Payment:</b> ${mode_payment.toUpperCase()}</p>
+          ${mode_payment === "gcash" ? `<p style="margin:4px 0;text-align:center">Ref#: ${ref_number}</p>` : ""}
+        </div>
+
+        <!-- Footer -->
+        <div style="
+          border-top:2px dashed #ccc;
+          margin-top:10px;
+          text-align:center;
+          padding-top:8px;
+          font-size:0.8em;
+          color:#555;
+        ">
+          <p style="margin:0;">Thank you for ordering with ❤️</p>
+          <p style="margin:0;color:#9c2b27;font-weight:600;">Gitarra Apartelle</p>
+        </div>
+      </div>
+    `;
+
+    Swal.fire({
+      title: "✅ Order Ready!",
+      html: receiptHTML,
+      showConfirmButton: true,
+      confirmButtonText: "Download Receipt",
+      confirmButtonColor: "#333",
+      allowOutsideClick: false
+    }).then(async (r) => {
+      if (r.isConfirmed) {
+        // === Generate PDF Receipt ===
+        const receiptElement = document.getElementById("receipt-content");
+
+        // Adjust font and spacing for canvas clarity
+        receiptElement.style.fontSize = "0.70em";
+        receiptElement.style.letterSpacing = "0.5px";  // 🟢 adds space between letters
+        receiptElement.style.wordSpacing = "2px";      // 🟢 adds space between words
+        receiptElement.style.textRendering = "geometricPrecision"; // 🟢 cleaner text rendering
+
+        // Capture receipt as canvas
+        const canvas = await html2canvas(receiptElement, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff"
+        });
+
+        const imgData = canvas.toDataURL("image/png");
+        const { jsPDF } = window.jspdf;
+
+        // Dynamically set PDF size to match actual content height
+        const pdfWidth = 240;
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+        // Create PDF with dynamic height
+        const pdf = new jsPDF({
+          orientation: "p",
+          unit: "px",
+          format: [pdfWidth, pdfHeight]
+        });
+
+        // Add the image
+        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+
+        // Save it
+        pdf.save(`receipt_${Date.now()}.pdf`);
+
+        // === POST TO DATABASE AFTER DOWNLOAD ===
+        await Promise.all(cart.map(item =>
+          fetch("guest_add_order.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              item_name: item.name,
+              size: item.size,
+              price: item.price * item.qty,
+              quantity: item.qty,
+              total: item.price * item.qty,
+              mode_payment,
+              ref_number: mode_payment === "gcash" ? ref_number : null
+            })
+          })
+        ));
+
+        // ✅ SUCCESS TOAST
+        Swal.fire({
+          toast: true,
+          position: "top-end",
+          icon: "success",
+          title: "Order saved successfully!",
+          showConfirmButton: false,
+          timer: 2000,
+          timerProgressBar: true
+        });
+
+        // Wait a moment for the toast to show, then reset
+        setTimeout(() => {
+          localStorage.removeItem("cartData");
+          window.location.reload();
+        }, 2200);
+      }
+    });
+  });
 });
 </script>
 
@@ -1379,242 +2924,169 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // ✅ Compute grand total
-    let grandTotal = orders.reduce((sum, o) => sum + parseFloat(o.price), 0);
+    // ✅ Group orders by exact created_at timestamp date + hour + minute only
+    const grouped = {};
+    orders.forEach(order => {
+      const [datePart, timePart] = order.created_at.split(" ");
+      const [hour, minute] = timePart.split(":"); // ignore seconds
+      const key = `${datePart} ${hour}:${minute}`;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(order);
+    });
 
-    // ✅ Visual Info Banner
-    const tableHTML = `
-      <div style="margin-bottom:10px;padding:10px;background:#dff9fb;border:1px solid #22a6b3;border-radius:6px;color:#130f40;font-size:0.9em;display:flex;align-items:center;gap:8px;">
-        ⏰ <div><strong>Note:</strong> You have <b>5 minutes</b> after placing an order to update or delete it. The timer below each item shows how much time is left.</div>
-      </div>
-
+    // ✅ Build summarized receipt table
+    const receiptListHTML = `
       <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
-          <thead style="background:#222;color:#fff;">
-            <tr>
-              <th style="padding:8px;">Item</th>
-              <th>Size</th>
-              <th>Qty</th>
-              <th>Price</th>
+        <table style="width:100%;border-collapse:collapse;font-family:'Poppins',sans-serif;font-size:0.9em;">
+          <thead>
+            <tr style="background:#222;color:#fff;">
+              <th>Date Ordered</th>
+              <th>Items</th>
+              <th>Total</th>
               <th>Payment</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            ${orders.map(order => {
-              const isServed = order.status?.toLowerCase() === "served";
-              const orderTime = new Date(order.created_at.replace(" ", "T"));
-              const now = new Date();
-              const elapsed = (now - orderTime) / 1000; // seconds
-              const remainingSeconds = Math.max(0, 5 * 60 - elapsed); // 5 mins = 300s
-              const isExpired = remainingSeconds <= 0;
+            ${Object.entries(grouped).map(([created_at, groupOrders], index) => {
+              const total = groupOrders.reduce((sum, o) => sum + parseFloat(o.price), 0);
+              const [datePart, timePart] = created_at.split(" ");
+              const formattedTime = convertTo12Hour(timePart);
+              const formattedDate = new Date(datePart).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric"
+              });
+              const paymentMethod = groupOrders[0].mode_payment.toUpperCase();
 
-              const badgeClass = isServed
-                ? "badge bg-success rounded-pill"
-                : "badge bg-warning text-dark rounded-pill";
-
-              const disableActions = isServed || isExpired;
-              const disableDelete = isServed || isExpired;
+              // ✅ Create multiline item summary
+              const itemSummary = groupOrders
+                .map(o => `${escapeHtml(o.item_name)} ×${o.quantity}`)
+                .join("<br>");
 
               return `
-                <tr data-id="${order.id}" data-created="${order.created_at}">
-                  <td style="padding:6px;">
-                    ${escapeHtml(order.item_name)}
-                    <div class="timer" data-seconds="${remainingSeconds}" style="font-size:0.75em;color:#999;">
-                      ${isServed ? "" : (isExpired ? "⏱ Time expired" : "⏱ Calculating...")}
-                    </div>
+                <tr style="border-bottom:1px solid #ddd;vertical-align:top;">
+                  <td style="text-align:left;align-content:center;white-space:nowrap;padding:6px;">
+                    ${formattedDate}<br>
+                    <span style="color:#555;font-size:0.85em;">${formattedTime}</span>
                   </td>
-                  <td>${order.size || "N/A"}</td>
-                  <td>
-                    <input 
-                      type="number" 
-                      value="${order.quantity}" 
-                      min="1"
-                      data-original-qty="${order.quantity}"
-                      data-original-price="${order.price}"
-                      style="width:60px;padding:4px;text-align:center;border:1px solid #ccc;border-radius:4px;"
-                      ${disableActions ? "disabled" : ""}
-                    >
+                  <td style="text-align:left;width:280px;line-height:1.4;padding:6px;">
+                    ${itemSummary}
                   </td>
-                  <td class="price">₱${parseFloat(order.price).toFixed(2)}</td>
-                  <td>${order.mode_payment.toUpperCase()}</td>
-                  <td><span class="${badgeClass}">${order.status || "Pending"}</span></td>
-                  <td>
-                    <button class="btn btn-success btn-sm updateBtn" ${disableActions ? "disabled" : ""}>Update</button>
-                    <button class="btn btn-danger btn-sm deleteBtn" ${disableDelete ? "disabled" : ""}>Delete</button>
+                  <td style="padding:6px;align-content:center;">₱${total.toFixed(2)}</td>
+                  <td style="padding:6px;align-content:center;">${paymentMethod}</td>
+                  <td style="padding:6px;align-content:center;">
+                    <button class="btn-view-receipt" data-created="${created_at}"
+                      style="padding:5px 10px;background:#9c2b27;color:#fff;border:none;border-radius:4px;cursor:pointer;">
+                      View Receipt
+                    </button>
                   </td>
                 </tr>
               `;
             }).join("")}
           </tbody>
-          <tfoot style="font-weight:bold;">
-            <tr>
-              <td colspan="3" style="text-align:right;padding:8px;">Grand Total:</td>
-              <td colspan="4" id="grandTotal">₱${grandTotal.toFixed(2)}</td>
-            </tr>
-          </tfoot>
         </table>
       </div>
     `;
 
+    // ✅ Show list of receipts
     Swal.fire({
-      title: "🧾 Your Orders",
-      html: tableHTML,
-      width: "700px",
+      title: "🧾 Order Receipts",
+      html: receiptListHTML,
+      width: "800px",
       showConfirmButton: false,
       showCancelButton: true,
       cancelButtonText: "Close",
       didOpen: () => {
         const popup = Swal.getPopup();
-        const updateButtons = popup.querySelectorAll(".updateBtn");
-        const deleteButtons = popup.querySelectorAll(".deleteBtn");
-        const qtyInputs = popup.querySelectorAll("input[type='number']");
-        const timers = popup.querySelectorAll(".timer");
-
-        // 🔹 Start live countdown timers
-        const timerInterval = setInterval(() => {
-          timers.forEach(timer => {
-            let remaining = parseInt(timer.dataset.seconds);
-            if (remaining <= 0) {
-              timer.textContent = "⏱ Time expired";
-              const row = timer.closest("tr");
-              const updateBtn = row.querySelector(".updateBtn");
-              const deleteBtn = row.querySelector(".deleteBtn");
-              const qtyInput = row.querySelector("input[type='number']");
-              if (updateBtn && !updateBtn.disabled) updateBtn.disabled = true;
-              if (deleteBtn && !deleteBtn.disabled) deleteBtn.disabled = true;
-              if (qtyInput && !qtyInput.disabled) qtyInput.disabled = true;
-              return;
-            }
-            remaining--;
-            timer.dataset.seconds = remaining;
-            const mins = Math.floor(remaining / 60);
-            const secs = remaining % 60;
-            timer.textContent = `⏱ ${mins}:${secs.toString().padStart(2, "0")} left`;
-          });
-        }, 1000);
-
-        // 🔹 Clear interval when popup closed
-        Swal.getContainer().addEventListener("click", (e) => {
-          if (e.target.classList.contains("swal2-cancel")) clearInterval(timerInterval);
-        });
-
-        // 🔹 Quantity input recalculation
-        qtyInputs.forEach(input => {
-          input.addEventListener("input", () => {
-            if (input.disabled) return;
-            const row = input.closest("tr");
-            const priceCell = row.querySelector(".price");
-            const oldQty = parseInt(input.dataset.originalQty);
-            const oldPrice = parseFloat(input.dataset.originalPrice);
-            const newQty = parseInt(input.value);
-
-            if (newQty < 1) return;
-            const unitPrice = oldPrice / oldQty;
-            const newPrice = unitPrice * newQty;
-            priceCell.textContent = `₱${newPrice.toFixed(2)}`;
-            updateGrandTotal();
+        popup.querySelectorAll(".btn-view-receipt").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const created_at = btn.dataset.created;
+            showReceipt(created_at);
           });
         });
-
-        // 🔹 Update order
-        updateButtons.forEach(btn => {
-          btn.addEventListener("click", async () => {
-            if (btn.disabled) return;
-            const row = btn.closest("tr");
-            const id = row.dataset.id;
-            const qtyInput = row.querySelector("input[type='number']");
-            const newQty = parseInt(qtyInput.value);
-
-            if (newQty < 1) {
-              Swal.fire("Invalid", "Quantity must be at least 1.", "warning");
-              return;
-            }
-
-            const confirm = await Swal.fire({
-              title: "Update Quantity?",
-              text: `Set quantity to ${newQty}?`,
-              icon: "question",
-              showCancelButton: true,
-              confirmButtonText: "Yes, Update"
-            });
-
-            if (!confirm.isConfirmed) return;
-
-            const updateRes = await fetch("guest_update_order.php", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id, quantity: newQty })
-            });
-            const updateData = await updateRes.json();
-
-            if (updateData.success) {
-              qtyInput.dataset.originalQty = newQty;
-              qtyInput.dataset.originalPrice = updateData.new_price.replace(/,/g, "");
-              Swal.fire("✅ Updated!", "Quantity updated successfully.", "success");
-            } else {
-              Swal.fire("Error", updateData.message || "Failed to update order.", "error");
-            }
-          });
-        });
-
-        // 🔹 Delete order
-        deleteButtons.forEach(btn => {
-          btn.addEventListener("click", async () => {
-            if (btn.disabled) return;
-            const row = btn.closest("tr");
-            const id = row.dataset.id;
-
-            const confirm = await Swal.fire({
-              title: "Delete Order?",
-              text: "This cannot be undone.",
-              icon: "warning",
-              showCancelButton: true,
-              confirmButtonText: "Yes, Delete",
-              confirmButtonColor: "#d33"
-            });
-
-            if (!confirm.isConfirmed) return;
-
-            const delRes = await fetch("guest_delete_order.php", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id })
-            });
-            const delData = await delRes.json();
-
-            if (delData.success) {
-              row.remove();
-              updateGrandTotal();
-              Swal.fire("Deleted!", "Order removed.", "success");
-            } else {
-              Swal.fire("Error", delData.message || "Failed to delete order.", "error");
-            }
-          });
-        });
-
-        // 🔹 Grand total update function
-        function updateGrandTotal() {
-          const rows = popup.querySelectorAll("tbody tr");
-          let total = 0;
-          rows.forEach(r => {
-            const priceText = r.querySelector(".price")?.textContent.replace(/[₱,]/g, "") || "0";
-            total += parseFloat(priceText);
-          });
-          const grandTotalEl = popup.querySelector("#grandTotal");
-          if (grandTotalEl) grandTotalEl.textContent = `₱${total.toFixed(2)}`;
-        }
       }
     });
-  });
 
-  // 🛡️ Prevent HTML injection
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, s =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s])
-    );
-  }
+    // ✅ Detailed Receipt Popup
+    function showReceipt(created_at) {
+      const groupOrders = grouped[created_at];
+      const total = groupOrders.reduce((sum, o) => sum + parseFloat(o.price), 0);
+      const [datePart, timePart] = created_at.split(" ");
+      const formattedTime = convertTo12Hour(timePart);
+      const formattedDate = new Date(datePart).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      });
+      const paymentMethod = groupOrders[0].mode_payment.toUpperCase();
+
+      const receiptHTML = `
+        <div style="text-align:left;font-family:'Poppins',sans-serif;color:#333;">
+          <div style="text-align:center;margin-bottom:10px;">
+            <h3 style="margin:0;">🧾 Receipt</h3>
+            <div style="font-size:0.85em;color:#555;">
+              <b>Date:</b> ${formattedDate} <b>Time:</b> ${formattedTime}<br>
+              <b>Payment:</b> ${paymentMethod}
+            </div>
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+            <thead>
+              <tr style="background:#f7f7f7;border-bottom:1px solid #ccc;">
+                <th style="text-align:left;padding:6px;">Item</th>
+                <th>Size</th>
+                <th>Qty</th>
+                <th style="text-align:right;padding:6px;">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${groupOrders.map(o => `
+                <tr>
+                  <td style="padding:6px;">${escapeHtml(o.item_name)}</td>
+                  <td style="text-align:center;">${o.size || "N/A"}</td>
+                  <td style="text-align:center;">${o.quantity}</td>
+                  <td style="text-align:right;">₱${parseFloat(o.price).toFixed(2)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+            <tfoot>
+              <tr style="border-top:2px solid #000;font-weight:bold;">
+                <td colspan="3" style="text-align:right;padding:6px;">Total:</td>
+                <td style="text-align:right;">₱${total.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+
+      Swal.fire({
+        title: "Receipt Details",
+        html: receiptHTML,
+        width: "650px",
+        showConfirmButton: false,
+        showCancelButton: true,
+        cancelButtonText: "Close",
+      });
+    }
+
+    // 🕒 Convert 24-hour → 12-hour format
+    function convertTo12Hour(timeStr) {
+      if (!timeStr) return "";
+      const [hour, minute] = timeStr.split(":");
+      const h = parseInt(hour, 10);
+      const ampm = h >= 12 ? "PM" : "AM";
+      const hour12 = h % 12 || 12;
+      return `${hour12}:${minute} ${ampm}`;
+    }
+
+    // 🛡️ Escape HTML
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, s =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s])
+      );
+    }
+  });
 });
 </script>
 

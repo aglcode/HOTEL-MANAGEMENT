@@ -1,163 +1,134 @@
 <?php
 session_start();
 require_once 'database.php';
+require 'vendor/autoload.php'; // <-- Make sure PHPMailer is installed via Composer
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 // Generate a unique booking token
 function generateBookingToken() {
     return 'BK' . date('Ymd') . strtoupper(substr(md5(uniqid(rand(), true)), 0, 6));
 }
 
-// Enhanced email function with comprehensive booking details
+// Function to send booking confirmation email using PHPMailer
 function sendBookingEmail($email, $guestName, $token, $bookingDetails) {
-    $subject = "🏨 Booking Confirmation - Gitarra Apartelle (Token: $token)";
-    
-    // Calculate check-out time
-    $checkInDateTime = new DateTime($bookingDetails['start_date']);
-    $checkOutDateTime = clone $checkInDateTime;
-    $checkOutDateTime->add(new DateInterval('PT' . $bookingDetails['duration'] . 'H'));
-    
-    $message = "
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; }
-            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .token { background: #4CAF50; color: white; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; border-radius: 5px; margin: 20px 0; }
-            .details { background: white; padding: 20px; border-radius: 5px; margin: 20px 0; }
-            .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-            .detail-label { font-weight: bold; color: #555; }
-            .detail-value { color: #333; }
-            .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
-            .important { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
-        </style>
-    </head>
-    <body>
-        <div class='container'>
-            <div class='header'>
-                <h1>🏨 Gitarra Apartelle</h1>
-                <h2>Booking Confirmation</h2>
+    $mail = new PHPMailer(true);
+
+    try {
+        // === SMTP SETTINGS ===
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = 'gitarraapartelle@gmail.com';
+        $mail->Password = 'pngssmeypubvvhvg';
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = 587;
+
+        // === SENDER & RECIPIENT ===
+        $mail->setFrom('gitarraapartelle@gmail.com', 'Gitarra Apartelle');
+        $mail->addAddress($email, $guestName);
+        $mail->addReplyTo('gitarraapartelle@gmail.com', 'Gitarra Apartelle Info');
+
+        // === EMAIL CONTENT ===
+        $mail->isHTML(true);
+        $mail->Subject = "Booking Confirmation - Gitarra Apartelle (Token: $token)";
+
+        // Compute check-out time
+        $checkInDateTime = new DateTime($bookingDetails['start_date']);
+        $checkOutDateTime = clone $checkInDateTime;
+        $checkOutDateTime->add(new DateInterval('PT' . $bookingDetails['duration'] . 'H'));
+
+        // === MODERN STYLED EMAIL BODY ===
+        $mail->Body = '
+        <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 40px 0;">
+          <div style="max-width: 600px; margin: auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+
+            <!-- HEADER -->
+            <div style="background-color: #7a0a20; padding: 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 26px;">Gitarra Apartelle</h1>
+              <p style="color: #f1c6c6; margin: 5px 0 0; font-size: 15px;">Booking Information</p>
             </div>
-            <div class='content'>
-                <h3>Dear {$guestName},</h3>
-                <p>Thank you for choosing Gitarra Apartelle! Your booking has been confirmed.</p>
-                
-                <div class='token'>
-                    📋 BOOKING TOKEN: {$token}
-                </div>
-                
-                <div class='important'>
-                    <strong>⚠️ IMPORTANT:</strong> Please save this booking token and present it during check-in.
-                </div>
-                
-                <div class='details'>
-                    <h4>📋 Booking Details</h4>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Guest Name:</span>
-                        <span class='detail-value'>{$guestName}</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Email:</span>
-                        <span class='detail-value'>{$email}</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Phone:</span>
-                        <span class='detail-value'>{$bookingDetails['telephone']}</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Address:</span>
-                        <span class='detail-value'>{$bookingDetails['address']}</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Age:</span>
-                        <span class='detail-value'>{$bookingDetails['age']} years old</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Number of Guests:</span>
-                        <span class='detail-value'>{$bookingDetails['num_people']} person(s)</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Room Number:</span>
-                        <span class='detail-value'>Room {$bookingDetails['room']}</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Duration:</span>
-                        <span class='detail-value'>{$bookingDetails['duration']} hours</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Check-in:</span>
-                        <span class='detail-value'>" . $checkInDateTime->format('F j, Y - g:i A') . "</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Estimated Check-out:</span>
-                        <span class='detail-value'>" . $checkOutDateTime->format('F j, Y - g:i A') . "</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Payment Method:</span>
-                        <span class='detail-value'>{$bookingDetails['payment_mode']}</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Amount Paid:</span>
-                        <span class='detail-value'>₱{$bookingDetails['amount_paid']}</span>
-                    </div>
-                    <div class='detail-row'>
-                        <span class='detail-label'>Change:</span>
-                        <span class='detail-value'>₱{$bookingDetails['change_amount']}</span>
-                    </div>
-                    <div class='detail-row' style='border-bottom: 3px solid #4CAF50; font-size: 18px;'>
-                        <span class='detail-label'>💰 TOTAL PRICE:</span>
-                        <span class='detail-value' style='color: #4CAF50; font-weight: bold;'>₱{$bookingDetails['total_price']}</span>
-                    </div>
-                </div>
-                
-                <div class='important'>
-                    <h4>📍 Check-in Instructions:</h4>
-                    <ul>
-                        <li>Present your booking token: <strong>{$token}</strong></li>
-                        <li>Arrive at your scheduled check-in time</li>
-                        <li>Bring a valid ID for verification</li>
-                        <li>Contact us if you need to modify your booking</li>
-                    </ul>
-                </div>
-                
-                <div class='footer'>
-                    <p><strong>Gitarra Apartelle</strong><br>
-                    📧 Email: info@gitarraapartelle.com<br>
-                    📞 Phone: (Your phone number)<br>
-                    📍 Address: (Your address)</p>
-                    
-                    <p><em>Thank you for choosing Gitarra Apartelle. We look forward to hosting you!</em></p>
-                </div>
+
+            <!-- BODY -->
+            <div style="padding: 30px;">
+              <p style="font-size: 15px; color: #333;">Dear <strong>'.$guestName.'</strong>,</p>
+              <p style="font-size: 15px; color: #333;">Thank you for booking with us! Below are your booking details:</p>
+
+              <div style="background-color: #fff; border: 1px solid #eee; border-radius: 8px; padding: 20px; margin-top: 10px;">
+                <p style="color: #888; font-size: 13px; margin-bottom: 5px;">ROOM</p>
+                <p style="font-weight: 600; color: #111; font-size: 16px; margin-top: 0;">'.$bookingDetails['room'].'</p>
+                <hr style="border: none; border-top: 1px solid #ddd; margin: 15px 0;">
+
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                  <tr>
+                    <td style="color: #777;">CHECK-IN</td>
+                    <td style="color: #777;">CHECK-OUT</td>
+                  </tr>
+                  <tr>
+                    <td style="font-weight: bold; color: #222;">'.$checkInDateTime->format('Y-m-d').'</td>
+                    <td style="font-weight: bold; color: #222;">'.$checkOutDateTime->format('Y-m-d').'</td>
+                  </tr>
+                </table>
+
+                <hr style="border: none; border-top: 1px solid #ddd; margin: 15px 0;">
+
+                <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+                  <tr>
+                    <td style="color: #777;">TOTAL PRICE</td>
+                    <td style="text-align: right; font-weight: 600;">₱'.$bookingDetails['total_price'].'</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #777;">AMOUNT PAID</td>
+                    <td style="text-align: right; font-weight: 600; color: #a10f20;">₱'.$bookingDetails['amount_paid'].'</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #777;">CHANGE</td>
+                    <td style="text-align: right; font-weight: 600;">₱'.$bookingDetails['change_amount'].'</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #777;">PAYMENT MODE</td>
+                    <td style="text-align: right; font-weight: 600;">'.$bookingDetails['payment_mode'].'</td>
+                  </tr>
+                </table>
+              </div>
+
+              <div style="margin: 25px 0; padding: 15px; border: 1px solid #a10f20; border-left: 5px solid #a10f20; background-color: #fef2f2; border-radius: 5px;">
+                <p style="color: #a10f20; margin: 0; text-align: center; font-weight: 600;">
+                  Please present this booking token upon check-in.<br>
+                  <span style="display: inline-block; margin-top: 8px; background: #7a0a20; color: white; padding: 6px 12px; border-radius: 4px; font-size: 13px;">
+                    TOKEN: '.$token.'
+                  </span>
+                </p>
+              </div>
+
+              <p style="text-align: center; color: #444; font-size: 14px;">We look forward to your stay at Gitarra Apartelle!</p>
             </div>
+
+            <!-- FOOTER -->
+            <div style="background: #f9f9f9; text-align: center; padding: 20px; border-top: 1px solid #eee;">
+              <p style="margin: 0 0 8px;">
+                <a href="mailto:gitarraapartelle@gmail.com" style="color: #7a0a20; text-decoration: none; font-size: 14px;">gitarraapartelle@gmail.com</a> |
+                <span style="color: #555; font-size: 14px;">+63 912 345 6789</span>
+              </p>
+              <p style="font-size: 12px; color: #999;">© 2025 Gitarra Apartelle. All rights reserved.</p>
+            </div>
+          </div>
         </div>
-    </body>
-    </html>
-    ";
-    
-    // Enhanced headers for better email delivery
-    $headers = array(
-        'MIME-Version: 1.0',
-        'Content-type: text/html; charset=UTF-8',
-        'From: Gitarra Apartelle <noreply@gitarraapartelle.com>',
-        'Reply-To: info@gitarraapartelle.com',
-        'X-Mailer: PHP/' . phpversion(),
-        'X-Priority: 1',
-        'Importance: High'
-    );
-    
-    $headers_string = implode("\r\n", $headers);
-    
-    // Attempt to send email
-    $result = mail($email, $subject, $message, $headers_string);
-    
-    // Log email attempt (optional - for debugging)
-    error_log("Email sent to $email - Result: " . ($result ? 'Success' : 'Failed'));
-    
-    return $result;
+        ';
+
+        $mail->AltBody = 'Booking Confirmation for '.$guestName.' at Gitarra Apartelle. Token: '.$token;
+
+        $mail->send();
+        return true;
+
+    } catch (Exception $e) {
+        error_log("PHPMailer Error: {$mail->ErrorInfo}");
+        return false;
+    }
 }
 
+// === FORM PROCESSING ===
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $guest_name = $_POST['guest_name'];
     $email = $_POST['email'];
@@ -171,8 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $payment_mode = $_POST['payment_mode'];
     $amount_paid = (float)$_POST['amount_paid'];
     $reference_number = $_POST['reference_number'] ?? '';
-    
-    // Validation
+
     if ($age < 18) {
         $error = "Guest must be at least 18 years old.";
     } else {
@@ -182,11 +152,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $room_query->execute();
         $room_result = $room_query->get_result();
         $room = $room_result->fetch_assoc();
-        
+
         if (!$room) {
             $error = "Selected room is not available.";
         } else {
-            // Calculate price
+            // Compute total price
             switch ($duration) {
                 case 3: $total_price = $room['price_3hrs']; break;
                 case 6: $total_price = $room['price_6hrs']; break;
@@ -194,14 +164,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 case 24: $total_price = $room['price_24hrs']; break;
                 default: $total_price = $room['price_ot']; break;
             }
-            
-            // Calculate end date
+
+            // Compute dates
             $start_datetime = new DateTime($start_date);
             $end_datetime = clone $start_datetime;
             $end_datetime->add(new DateInterval('PT' . $duration . 'H'));
             $end_date = $end_datetime->format('Y-m-d H:i:s');
-            
-            // Check for conflicts
+
+            // Check room conflicts
             $conflict_query = $conn->prepare("
                 SELECT COUNT(*) as conflicts FROM bookings 
                 WHERE room_number = ? 
@@ -210,35 +180,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ");
             $conflict_query->bind_param("sss", $room_number, $start_date, $end_date);
             $conflict_query->execute();
-            $conflict_result = $conflict_query->get_result();
-            $conflicts = $conflict_result->fetch_assoc()['conflicts'];
-            
+            $conflicts = $conflict_query->get_result()->fetch_assoc()['conflicts'];
+
             if ($conflicts > 0) {
                 $error = "Room is not available for the selected time period.";
             } else {
-                // Generate booking token
                 $booking_token = generateBookingToken();
-                
-                // Calculate change
                 $change_amount = max(0, $amount_paid - $total_price);
-                
+
                 // Insert booking
                 $insert_query = $conn->prepare("
-                    INSERT INTO bookings (guest_name, email, telephone, address, age, num_people, 
-                                        room_number, duration, start_date, end_date, total_price, 
-                                        payment_mode, amount_paid, change_amount, reference_number, 
-                                        booking_token, status, created_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+                    INSERT INTO bookings (
+                        guest_name, email, telephone, address, age, num_people,
+                        room_number, duration, start_date, end_date, total_price,
+                        payment_mode, amount_paid, change_amount, reference_number,
+                        booking_token, status, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
                 ");
-                
-                $insert_query->bind_param("ssssiisisssddsss", 
+
+                $insert_query->bind_param(
+                    "ssssiisisssddsss",
                     $guest_name, $email, $telephone, $address, $age, $num_people,
                     $room_number, $duration, $start_date, $end_date, $total_price,
                     $payment_mode, $amount_paid, $change_amount, $reference_number, $booking_token
                 );
-                
+
                 if ($insert_query->execute()) {
-                    // Send confirmation email
                     $bookingDetails = [
                         'room' => "Room $room_number - {$room['room_type']}",
                         'duration' => $duration,
@@ -252,14 +219,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'amount_paid' => number_format($amount_paid, 2),
                         'change_amount' => number_format($change_amount, 2)
                     ];
-                    
+
                     $emailSent = sendBookingEmail($email, $guest_name, $booking_token, $bookingDetails);
-                    
-                    $success = "Booking confirmed! Your booking token is: <strong>$booking_token</strong>";
+                    $success = "Booking confirmed! Your booking token is <strong>$booking_token</strong>.";
+
                     if ($emailSent) {
-                        $success .= "<br>A confirmation email has been sent to $email";
+                        $success .= "<br>A confirmation email has been sent to <strong>$email</strong>.";
                     } else {
-                        $success .= "<br>Please save your booking token as email delivery failed.";
+                        $success .= "<br>⚠️ Email sending failed. Please save your booking token.";
                     }
                 } else {
                     $error = "Failed to create booking. Please try again.";
@@ -271,11 +238,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get available rooms
 $rooms = [];
-$room_query = $conn->query("SELECT * FROM rooms WHERE status = 'available'");
-while ($room = $room_query->fetch_assoc()) {
+$result = $conn->query("SELECT * FROM rooms WHERE status = 'available'");
+while ($room = $result->fetch_assoc()) {
     $rooms[$room['room_number']] = $room;
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -712,6 +680,16 @@ while ($room = $room_query->fetch_assoc()) {
             color: #004085;
         }
 
+        .progress-animate {
+        width: 0%;
+        animation: progressGrow 2s infinite;
+        }
+        @keyframes progressGrow {
+        0% { width: 0%; }
+        50% { width: 70%; }
+        100% { width: 100%; }
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .hero-title {
@@ -1118,7 +1096,7 @@ while ($room = $room_query->fetch_assoc()) {
                                     <i class="fas fa-envelope"></i>
                                 </div>
                                 <h5>Email Us</h5>
-                                <p class="text-muted">info@gitarraapartelle.com</p>
+                                <p class="text-muted">gitarraapartelle@gmail.com</p>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -1149,6 +1127,51 @@ while ($room = $room_query->fetch_assoc()) {
             </div>
         </div>
     </footer>
+
+    <!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-center p-4">
+      <div class="mb-2">
+        <i class="fas fa-envelope fa-3x text-primary"></i>
+      </div>
+      <div class="mb-3">
+        <div class="spinner-border text-primary" role="status"></div>
+      </div>
+      <h5>Sending Confirmation Email</h5>
+      <p class="text-muted">
+        Please wait while we send your booking confirmation to 
+        <span id="loadingEmail"></span>
+      </p>
+      <div class="progress mt-3" style="height:5px;">
+        <div class="progress-bar bg-primary progress-animate" role="progressbar"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-center p-4">
+      <div class="checkmark-container mb-3">
+        <div class="checkmark-circle">
+          <i class="fas fa-check fa-2x text-success"></i>
+        </div>
+      </div>
+      <h5>Email Sent Successfully!</h5>
+      <p class="text-muted">
+        Your booking confirmation has been sent to 
+        <span id="successEmail"></span>
+      </p>
+      <p class="text-muted">
+        Please check your inbox for booking details and token.
+      </p>
+      <button type="button" class="btn btn-success w-100" data-bs-dismiss="modal">Continue</button>
+    </div>
+  </div>
+</div>
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
@@ -1332,6 +1355,50 @@ while ($room = $room_query->fetch_assoc()) {
             
             dateInput.min = `${year}-${month}-${day}T${hours}:${minutes}`;
         });
+
+
+        // loading & success modal
+        document.addEventListener('DOMContentLoaded', function() {
+  const form = document.querySelector('#bookingForm'); // your booking form ID
+  const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+  const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+  const loadingEmail = document.getElementById('loadingEmail');
+  const successEmail = document.getElementById('successEmail');
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(form);
+    const email = formData.get('email');
+    loadingEmail.textContent = email;
+    successEmail.textContent = email;
+
+    // Show loading modal
+    loadingModal.show();
+
+    fetch(window.location.href, { 
+      method: 'POST',
+      body: formData
+    })
+    .then(res => res.text())
+    .then(response => {
+      // Hide loading and show success
+      loadingModal.hide();
+      successModal.show();
+      
+    // Refresh the page after success modal closes (or after few seconds)
+    setTimeout(() => {
+        location.reload(); 
+    }, 3000); // refresh after 3 seconds
+
+    })
+    .catch(err => {
+      loadingModal.hide();
+      alert('An error occurred while processing your booking.');
+      console.error(err);
+    });
+  });
+});
     </script>
 </body>
 </html>
