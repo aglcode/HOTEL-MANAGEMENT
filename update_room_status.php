@@ -1,38 +1,50 @@
 <?php
-// Database connection
-$host = "localhost";
-$username = "root";
-$password = "";
-$database = "hotel_db";
-$conn = new mysqli($host, $username, $password, $database);
+require_once 'database.php';
+header('Content-Type: application/json');
 
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+$room_number = $_POST['room_number'] ?? null;
+$status      = $_POST['status'] ?? null;
+
+if (!$room_number || !$status) {
+    echo json_encode(['success' => false, 'message' => 'Missing room number or status']);
+    exit;
 }
 
-// Check if the POST data exists
-if (isset($_POST['roomNumber']) && isset($_POST['status'])) {
-    $roomNumber = $_POST['roomNumber'];
-    $status = $_POST['status'];
+$room_number = trim((string)$room_number);
+$status = strtolower(trim((string)$status));
 
-    // Sanitize inputs
-    $roomNumber = $conn->real_escape_string($roomNumber);
-    $status = $conn->real_escape_string($status);
+if ($status === 'checked_out') {
+    // ✅ 1️⃣ Update check-in record
+    $stmt = $conn->prepare("UPDATE checkins SET status = 'checked_out' WHERE room_number = ?");
+    $stmt->bind_param("i", $room_number);
+    $stmt->execute();
+    $stmt->close();
 
-    // Prepare the SQL query to update room status
-    $sql = "UPDATE rooms SET status = '$status' WHERE room_number = '$roomNumber'";
+    // ✅ 2️⃣ Free up the room
+    $updateRoom = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
+    $updateRoom->bind_param("i", $room_number);
+    $updateRoom->execute();
+    $updateRoom->close();
 
-    // Execute the query
-    if ($conn->query($sql) === TRUE) {
-        echo "Room status updated successfully.";
-    } else {
-        echo "Error updating room status: " . $conn->error;
-    }
-} else {
-    echo "Invalid request. Room number and status are required.";
+    // ✅ 3️⃣ Delete all orders (pending or served)
+    $del = $conn->prepare("DELETE FROM orders WHERE room_number = ? AND status IN ('pending','served')");
+    $del->bind_param("s", $room_number);
+    $del->execute();
+    $affected = $del->affected_rows;
+    $del->close();
+
+    echo json_encode([
+        'success' => true,
+        'message' => "Guest checked out — {$affected} order(s) deleted and room set to available."
+    ]);
+    exit;
 }
 
-// Close the database connection
-$conn->close();
+// ✅ 4️⃣ Handle other statuses (checked_in, etc.)
+$stmt = $conn->prepare("UPDATE checkins SET status = ? WHERE room_number = ?");
+$stmt->bind_param("si", $status, $room_number);
+$stmt->execute();
+$stmt->close();
+
+echo json_encode(['success' => true, 'message' => "Room status updated to {$status}."]);
 ?>

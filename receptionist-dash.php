@@ -683,20 +683,29 @@ async function markAllServed(roomNumber) {
 
     const result = await res.json();
 
-    if (result.success) {
-      // Update UI state
-      serveBtn.classList.remove("btn-success");
-      serveBtn.classList.add("btn-secondary");
-      serveBtn.textContent = "All Served";
-      printBtn.classList.remove("d-none"); // show Print Receipt
+  if (result.success) {
+    // 🟢 Mark all served visually
+    serveBtn.classList.remove("btn-success");
+    serveBtn.classList.add("btn-secondary");
+    serveBtn.textContent = "All Served";
+    printBtn.classList.remove("d-none");
 
-      // Pause auto-refresh temporarily to keep the print button visible
-      clearInterval(orderInterval);
-      setTimeout(() => {
-        fetchOrders();
-        orderInterval = setInterval(fetchOrders, 8000);
-      }, 5000); // 5 seconds pause
-    } else {
+    // 🧹 Immediately clear served orders from DB
+    await fetch("update_room_status.php", {
+      method: "POST",
+      body: new URLSearchParams({
+        room_number: roomNumber,
+        status: "served"
+      })
+    });
+
+    // Refresh dashboard after cleanup
+    clearInterval(orderInterval);
+    setTimeout(() => {
+      fetchOrders(true);
+      orderInterval = setInterval(fetchOrders, 8000);
+    }, 2000);
+  } else {
       alert("Failed to update order status.");
       serveBtn.disabled = false;
       serveBtn.textContent = "Mark All Served";

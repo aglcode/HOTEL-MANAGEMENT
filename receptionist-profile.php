@@ -18,6 +18,9 @@ $profile_result = $check->get_result();
 $profile_data = $profile_result->fetch_assoc();
 $check->close();
 
+
+
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $full_name = $_POST['full_name'];
     $contact = $_POST['contact'];
