@@ -138,11 +138,20 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
     <link href="style.css" rel="stylesheet">
     <style>
 
+        :root {
+          --maroon: #800000;
+          --maroon-dark: #5a0000;
+          --matte-black: #1c1c1c;
+          --text-gray: #6c757d;
+          --card-bg: #f8f8f8ff;
+          --hover-bg: #f3f3f3ff;
+        }
+
 /* === Sidebar Container === */
     .sidebar {
       width: 260px;
       height: 100vh;
-      background: #fff;
+      background: var(--matte-black);
       border-right: 1px solid #e5e7eb;
       position: fixed;
       top: 0;
@@ -150,131 +159,21 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
       display: flex;
       flex-direction: column;
       padding: 20px 0;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
     }
 
     /* === Logo / Header === */
     .sidebar h4 {
       text-align: center;
       font-weight: 700;
-      color: #111827;
+      color: var(--card-bg);
       margin-bottom: 30px;
-    }
-
-    /* === User Info Section === */
-    .user-info {
-      text-align: center;
-      background: #f9fafb;
-      border-radius: 10px;
-      padding: 15px;
-      margin: 0 20px 25px 20px;
-    }
-
-    .user-info i {
-      font-size: 30px;
-      color: #6b7280;
-      margin-bottom: 5px;
-    }
- 
-    .user-info p {
-      margin: 0;
-      font-size: 14px;
-      color: #6b7280;
-    }
-
-    .user-info h6 {
-      margin: 0;
-      font-weight: 600;
-      color: #111827;
-    }
-
-    /* === Sidebar Navigation === */
-    .nav-links {
-      flex-grow: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 0 10px;
-    }
-
-    .nav-links a {
-    display: flex;
-    align-items: center;
-    gap: 14px; 
-    font-size: 16px; 
-    font-weight: 500;
-    color: #374151;
-    text-decoration: none;
-    padding: 12px 18px; 
-    border-radius: 8px;
-    margin: 4px 10px;
-    transition: all 0.2s ease;
-    }
-
-    .nav-links a i {
-    font-size: 19px; 
-    color: #374151;
-    transition: color 0.2s ease;
-    }
-
-    /* Hover state — icon & text both turn black */
-    .nav-links a:hover {
-    background: #f3f4f6;
-    color: #111827;
-    }
-
-    .nav-links a:hover i {
-    color: #111827;
-    }
-
-    /* Active state — white text & icon on dark background */
-    .nav-links a.active {
-    background: #871D2B;
-    color: #fff;
-    }
-
-    .nav-links a.active i {
-    color: #fff;
-    }
-    /* === Sign Out === */
-    .signout {
-    border-top: 1px solid #e5e7eb;
-    padding: 15px 20px 0;
-    }
-
-    .signout a {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: #dc2626;
-    text-decoration: none;
-    font-weight: 500;
-    font-size: 15px;
-    padding: 10px 15px;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-    }
-
-    /* Hover effect — same feel as the other links */
-    .signout a:hover {
-    background: #f3f4f6;
-    color: #dc2626;
-    }
-
-    .signout a:hover i {
-    color: #dc2626;
-    }
-
-    /* === Main Content Offset === */
-    .content {
-      margin-left: 270px;
-      padding: 30px;
-      max-width: 1400px;
     }
 
 /* === User Info === */
 .user-info {
   text-align: center;
-  background: #f9fafb;
+  background: var(--matte-black);
   border-radius: 10px;
   padding: 15px;
   margin: 0 20px 25px 20px;
@@ -282,20 +181,20 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 
 .user-info i {
   font-size: 40px;
-  color: #6b7280;
+  color: var(--card-bg);
   margin-bottom: 5px;
 }
 
 .user-info p {
   margin: 0;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--card-bg);
 }
 
 .user-info h6 {
   margin: 0;
   font-weight: 600;
-  color: #111827;
+  color: var(--card-bg);
 }
 
 .nav-links {
@@ -311,7 +210,7 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
   gap: 14px;
   font-size: 16px;
   font-weight: 500;
-  color: #374151;
+  color: var(--card-bg);
   text-decoration: none;
   padding: 12px 18px;
   border-radius: 8px;
@@ -321,7 +220,7 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 
 .nav-links a i {
   font-size: 19px;
-  color: #374151;
+  color: var(--card-bg);
   transition: color 0.2s ease;
 }
 
@@ -337,7 +236,7 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 
 /* Active state — white text & icon on dark background */
 .nav-links a.active {
-  background: #871D2B;
+  background: var(--maroon);
   color: #fff;
 }
 
@@ -448,8 +347,6 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
     <a href="signin.php"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
   </div>
 </div>
-
-
 
 <!-- Content -->
 <div class="content p-4">

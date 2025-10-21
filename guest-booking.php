@@ -680,6 +680,16 @@ while ($room = $result->fetch_assoc()) {
             color: #004085;
         }
 
+        .progress-animate {
+        width: 0%;
+        animation: progressGrow 2s infinite;
+        }
+        @keyframes progressGrow {
+        0% { width: 0%; }
+        50% { width: 70%; }
+        100% { width: 100%; }
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .hero-title {
@@ -1086,7 +1096,7 @@ while ($room = $result->fetch_assoc()) {
                                     <i class="fas fa-envelope"></i>
                                 </div>
                                 <h5>Email Us</h5>
-                                <p class="text-muted">info@gitarraapartelle.com</p>
+                                <p class="text-muted">gitarraapartelle@gmail.com</p>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -1117,6 +1127,51 @@ while ($room = $result->fetch_assoc()) {
             </div>
         </div>
     </footer>
+
+    <!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-center p-4">
+      <div class="mb-2">
+        <i class="fas fa-envelope fa-3x text-primary"></i>
+      </div>
+      <div class="mb-3">
+        <div class="spinner-border text-primary" role="status"></div>
+      </div>
+      <h5>Sending Confirmation Email</h5>
+      <p class="text-muted">
+        Please wait while we send your booking confirmation to 
+        <span id="loadingEmail"></span>
+      </p>
+      <div class="progress mt-3" style="height:5px;">
+        <div class="progress-bar bg-primary progress-animate" role="progressbar"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content text-center p-4">
+      <div class="checkmark-container mb-3">
+        <div class="checkmark-circle">
+          <i class="fas fa-check fa-2x text-success"></i>
+        </div>
+      </div>
+      <h5>Email Sent Successfully!</h5>
+      <p class="text-muted">
+        Your booking confirmation has been sent to 
+        <span id="successEmail"></span>
+      </p>
+      <p class="text-muted">
+        Please check your inbox for booking details and token.
+      </p>
+      <button type="button" class="btn btn-success w-100" data-bs-dismiss="modal">Continue</button>
+    </div>
+  </div>
+</div>
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
@@ -1300,6 +1355,50 @@ while ($room = $result->fetch_assoc()) {
             
             dateInput.min = `${year}-${month}-${day}T${hours}:${minutes}`;
         });
+
+
+        // loading & success modal
+        document.addEventListener('DOMContentLoaded', function() {
+  const form = document.querySelector('#bookingForm'); // your booking form ID
+  const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+  const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+  const loadingEmail = document.getElementById('loadingEmail');
+  const successEmail = document.getElementById('successEmail');
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(form);
+    const email = formData.get('email');
+    loadingEmail.textContent = email;
+    successEmail.textContent = email;
+
+    // Show loading modal
+    loadingModal.show();
+
+    fetch(window.location.href, { 
+      method: 'POST',
+      body: formData
+    })
+    .then(res => res.text())
+    .then(response => {
+      // Hide loading and show success
+      loadingModal.hide();
+      successModal.show();
+      
+    // Refresh the page after success modal closes (or after few seconds)
+    setTimeout(() => {
+        location.reload(); 
+    }, 3000); // refresh after 3 seconds
+
+    })
+    .catch(err => {
+      loadingModal.hide();
+      alert('An error occurred while processing your booking.');
+      console.error(err);
+    });
+  });
+});
     </script>
 </body>
 </html>
