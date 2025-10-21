@@ -144,23 +144,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_booking'])) {
             // Calculate change
             $change = $amount_paid - $total_price;
 
-            // Conflict check (fix: check for overlap only with non-cancelled bookings)
-            $conflict_stmt = $conn->prepare("
-                SELECT 1 FROM bookings 
-                WHERE room_number = ? 
-                  AND status NOT IN ('cancelled', 'completed') 
-                  AND (
-                    (? < end_date AND ? > start_date)
-                  )
-                LIMIT 1
-            ");
-            $conflict_stmt->bind_param("sss", $room_number, $start_date, $end_date);
+              $conflict_stmt = $conn->prepare("
+                  SELECT 1 
+                  FROM bookings 
+                  WHERE room_number = ? 
+                    AND status NOT IN ('cancelled', 'completed') 
+                    AND (
+                        (? < end_date AND ? > start_date)
+                      OR (start_date < ? AND end_date > ?)
+                      OR (? BETWEEN start_date AND end_date)
+                      OR (? BETWEEN start_date AND end_date)
+                    )
+                  LIMIT 1
+              ");
+
+              $conflict_stmt->bind_param(
+                  "sssssss", // ✅ 7 parameters
+                  $room_number,
+                  $start_date, $start_date,
+                  $end_date, $end_date,
+                  $start_date, $end_date
+              );
+
             $conflict_stmt->execute();
             $conflict_result = $conflict_stmt->get_result();
 
             if ($conflict_result->num_rows > 0) {
-                $_SESSION['error_msg'] = 'Room is already booked during the selected time.';
+                $_SESSION['error_msg'] = '❌ Room is already booked during the selected time. Please choose a start time after the previous checkout.';
             } else {
+                // ✅ Safe to insert booking
                 $insert = $conn->prepare("INSERT INTO bookings 
                     (guest_name, email, address, telephone, age, num_people, room_number, duration, payment_mode, reference_number, amount_paid, change_amount, total_price, start_date, end_date, booking_token, status, created_at) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'upcoming', NOW())");
@@ -189,6 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_booking'])) {
                     $_SESSION['error_msg'] = 'Error creating booking.';
                 }
             }
+
         }
     }
 }
@@ -1121,18 +1134,31 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                                             <select name="room_number" id="roomNumber" class="form-select" required onchange="updatePrice()">
                                                 <option value="">Choose your preferred room</option>
                                                 <?php
-                                                $room_query = "SELECT room_number, room_type, price_3hrs, price_6hrs, price_12hrs, price_24hrs, price_ot FROM rooms WHERE status = 'available'";
-                                                $room_result = $conn->query($room_query);
-                                                while ($room = $room_result->fetch_assoc()) {
-                                                    echo "<option value='{$room['room_number']}'
+                                               // ✅ Show all rooms, even if currently booked, so future booking is allowed
+                                            $room_query = "
+                                                SELECT room_number, room_type, price_3hrs, price_6hrs, price_12hrs, price_24hrs, price_ot, status
+                                                FROM rooms
+                                                ORDER BY room_number ASC
+                                            ";
+                                            $room_result = $conn->query($room_query);
+
+                                            while ($room = $room_result->fetch_assoc()) {
+                                                // Label booked rooms visually but still selectable
+                                                $disabled = ($room['status'] === 'maintenance') ? 'disabled' : ''; // disable only maintenance rooms
+                                                $label = ucfirst($room['status']);
+                                                $display_text = "Room {$room['room_number']} ({$room['room_type']}) - {$label}";
+                                                
+                                                echo "<option value='{$room['room_number']}' 
                                                         data-price3='{$room['price_3hrs']}'
                                                         data-price6='{$room['price_6hrs']}'
                                                         data-price12='{$room['price_12hrs']}'
                                                         data-price24='{$room['price_24hrs']}'
-                                                        data-priceOt='{$room['price_ot']}'>
-                                                        Room {$room['room_number']} ({$room['room_type']})
-                                                    </option>";
-                                                }
+                                                        data-priceOt='{$room['price_ot']}'
+                                                        $disabled>
+                                                        $display_text
+                                                      </option>";
+                                            }
+
                                                 ?>
                                             </select>
                                         </div>
@@ -1148,7 +1174,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                                         </div>
                                         <div class="mb-3">
                                             <label for="startDate" class="form-label fw-medium">Check-in Date & Time *</label>
-                                            <input type="datetime-local" name="start_date" id="startDate" class="form-control" required>
+                                            <input type="datetime-local" name="start_date" id="startDate" class="form-control" required min="">
                                         </div>
                                         <div class="mb-3">
                                             <label for="endDate" class="form-label fw-medium">Estimated Check-out *</label>
@@ -1337,6 +1363,32 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
     
     setInterval(updateClock, 1000);
     updateClock();
+
+        async function updateRoomAvailability() {
+        const roomNumber = document.getElementById("roomNumber").value;
+        const startDateInput = document.getElementById("startDate");
+        if (!roomNumber) return;
+
+        try {
+            const response = await fetch(`get_last_checkout.php?room_number=${roomNumber}`);
+            const data = await response.json();
+
+            if (data.last_checkout) {
+                // If the room has a future booking, force start after that time
+                const minDate = new Date(data.last_checkout);
+                minDate.setMinutes(minDate.getMinutes() - minDate.getTimezoneOffset());
+                startDateInput.min = minDate.toISOString().slice(0, 16);
+            } else {
+                // Default to now
+                disablePastDateTime();
+            }
+        } catch (err) {
+            console.error("Error fetching last checkout:", err);
+            disablePastDateTime();
+        }
+    }
+    document.getElementById("roomNumber").addEventListener("change", updateRoomAvailability);
+
 
     // --- NEW: Auto update estimated checkout ---
     function updateCheckoutTime() {
@@ -1577,6 +1629,15 @@ $(document).ready(function () {
   });
 });
 
+
+// --- Disable past date/time ---
+function disablePastDateTime() {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // fix timezone
+    const formatted = now.toISOString().slice(0, 16);
+    document.getElementById("startDate").min = formatted;
+}
+disablePastDateTime();
 
 </script>
 
