@@ -119,10 +119,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $telephone = htmlspecialchars(trim($_POST['telephone']));
     $room_type = htmlspecialchars(trim($_POST['room_type']));
     $stay_duration = (int)($_POST['stay_duration']);
-    $amount_paid = isset($_POST['amount_paid']) && is_numeric($_POST['amount_paid']) 
-        ? (float)$_POST['amount_paid'] 
-        : 0.00;
-    $change = max(0, $amount_paid - $total_price);
     $payment_mode = htmlspecialchars(trim($_POST['payment_mode']));
     $gcash_reference = htmlspecialchars(trim($_POST['gcash_ref_id'] ?? ''));
     $user_id = $_SESSION['user_id'];
@@ -136,6 +132,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
     }
 
+    // ✅ Pricing map
     $pricing = [
         3 => $room['price_3hrs'],
         6 => $room['price_6hrs'],
@@ -148,14 +145,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
     }
 
-    $total_price = $pricing[$stay_duration];
+    // ✅ Calculate total first
+    $total_price = floatval($pricing[$stay_duration]);
 
-    // Calculate check-out time
+// Calculate total first
+$pricing = [
+    3 => $room['price_3hrs'],
+    6 => $room['price_6hrs'],
+    12 => $room['price_12hrs'],
+    24 => $room['price_24hrs']
+];
+
+if (!isset($pricing[$stay_duration])) {
+    echo "Invalid stay duration.";
+    exit();
+}
+
+$total_price = floatval($pricing[$stay_duration]);
+
+// Read user payment
+$amount_paid = isset($_POST['amount_paid']) && is_numeric($_POST['amount_paid']) 
+    ? floatval($_POST['amount_paid']) 
+    : 0.00;
+
+// Compute change
+$change = max(0, $amount_paid - $total_price);
+
+
+    // ✅ Calculate check-out time
     $check_out_date = new DateTime();
     $check_out_date->modify("+$stay_duration hours");
     $formatted_check_out = $check_out_date->format('Y-m-d H:i:s');
 
-    // Insert into the database
+    // ✅ Insert into the database
     $sql = "INSERT INTO checkins (guest_name, address, telephone, room_number, room_type, stay_duration, total_price, amount_paid, change_amount, payment_mode, gcash_reference, check_in_date, check_out_date, receptionist_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
@@ -176,8 +198,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $formatted_check_out,
         $user_id
     );
-    
-    
 
     if ($stmt->execute()) {
         $updateRoomStatusQuery = "UPDATE rooms SET status = 'booked' WHERE room_number = ?";
@@ -192,8 +212,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $_SESSION['check_out_date'] = $check_out_date->format('F j, Y h:i A');
         $_SESSION['total_price'] = $total_price;
 
-        // header("Location: receptionist-guest.php");
-        header("Location: receptionist-guest.php?success=checkedin"); // with toast alert
+        header("Location: receptionist-guest.php?success=checkedin");
         exit();
     } else {
         echo "Error: " . $stmt->error;
@@ -432,7 +451,7 @@ $conn->close();
                 <label class="block text-gray-700 text-sm font-medium mb-2">Amount Paid via GCash</label>
                 <div class="flex">
                     <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">₱</span>
-                    <input type="number" name="amount_paid" id="gcash_amount_paid"
+                    <input type="number" id="gcash_amount_paid"
                         class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg bg-gray-50" readonly>
                 </div>
             </div>
@@ -554,38 +573,48 @@ $conn->close();
             }
         }
 
-        function selectPayment(mode) {
-            // Update hidden input
-            document.getElementById("payment_mode").value = mode;
-            
-            // Update UI
-            document.getElementById("cash_option").classList.remove("ring-2", "ring-primary-500", "border-primary-500", "bg-primary-50");
-            document.getElementById("gcash_option").classList.remove("ring-2", "ring-primary-500", "border-primary-500", "bg-primary-50");
-            document.getElementById(`${mode}_option`).classList.add("ring-2", "ring-primary-500", "border-primary-500", "bg-primary-50");
-            
-            // Show/hide appropriate sections
-            document.getElementById("cash_section").classList.add("hidden");
-            document.getElementById("gcash_section").classList.add("hidden");
-            document.getElementById(`${mode}_section`).classList.remove("hidden");
-            
-            // Update summary
-            document.getElementById("summary_payment").textContent = mode === 'cash' ? 'Cash' : 'GCash';
-            
-            // Set required fields
-            const gcashRefInput = document.getElementById("gcash_ref_id");
-            if (gcashRefInput) {
-                gcashRefInput.required = mode === "gcash";
-            }
-            
-            // Update amount fields
-            const duration = parseInt(document.getElementById("stay_duration").value);
-            if (duration && priceMap[duration]) {
-                const totalPrice = priceMap[duration];
-                if (mode === "gcash") {
-                    document.getElementById("gcash_amount_paid").value = totalPrice.toFixed(2);
-                }
-            }
+function selectPayment(mode) {
+    // Update hidden input
+    document.getElementById("payment_mode").value = mode;
+
+    // ✅ Ensure only one active input with name="amount_paid"
+    document.getElementById("cash_amount_paid").removeAttribute("name");
+    document.getElementById("gcash_amount_paid").removeAttribute("name");
+    if (mode === "cash") {
+        document.getElementById("cash_amount_paid").setAttribute("name", "amount_paid");
+    } else if (mode === "gcash") {
+        document.getElementById("gcash_amount_paid").setAttribute("name", "amount_paid");
+    }
+
+    // Update UI
+    document.getElementById("cash_option").classList.remove("ring-2", "ring-primary-500", "border-primary-500", "bg-primary-50");
+    document.getElementById("gcash_option").classList.remove("ring-2", "ring-primary-500", "border-primary-500", "bg-primary-50");
+    document.getElementById(`${mode}_option`).classList.add("ring-2", "ring-primary-500", "border-primary-500", "bg-primary-50");
+
+    // Show/hide appropriate sections
+    document.getElementById("cash_section").classList.add("hidden");
+    document.getElementById("gcash_section").classList.add("hidden");
+    document.getElementById(`${mode}_section`).classList.remove("hidden");
+
+    // Update summary
+    document.getElementById("summary_payment").textContent = mode === 'cash' ? 'Cash' : 'GCash';
+
+    // Set required fields
+    const gcashRefInput = document.getElementById("gcash_ref_id");
+    if (gcashRefInput) {
+        gcashRefInput.required = mode === "gcash";
+    }
+
+    // Update amount fields
+    const duration = parseInt(document.getElementById("stay_duration").value);
+    if (duration && priceMap[duration]) {
+        const totalPrice = priceMap[duration];
+        if (mode === "gcash") {
+            document.getElementById("gcash_amount_paid").value = totalPrice.toFixed(2);
         }
+    }
+}
+
 
         function calculateChange() {
             const total = parseFloat(document.getElementById("summary_total").textContent.replace('₱', '').replace(',', '')) || 0;
