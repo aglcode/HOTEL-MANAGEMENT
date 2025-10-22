@@ -30,7 +30,13 @@ $available_rooms_count = $conn->query("SELECT COUNT(*) AS a FROM rooms WHERE sta
 $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY created_at DESC");
 $announcement_count = $announcements_result ? $announcements_result->num_rows : 0;
 
-$available_rooms_result = $conn->query("SELECT room_number, room_type FROM rooms WHERE status='available' ORDER BY room_number");
+$available_rooms_result = $conn->query("SELECT room_number, room_type,price_3hrs, 
+        price_6hrs, 
+        price_12hrs, 
+        price_24hrs, 
+        price_ot
+ FROM rooms WHERE status='available' ORDER BY room_number");
+ 
 $upcoming_bookings_result = $conn->query("
     SELECT b.*, r.room_type 
     FROM bookings b 
@@ -361,87 +367,226 @@ $upcoming_bookings_result = $conn->query("
         </div>
     </div>
 
-    <!--- Checkins List -------------->
-    <div class="collapse mb-4" id="currentCheckinsList">
-    <div class="card shadow-sm">
-        <div class="card-header bg-dark text-white"><h5 class="mb-0">Current Check-ins</h5></div>
-        <div class="card-body p-0">
-            <?php
-            $current_checkins_result = $conn->query("
-                SELECT guest_name, room_number, check_in_date, check_out_date 
-                FROM checkins 
-                WHERE NOW() BETWEEN check_in_date AND check_out_date
-                ORDER BY check_in_date DESC
-            ");
-            ?>
-            <?php if ($current_checkins_result && $current_checkins_result->num_rows > 0): ?>
-                <?php while($row = $current_checkins_result->fetch_assoc()): ?>
-                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
-                        <div>
-                            <strong><?= htmlspecialchars($row['guest_name']) ?></strong> — Room <?= htmlspecialchars($row['room_number']) ?><br>
-                            <small class="text-muted">
-                                <?= date('M d, Y h:i A', strtotime($row['check_in_date'])) ?> to 
-                                <?= date('M d, Y h:i A', strtotime($row['check_out_date'])) ?>
-                            </small>
-                        </div>
-                        <span class="badge bg-primary">Checked In</span>
-                    </div>
-                <?php endwhile; ?>
-            <?php else: ?>
-                <div class="text-center p-4 text-muted">No guests currently checked in.</div>
-            <?php endif; ?>
-        </div>
+<!-- Current Check-ins List -->
+<div class="collapse mb-4" id="currentCheckinsList">
+  <div class="card shadow-sm">
+    <div class="card-header bg-dark text-white">
+      <h5 class="mb-0">Current Check-ins</h5>
     </div>
+
+    <div class="card-body p-0">
+      <?php
+      $current_checkins_result = $conn->query("
+        SELECT 
+          id,
+          guest_name,
+          room_number,
+          room_type,
+          stay_duration,
+          total_price,
+          telephone,
+          amount_paid,
+          change_amount,
+          payment_mode,
+          check_in_date,
+          check_out_date,
+          status,
+          gcash_reference
+        FROM checkins
+        WHERE NOW() BETWEEN check_in_date AND check_out_date
+        ORDER BY check_in_date DESC
+      ");
+      ?>
+
+      <?php if ($current_checkins_result && $current_checkins_result->num_rows > 0): ?>
+        <!-- Header Row -->
+        <div class="d-flex fw-bold px-3 py-2 border-bottom bg-light text-muted small text-uppercase">
+          <div class="col-3">Guest Info</div>
+          <div class="col-3">Room Details</div>
+          <div class="col-4">Stay & Payment</div>
+          <div class="col-2 text-end">Status</div>
+        </div>
+
+        <!-- Data Rows -->
+        <?php while($row = $current_checkins_result->fetch_assoc()): ?>
+          <div class="d-flex align-items-center border-bottom px-3 py-3 checkin-row">
+            
+            <!-- Column 1: Guest Info -->
+            <div class="col-3">
+              <strong><?= htmlspecialchars($row['guest_name']) ?></strong><br>
+              <small class="text-muted">📞 <?= htmlspecialchars($row['telephone'] ?? 'N/A') ?></small>
+            </div>
+
+            <!-- Column 2: Room Details -->
+            <div class="col-3">
+              <strong>Room <?= htmlspecialchars($row['room_number']) ?></strong><br>
+              <small class="text-muted"><?= htmlspecialchars($row['room_type']) ?></small><br>
+              <small>Stay: <?= htmlspecialchars($row['stay_duration']) ?> hr(s)</small>
+            </div>
+
+            <!-- Column 3: Stay & Payment -->
+            <div class="col-4 small text-muted">
+              <div><strong>In:</strong> <?= date('M d, Y h:i A', strtotime($row['check_in_date'])) ?></div>
+              <div><strong>Out:</strong> <?= date('M d, Y h:i A', strtotime($row['check_out_date'])) ?></div>
+              <div><strong>₱<?= number_format($row['total_price'], 2) ?></strong> total |
+                   <?= ucfirst(htmlspecialchars($row['payment_mode'])) ?>
+                   <?php if (!empty($row['gcash_reference'])): ?>
+                     <br><small>Ref: <?= htmlspecialchars($row['gcash_reference']) ?></small>
+                   <?php endif; ?>
+              </div>
+            </div>
+
+            <!-- Column 4: Status -->
+            <div class="col-2 text-end">
+              <?php
+              $badgeClass = 'bg-secondary';
+              if ($row['status'] === 'scheduled') $badgeClass = 'bg-warning text-dark';
+              elseif ($row['status'] === 'checked_in') $badgeClass = 'bg-primary';
+              elseif ($row['status'] === 'checked_out') $badgeClass = 'bg-success';
+              ?>
+              <span class="badge <?= $badgeClass ?> px-3 py-2 text-capitalize">
+                <?= htmlspecialchars(str_replace('_', ' ', $row['status'])) ?>
+              </span>
+            </div>
+
+          </div>
+        <?php endwhile; ?>
+      <?php else: ?>
+        <div class="text-center p-4 text-muted">No guests currently checked in.</div>
+      <?php endif; ?>
+    </div>
+  </div>
 </div>
+
+
 
 <!-- Total Bookings List -->
 <div class="collapse mb-4" id="totalBookingsList">
-    <div class="card shadow-sm">
-        <div class="card-header text-white" style="background-color: #871D2B;"><h5 class="mb-0">Total Bookings</h5></div>
-        <div class="card-body p-0">
-            <?php
-            $bookings_result = $conn->query("
-                SELECT guest_name, room_number, check_in_date, check_out_date 
-                FROM checkins 
-                ORDER BY check_in_date DESC
-                LIMIT 20
-            ");
-            ?>
-            <?php if ($bookings_result && $bookings_result->num_rows > 0): ?>
-                <?php while($row = $bookings_result->fetch_assoc()): ?>
-                    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
-                        <div>
-                            <strong><?= htmlspecialchars($row['guest_name']) ?></strong> — Room <?= htmlspecialchars($row['room_number']) ?><br>
-                            <small class="text-muted">
-                                <?= date('M d, Y', strtotime($row['check_in_date'])) ?> → <?= date('M d, Y', strtotime($row['check_out_date'])) ?>
-                            </small>
-                        </div>
-                        <span class="badge bg-success">Booking</span>
-                    </div>
-                <?php endwhile; ?>
-            <?php else: ?>
-                <div class="text-center p-4 text-muted">No bookings found.</div>
-            <?php endif; ?>
-        </div>
+  <div class="card shadow-sm">
+    <div class="card-header text-white" style="background-color: #871D2B;">
+      <h5 class="mb-0">Total Bookings</h5>
     </div>
+
+    <div class="card-body p-0">
+      <?php
+      $bookings_result = $conn->query("
+        SELECT 
+          b.id,
+          b.guest_name,
+          b.room_number,
+          b.duration,
+          b.total_price,
+          b.amount_paid,
+          b.start_date,
+          b.end_date,
+          b.status,
+          r.room_type
+        FROM bookings b
+        LEFT JOIN rooms r ON b.room_number = r.room_number
+        ORDER BY b.start_date DESC
+        LIMIT 20
+      ");
+      ?>
+
+      <?php if ($bookings_result && $bookings_result->num_rows > 0): ?>
+        <div class="bookings-header d-flex fw-bold px-3 py-2 border-bottom bg-light text-muted small">
+          <div class="col-4">Guest / Room</div>
+          <div class="col-6">Booking Details</div>
+          <div class="col-2 text-end">Status</div>
+        </div>
+
+        <?php while($row = $bookings_result->fetch_assoc()): ?>
+          <div class="d-flex align-items-center border-bottom px-3 py-3 booking-row">
+            
+            <!-- Column 1: Guest / Room -->
+            <div class="col-4">
+              <strong><?= htmlspecialchars($row['guest_name']) ?></strong><br>
+              <span class="text-muted">
+                Room <?= htmlspecialchars($row['room_number']) ?> — <?= htmlspecialchars($row['room_type']) ?>
+              </span>
+            </div>
+
+            <!-- Column 2: Booking Details -->
+            <div class="col-6 small text-muted">
+              <div><strong>Duration Hour/s:</strong> <?= htmlspecialchars($row['duration']) ?></div>
+              <div>
+                <strong>Dates:</strong>
+                <?= date('M d, Y h:i A', strtotime($row['start_date'])) ?> →
+                <?= date('M d, Y h:i A', strtotime($row['end_date'])) ?>
+              </div>
+              <div>
+                <strong>Total:</strong> ₱<?= number_format($row['total_price'], 2) ?> |
+                <strong>Paid:</strong> ₱<?= number_format($row['amount_paid'], 2) ?>
+              </div>
+            </div>
+
+            <!-- Column 3: Status -->
+            <div class="col-2 text-end">
+              <?php
+              $badgeClass = 'bg-secondary';
+              if ($row['status'] === 'upcoming') $badgeClass = 'bg-primary';
+              elseif ($row['status'] === 'checked_in') $badgeClass = 'bg-success';
+              elseif ($row['status'] === 'cancelled') $badgeClass = 'bg-danger';
+              elseif ($row['status'] === 'completed') $badgeClass = 'bg-dark';
+              ?>
+              <span class="badge <?= $badgeClass ?> px-3 py-2 text-capitalize">
+                <?= htmlspecialchars($row['status']) ?>
+              </span>
+            </div>
+
+          </div>
+        <?php endwhile; ?>
+      <?php else: ?>
+        <div class="text-center p-4 text-muted">No bookings found.</div>
+      <?php endif; ?>
+    </div>
+  </div>
 </div>
 
-    <!-- Available Rooms List -->
-    <div class="collapse mb-4" id="availableRoomsList">
-        <div class="card shadow-sm">
-            <div class="card-header bg-dark text-white"><h5 class="mb-0">Available Rooms</h5></div>
-            <div class="card-body p-0">
-                <?php if ($available_rooms_result->num_rows > 0): while($room = $available_rooms_result->fetch_assoc()): ?>
-                <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
-                    <div><strong>Room <?= htmlspecialchars($room['room_number']) ?></strong> - <?= htmlspecialchars($room['room_type']) ?></div>
-                    <span class="badge bg-success">Available</span>
-                </div>
-                <?php endwhile; else: ?>
-                <div class="text-center p-4 text-muted">No available rooms right now.</div>
-                <?php endif; ?>
-            </div>
-        </div>
+
+<!-- Available Rooms List -->
+<div class="collapse mb-4" id="availableRoomsList">
+  <div class="card shadow-sm">
+    <div class="card-header bg-dark text-white">
+      <h5 class="mb-0">Available Rooms</h5>
     </div>
+
+    <div class="card-body p-0">
+      <?php if ($available_rooms_result->num_rows > 0): ?>
+        <?php while ($room = $available_rooms_result->fetch_assoc()): ?>
+          <div class="border-bottom p-3">
+            <div class="d-flex align-items-center justify-content-between flex-wrap">
+
+              <!-- Left: Room Info -->
+              <div class="col-3 fw-semibold">
+                Room <?= htmlspecialchars($room['room_number']) ?> - <?= htmlspecialchars($room['room_type']) ?>
+              </div>
+
+              <!-- Middle: Prices (aligned like a table) -->
+              <div class="col-7 d-flex justify-content-between text-muted small" style="font-weight: 500;">
+                <span>3hrs: ₱<?= number_format($room['price_3hrs'], 2) ?></span>
+                <span>6hrs: ₱<?= number_format($room['price_6hrs'], 2) ?></span>
+                <span>12hrs: ₱<?= number_format($room['price_12hrs'], 2) ?></span>
+                <span>24hrs: ₱<?= number_format($room['price_24hrs'], 2) ?></span>
+                <span>OT/hr: ₱<?= number_format($room['price_ot'], 2) ?></span>
+              </div>
+
+              <!-- Right: Badge -->
+              <div class="col-2 text-end">
+                <span class="badge bg-success px-3 py-2">Available</span>
+              </div>
+
+            </div>
+          </div>
+        <?php endwhile; ?>
+      <?php else: ?>
+        <div class="text-center p-4 text-muted">No available rooms right now.</div>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
+
+
 
     <!-- Announcements List -->
     <div class="collapse mb-4" id="announcementList">
