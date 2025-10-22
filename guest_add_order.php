@@ -21,11 +21,11 @@ if (!$data) {
   exit;
 }
 
-// ===== GET ROOM NUMBER FROM SESSION OR KEYCARDS =====
+// ===== GET ROOM NUMBER =====
 $room_number = $_SESSION['room_number'] ?? null;
 $token = $_SESSION['qr_token'] ?? null;
 
-// If not in session, attempt to look up via token (if you have a keycards table)
+// If not in session, try QR token
 if (!$room_number && $token) {
   $stmtKey = $conn->prepare("SELECT room_number FROM keycards WHERE qr_token = ?");
   $stmtKey->bind_param("s", $token);
@@ -37,29 +37,26 @@ if (!$room_number && $token) {
   $stmtKey->close();
 }
 
-// Validate room number
+// Validate
 if (empty($room_number)) {
   echo json_encode(["success" => false, "message" => "Missing or invalid room number."]);
   exit;
 }
 
 // ===== SANITIZE INPUTS =====
-$item_name    = $conn->real_escape_string($data["item_name"] ?? "");
-$size         = $conn->real_escape_string($data["size"] ?? null);
-$price        = floatval($data["price"] ?? 0);
-$quantity     = intval($data["quantity"] ?? 1);
-$mode_payment = $conn->real_escape_string($data["mode_payment"] ?? "cash");
-$ref_number   = $data["ref_number"] ?? null;
+$item_name = trim($conn->real_escape_string($data["item_name"] ?? ""));
+$size      = isset($data["size"]) ? $conn->real_escape_string($data["size"]) : null;
+$price     = floatval($data["price"] ?? 0);     // price per unit
+$quantity  = intval($data["quantity"] ?? 1);    // new quantity to add
 
-// ===== VALIDATION =====
 if (empty($item_name)) {
   echo json_encode(["success" => false, "message" => "Missing item name."]);
   exit;
 }
 
-// ===== CATEGORY LOGIC =====
+// ===== CATEGORY DETECTION =====
 $foodItems = [
-  "Lomi", "Mami", "Nissin Cup (Beef)", "Nissin Cup (Chicken)", "Nissin Cup (Spicy Seafood)",
+  "Mami", "Nissin Cup (Beef)", "Nissin Cup (Chicken)", "Nissin Cup (Spicy Seafood)",
   "Longganisa", "Sisig", "Bopis", "Tocino", "Tapa", "Hotdog", "Dinuguan", "Chicken Adobo",
   "Bicol Express", "Chicharon", "Chicken Skin", "Shanghai (3pcs)", "Gulay (3pcs)", "Toge (4pcs)",
   "French Fries (BBQ)", "French Fries (Sour Cream)", "French Fries (Cheese)", "Cheese Sticks (12pcs)",
@@ -73,48 +70,54 @@ $foodItems = [
 
 $category = in_array($item_name, $foodItems) ? "Food" : "Non-Food";
 
-// ===== GCASH VALIDATION =====
-if ($mode_payment === "gcash") {
-  if (!preg_match('/^[0-9]{12,14}$/', $ref_number)) {
-    echo json_encode(["success" => false, "message" => "Invalid GCash reference number (must be 12–14 digits)."]);
-    exit;
-  }
+// ===== CHECK IF ITEM ALREADY EXISTS =====
+if ($size) {
+  $check = $conn->prepare("SELECT id, quantity, price FROM orders WHERE room_number = ? AND item_name = ? AND size = ?");
+  $check->bind_param("sss", $room_number, $item_name, $size);
 } else {
-  // Make sure ref number is NULL for cash
-  $ref_number = null;
+  $check = $conn->prepare("SELECT id, quantity, price FROM orders WHERE room_number = ? AND item_name = ? AND size IS NULL");
+  $check->bind_param("ss", $room_number, $item_name);
 }
 
-// ===== PREPARE INSERT =====
-$stmt = $conn->prepare("
-  INSERT INTO orders (room_number, category, item_name, size, price, quantity, mode_payment, ref_number)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-");
+$check->execute();
+$result = $check->get_result();
 
-if (!$stmt) {
-  echo json_encode(["success" => false, "message" => "Query preparation failed."]);
-  exit;
+if ($row = $result->fetch_assoc()) {
+  // ✅ Merge duplicate: add quantity and recalc total price
+  $existingQty = intval($row["quantity"]);
+  $newQty = $existingQty + $quantity;
+
+  // Calculate new total price based on per-item price
+  $unitPrice = $price; // ensure it's per-item price
+  $newTotalPrice = $unitPrice * $newQty;
+
+  // Update existing record
+  $update = $conn->prepare("
+    UPDATE orders
+    SET quantity = ?, price = ?, created_at = NOW()
+    WHERE id = ?
+  ");
+  $update->bind_param("idi", $newQty, $newTotalPrice, $row["id"]);
+  $success = $update->execute();
+  $update->close();
+} else {
+  // ✅ Insert new row
+  $totalPrice = $price * $quantity;
+  $insert = $conn->prepare("
+    INSERT INTO orders (room_number, category, item_name, size, price, quantity, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, NOW())
+  ");
+  $insert->bind_param("sssdii", $room_number, $category, $item_name, $size, $totalPrice, $quantity);
+  $success = $insert->execute();
+  $insert->close();
 }
 
-// === BIND PARAMETERS ===
-$stmt->bind_param(
-  "ssssdiss",
-  $room_number,
-  $category,
-  $item_name,
-  $size,
-  $price,
-  $quantity,
-  $mode_payment,
-  $ref_number
-);
+$check->close();
 
-// ===== EXECUTE =====
-if ($stmt->execute()) {
-  echo json_encode(["success" => true, "message" => "Order successfully saved!"]);
+if ($success) {
+  echo json_encode(["success" => true, "message" => "Order saved successfully!"]);
 } else {
   echo json_encode(["success" => false, "message" => "Failed to save order."]);
 }
 
-// ===== CLEANUP =====
-$stmt->close();
 $conn->close();

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 22, 2025 at 03:31 PM
+-- Generation Time: Oct 22, 2025 at 04:52 PM
 -- Server version: 8.4.3
 -- PHP Version: 8.2.27
 
@@ -89,7 +89,7 @@ INSERT INTO `bookings` (`id`, `guest_name`, `email`, `address`, `telephone`, `ag
 (22, 'Toji', 'kukuhuskar82@gmail.com', 'St 123 Main Street ', '09165770822', 18, 1, '101', '3', '0', '', 'BK202510217A6C86', 400, 400, 0, '2025-10-21 21:19:00', '2025-10-22 00:19:00', 'completed', '2025-10-21 13:19:53', NULL, NULL),
 (23, 'Mark', 'kukuhuskar82@gmail.com', 'St 123 Main Street ', '09165770822', 20, 1, '101', '3', '0', '', 'BK20251021C1CB60', 400, 400, 0, '2025-10-21 21:24:00', '2025-10-22 00:24:00', 'completed', '2025-10-21 13:24:28', NULL, NULL),
 (24, 'Test', 'lopezcyeanne0318@gmail.com', 'St 123 Main Street ', '09165770827', 18, 1, '101', '3', '0', '', 'BK2025102205F1D2', 400, 400, 0, '2025-10-22 12:42:00', '2025-10-22 15:42:00', 'completed', '2025-10-22 04:47:20', NULL, NULL),
-(25, 'Adobong Paksiw', 'kukuhuskar82@gmail.com', 'St 123 Main Street ', '0916-577-0822', 23, 0, '101', '3', '0', '', 'BK20251022E28B1E', 0, 400, 0, '2025-10-22 20:51:00', '2025-10-22 23:51:00', 'active', '2025-10-22 10:51:11', NULL, NULL);
+(25, 'Adobong Paksiw', 'kukuhuskar82@gmail.com', 'St 123 Main Street ', '0916-577-0822', 23, 0, '101', '3', '0', '', 'BK20251022E28B1E', 0, 400, 0, '2025-10-22 20:51:00', '2025-10-22 23:51:00', 'completed', '2025-10-22 10:51:11', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -142,7 +142,9 @@ INSERT INTO `checkins` (`id`, `guest_name`, `address`, `telephone`, `room_number
 (89, 'Camel', 'St 123 Main Street', '+639165770822', 103, '', 3, 300.00, 300.00, 300.00, 'cash', '2025-10-21 21:36:10', '2025-10-22 00:36:10', 'checked_out', '', 2),
 (90, 'Giniling na lumpia', 'St 123 Main Street', '+639165770822', 101, '', 3, 400.00, 400.00, 0.00, 'cash', '2025-10-22 12:59:21', '2025-10-22 15:59:21', 'checked_out', '', 2),
 (91, 'Godzilla', 'St 123 Main Street', '+639165770822', 101, '', 3, 400.00, 400.00, 0.00, 'cash', '2025-10-22 16:43:34', '2025-10-22 19:43:34', 'checked_out', '', 2),
-(92, 'Adobong Paksiw', 'St 123 Main Street', '+639165770822', 101, '', 3, 400.00, 400.00, 0.00, 'cash', '2025-10-22 21:12:08', '2025-10-23 00:12:08', 'checked_in', '', 2);
+(92, 'Adobong Paksiw', 'St 123 Main Street', '+639165770822', 101, '', 3, 400.00, 400.00, 0.00, 'cash', '2025-10-22 21:12:08', '2025-10-23 00:12:08', 'checked_out', '', 2),
+(93, 'Guest Avelgest', 'St 123 Main Street', '+639437482374', 102, '', 3, 400.00, 400.00, 0.00, 'cash', '2025-10-22 23:44:03', '2025-10-23 02:44:03', 'checked_in', '', 2),
+(94, 'Everest', 'St 123 Main Street', '+639437482374', 101, '', 3, 400.00, 400.00, 0.00, 'cash', '2025-10-23 00:47:52', '2025-10-23 03:47:52', 'checked_in', '', 2);
 
 -- --------------------------------------------------------
 
@@ -260,7 +262,10 @@ INSERT INTO `orders` (`id`, `room_number`, `category`, `item_name`, `size`, `pri
 (21, '101', 'Food', 'Nissin Cup (Beef)', 'Unit', 40.00, 1, 'served', '2025-10-22 08:48:37'),
 (22, '101', 'Food', 'Mami', 'Unit', 70.00, 1, 'served', '2025-10-22 08:48:37'),
 (23, '101', 'Food', 'Bottled Water (500ml)', 'Unit', 50.00, 2, 'served', '2025-10-22 14:10:57'),
-(24, '101', 'Food', 'Coke Mismo', 'Unit', 25.00, 1, 'served', '2025-10-22 14:15:43');
+(24, '101', 'Food', 'Coke Mismo', 'Unit', 25.00, 1, 'served', '2025-10-22 14:15:43'),
+(25, '101', 'Food', 'Nissin Cup (Beef)', NULL, 80.00, 2, 'served', '2025-10-22 15:39:57'),
+(26, '102', 'Food', 'Tapa', NULL, 100.00, 1, 'served', '2025-10-22 15:47:51'),
+(27, '102', 'Food', 'Hotdog', NULL, 100.00, 1, 'served', '2025-10-22 15:47:51');
 
 -- --------------------------------------------------------
 
@@ -358,8 +363,8 @@ CREATE TABLE `rooms` (
 --
 
 INSERT INTO `rooms` (`id`, `room_number`, `room_type`, `status`, `created_at`, `updated_at`, `price_3hrs`, `price_6hrs`, `price_12hrs`, `price_24hrs`, `price_ot`) VALUES
-(1, 101, 'standard_room', 'booked', '2025-04-26 16:34:08', '2025-10-22 13:12:08', 400.00, 750.00, 1100.00, 1500.00, 120.00),
-(2, 102, 'standard_room', 'available', '2025-04-26 17:37:56', '2025-10-13 16:34:53', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+(1, 101, 'standard_room', 'booked', '2025-04-26 16:34:08', '2025-10-22 16:47:52', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+(2, 102, 'standard_room', 'booked', '2025-04-26 17:37:56', '2025-10-22 15:44:03', 400.00, 750.00, 1100.00, 1500.00, 120.00),
 (10, 103, 'standard_room', 'available', '2025-04-28 16:01:31', '2025-10-22 04:59:03', 300.00, 750.00, 1100.00, 1500.00, 120.00),
 (12, 104, 'standard_room', 'available', '2025-04-29 13:29:43', '2025-10-12 04:22:57', 400.00, 750.00, 1100.00, 1500.00, 120.00),
 (13, 106, 'twin_room', 'available', '2025-05-07 06:15:36', '2025-10-11 07:28:10', 400.00, 750.00, 1100.00, 1500.00, 120.00),
@@ -455,7 +460,7 @@ INSERT INTO `supplies` (`id`, `name`, `price`, `quantity`, `category`, `created_
 (44, 'Burger with Cheese', 40.00, 1, 'Food', '2025-10-22 13:29:44'),
 (45, 'Nagaraya Butter Yellow (Small)', 20.00, 1, 'Food', '2025-10-22 13:29:53'),
 (46, 'Nova Country Cheddar (Small)', 25.00, 1, 'Food', '2025-10-22 13:30:03'),
-(47, 'Bottled Water (500ml)', 25.00, 1, 'Food', '2025-10-22 13:30:12'),
+(47, 'Bottled Water (500ml)', 25.00, 24, 'Food', '2025-10-22 13:30:12'),
 (48, 'Purified Hot Water Only (Mug)', 10.00, 1, 'Food', '2025-10-22 13:30:23'),
 (49, 'Ice Bucket', 40.00, 1, 'Food', '2025-10-22 13:30:33'),
 (50, 'Coke Mismo', 25.00, 24, 'Food', '2025-10-22 13:31:23'),
@@ -647,7 +652,7 @@ ALTER TABLE `bookings`
 -- AUTO_INCREMENT for table `checkins`
 --
 ALTER TABLE `checkins`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=93;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=95;
 
 --
 -- AUTO_INCREMENT for table `complaints`
@@ -677,7 +682,7 @@ ALTER TABLE `keycards`
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
 --
 -- AUTO_INCREMENT for table `payments`
