@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 21, 2025 at 02:09 PM
+-- Generation Time: Oct 22, 2025 at 03:31 PM
 -- Server version: 8.4.3
 -- PHP Version: 8.2.27
 
@@ -86,8 +86,10 @@ INSERT INTO `bookings` (`id`, `guest_name`, `email`, `address`, `telephone`, `ag
 (19, 'Zayn', 'kukuhuskar82@gmail.com', '123 Main St.', '09165770987', 18, 1, '101', '3', '0', '', 'BK202510181629DA', 400, 400, 0, '2025-10-18 21:15:00', '2025-10-19 00:15:00', 'completed', '2025-10-18 13:33:09', NULL, NULL),
 (20, 'Zayn', 'kukuhuskar82@gmail.com', '123 Main St.', '09165770987', 18, 1, '101', '3', '0', '', 'BK202510187FBD8C', 400, 400, 0, '2025-10-18 21:15:00', '2025-10-19 00:15:00', 'completed', '2025-10-18 13:33:17', NULL, NULL),
 (21, 'Bazz', 'kukuhuskar82@gmail.com', '123 Main St.', '09165770822', 22, 1, '101', '3', '0', '', 'BK20251018303620', 400, 400, 0, '2025-10-18 21:33:00', '2025-10-19 00:33:00', 'completed', '2025-10-18 13:34:04', NULL, NULL),
-(22, 'Toji', 'kukuhuskar82@gmail.com', 'St 123 Main Street ', '09165770822', 18, 1, '101', '3', '0', '', 'BK202510217A6C86', 400, 400, 0, '2025-10-21 21:19:00', '2025-10-22 00:19:00', 'active', '2025-10-21 13:19:53', NULL, NULL),
-(23, 'Mark', 'kukuhuskar82@gmail.com', 'St 123 Main Street ', '09165770822', 20, 1, '101', '3', '0', '', 'BK20251021C1CB60', 400, 400, 0, '2025-10-21 21:24:00', '2025-10-22 00:24:00', 'active', '2025-10-21 13:24:28', NULL, NULL);
+(22, 'Toji', 'kukuhuskar82@gmail.com', 'St 123 Main Street ', '09165770822', 18, 1, '101', '3', '0', '', 'BK202510217A6C86', 400, 400, 0, '2025-10-21 21:19:00', '2025-10-22 00:19:00', 'completed', '2025-10-21 13:19:53', NULL, NULL),
+(23, 'Mark', 'kukuhuskar82@gmail.com', 'St 123 Main Street ', '09165770822', 20, 1, '101', '3', '0', '', 'BK20251021C1CB60', 400, 400, 0, '2025-10-21 21:24:00', '2025-10-22 00:24:00', 'completed', '2025-10-21 13:24:28', NULL, NULL),
+(24, 'Test', 'lopezcyeanne0318@gmail.com', 'St 123 Main Street ', '09165770827', 18, 1, '101', '3', '0', '', 'BK2025102205F1D2', 400, 400, 0, '2025-10-22 12:42:00', '2025-10-22 15:42:00', 'completed', '2025-10-22 04:47:20', NULL, NULL),
+(25, 'Adobong Paksiw', 'kukuhuskar82@gmail.com', 'St 123 Main Street ', '0916-577-0822', 23, 0, '101', '3', '0', '', 'BK20251022E28B1E', 0, 400, 0, '2025-10-22 20:51:00', '2025-10-22 23:51:00', 'active', '2025-10-22 10:51:11', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -137,7 +139,10 @@ INSERT INTO `checkins` (`id`, `guest_name`, `address`, `telephone`, `room_number
 (86, 'UI', 'St 123 Main Street', '+639437482374', 103, '', 5, 540.00, 540.00, 0.00, 'cash', '2025-10-13 23:52:47', '2025-10-14 00:33:25', 'checked_out', '', 2),
 (87, 'Cath', 'St 123 Main Street', '+639165770822', 102, '', 3, 520.00, 520.00, 0.00, 'cash', '2025-10-14 00:34:13', '2025-10-14 00:34:53', 'checked_out', '', 2),
 (88, 'Binch', 'Brgy. Barandal', '+639165770822', 101, '', 4, 520.00, 520.00, 0.00, 'cash', '2025-10-14 00:36:36', '2025-10-14 00:37:23', 'checked_out', '', 2),
-(89, 'Camel', 'St 123 Main Street', '+639165770822', 103, '', 3, 300.00, 300.00, 300.00, 'cash', '2025-10-21 21:36:10', '2025-10-22 00:36:10', 'checked_in', '', 2);
+(89, 'Camel', 'St 123 Main Street', '+639165770822', 103, '', 3, 300.00, 300.00, 300.00, 'cash', '2025-10-21 21:36:10', '2025-10-22 00:36:10', 'checked_out', '', 2),
+(90, 'Giniling na lumpia', 'St 123 Main Street', '+639165770822', 101, '', 3, 400.00, 400.00, 0.00, 'cash', '2025-10-22 12:59:21', '2025-10-22 15:59:21', 'checked_out', '', 2),
+(91, 'Godzilla', 'St 123 Main Street', '+639165770822', 101, '', 3, 400.00, 400.00, 0.00, 'cash', '2025-10-22 16:43:34', '2025-10-22 19:43:34', 'checked_out', '', 2),
+(92, 'Adobong Paksiw', 'St 123 Main Street', '+639165770822', 101, '', 3, 400.00, 400.00, 0.00, 'cash', '2025-10-22 21:12:08', '2025-10-23 00:12:08', 'checked_in', '', 2);
 
 -- --------------------------------------------------------
 
@@ -208,7 +213,7 @@ CREATE TABLE `keycards` (
 INSERT INTO `keycards` (`id`, `room_number`, `booking_id`, `guest_id`, `qr_code`, `valid_from`, `valid_to`, `status`) VALUES
 (1, 101, NULL, NULL, '321A345D', '2025-10-05 10:16:23', '2025-10-14 04:36:36', 'expired'),
 (2, 102, NULL, NULL, 'B7B78413', '2025-10-10 11:58:31', '2025-10-14 04:34:13', 'expired'),
-(3, 103, NULL, NULL, '3021063D', '2025-10-10 11:58:36', '2025-10-14 04:52:47', 'active'),
+(3, 103, NULL, NULL, '3021063D', '2025-10-10 11:58:36', '2025-10-14 04:52:47', 'expired'),
 (4, 104, NULL, NULL, '0B5CE489', '2025-10-12 00:40:48', '2035-10-12 00:40:48', 'active');
 
 -- --------------------------------------------------------
@@ -225,8 +230,6 @@ CREATE TABLE `orders` (
   `size` varchar(50) DEFAULT NULL,
   `price` decimal(10,2) NOT NULL,
   `quantity` int DEFAULT '1',
-  `mode_payment` enum('cash','gcash') NOT NULL,
-  `ref_number` varchar(14) DEFAULT NULL,
   `status` enum('pending','served') DEFAULT 'pending',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -235,17 +238,29 @@ CREATE TABLE `orders` (
 -- Dumping data for table `orders`
 --
 
-INSERT INTO `orders` (`id`, `room_number`, `category`, `item_name`, `size`, `price`, `quantity`, `mode_payment`, `ref_number`, `status`, `created_at`) VALUES
-(3, '101', 'Food', 'Lomi', 'Small', 120.00, 2, 'cash', NULL, 'served', '2025-10-09 10:07:45'),
-(4, '101', 'Food', 'Mami', 'Unit', 70.00, 1, 'cash', NULL, 'served', '2025-10-11 15:43:11'),
-(5, '102', 'Food', 'Nissin Cup (Chicken)', 'Unit', 40.00, 1, 'cash', NULL, 'served', '2025-10-11 15:56:47'),
-(6, '103', 'Food', 'Nissin Cup (Spicy Seafood)', 'Unit', 120.00, 3, 'cash', NULL, 'served', '2025-10-11 16:32:16'),
-(7, '103', 'Food', 'Mami', 'Unit', 70.00, 1, 'cash', NULL, 'served', '2025-10-11 16:32:22'),
-(8, '104', 'Food', 'Lomi', 'Small', 120.00, 2, 'cash', NULL, 'pending', '2025-10-11 16:41:01'),
-(9, '104', 'Non-Food', 'Toothbrush with Toothpaste', 'Unit', 25.00, 1, 'cash', NULL, 'pending', '2025-10-11 16:41:10'),
-(10, '101', 'Food', 'Lomi', 'Small', 60.00, 1, 'cash', NULL, 'served', '2025-10-12 04:24:01'),
-(11, '101', 'Food', 'Mami', 'Unit', 70.00, 1, 'cash', NULL, 'served', '2025-10-12 04:24:08'),
-(12, '102', 'Food', 'Nissin Cup (Chicken)', 'Unit', 400.00, 10, 'cash', NULL, 'served', '2025-10-12 04:26:21');
+INSERT INTO `orders` (`id`, `room_number`, `category`, `item_name`, `size`, `price`, `quantity`, `status`, `created_at`) VALUES
+(3, '101', 'Food', 'Lomi', 'Small', 120.00, 2, 'served', '2025-10-09 10:07:45'),
+(4, '101', 'Food', 'Mami', 'Unit', 70.00, 1, 'served', '2025-10-11 15:43:11'),
+(5, '102', 'Food', 'Nissin Cup (Chicken)', 'Unit', 40.00, 1, 'served', '2025-10-11 15:56:47'),
+(6, '103', 'Food', 'Nissin Cup (Spicy Seafood)', 'Unit', 120.00, 3, 'served', '2025-10-11 16:32:16'),
+(7, '103', 'Food', 'Mami', 'Unit', 70.00, 1, 'served', '2025-10-11 16:32:22'),
+(8, '104', 'Food', 'Lomi', 'Small', 120.00, 2, 'pending', '2025-10-11 16:41:01'),
+(9, '104', 'Non-Food', 'Toothbrush with Toothpaste', 'Unit', 25.00, 1, 'pending', '2025-10-11 16:41:10'),
+(10, '101', 'Food', 'Lomi', 'Small', 60.00, 1, 'served', '2025-10-12 04:24:01'),
+(11, '101', 'Food', 'Mami', 'Unit', 70.00, 1, 'served', '2025-10-12 04:24:08'),
+(12, '102', 'Food', 'Nissin Cup (Chicken)', 'Unit', 400.00, 10, 'served', '2025-10-12 04:26:21'),
+(13, '101', 'Food', 'Mami', 'Unit', 70.00, 1, 'served', '2025-10-22 05:00:13'),
+(14, '101', 'Food', 'Lomi', 'Small', 120.00, 2, 'served', '2025-10-22 05:00:13'),
+(15, '101', 'Food', 'Nissin Cup (Spicy Seafood)', 'Unit', 80.00, 2, 'served', '2025-10-22 08:47:02'),
+(16, '101', 'Food', 'Nissin Cup (Beef)', 'Unit', 40.00, 1, 'served', '2025-10-22 08:47:02'),
+(17, '101', 'Food', 'Mami', 'Unit', 140.00, 2, 'served', '2025-10-22 08:47:46'),
+(18, '101', 'Food', 'Nissin Cup (Spicy Seafood)', 'Unit', 40.00, 1, 'served', '2025-10-22 08:48:36'),
+(19, '101', 'Food', 'Nissin Cup (Chicken)', 'Unit', 40.00, 1, 'served', '2025-10-22 08:48:36'),
+(20, '101', 'Food', 'Lomi', 'Small', 60.00, 1, 'served', '2025-10-22 08:48:37'),
+(21, '101', 'Food', 'Nissin Cup (Beef)', 'Unit', 40.00, 1, 'served', '2025-10-22 08:48:37'),
+(22, '101', 'Food', 'Mami', 'Unit', 70.00, 1, 'served', '2025-10-22 08:48:37'),
+(23, '101', 'Food', 'Bottled Water (500ml)', 'Unit', 50.00, 2, 'served', '2025-10-22 14:10:57'),
+(24, '101', 'Food', 'Coke Mismo', 'Unit', 25.00, 1, 'served', '2025-10-22 14:15:43');
 
 -- --------------------------------------------------------
 
@@ -343,9 +358,9 @@ CREATE TABLE `rooms` (
 --
 
 INSERT INTO `rooms` (`id`, `room_number`, `room_type`, `status`, `created_at`, `updated_at`, `price_3hrs`, `price_6hrs`, `price_12hrs`, `price_24hrs`, `price_ot`) VALUES
-(1, 101, 'standard_room', 'available', '2025-04-26 16:34:08', '2025-10-13 16:37:23', 400.00, 750.00, 1100.00, 1500.00, 120.00),
+(1, 101, 'standard_room', 'booked', '2025-04-26 16:34:08', '2025-10-22 13:12:08', 400.00, 750.00, 1100.00, 1500.00, 120.00),
 (2, 102, 'standard_room', 'available', '2025-04-26 17:37:56', '2025-10-13 16:34:53', 400.00, 750.00, 1100.00, 1500.00, 120.00),
-(10, 103, 'standard_room', 'booked', '2025-04-28 16:01:31', '2025-10-21 13:36:10', 300.00, 750.00, 1100.00, 1500.00, 120.00),
+(10, 103, 'standard_room', 'available', '2025-04-28 16:01:31', '2025-10-22 04:59:03', 300.00, 750.00, 1100.00, 1500.00, 120.00),
 (12, 104, 'standard_room', 'available', '2025-04-29 13:29:43', '2025-10-12 04:22:57', 400.00, 750.00, 1100.00, 1500.00, 120.00),
 (13, 106, 'twin_room', 'available', '2025-05-07 06:15:36', '2025-10-11 07:28:10', 400.00, 750.00, 1100.00, 1500.00, 120.00),
 (18, 107, 'single', 'available', '2025-09-29 09:08:45', '2025-09-29 09:30:18', 400.00, 600.00, 1200.00, 1400.00, 120.00),
@@ -392,16 +407,6 @@ CREATE TABLE `stock_logs` (
   `action_type` enum('in','out') NOT NULL DEFAULT 'in'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
---
--- Dumping data for table `stock_logs`
---
-
-INSERT INTO `stock_logs` (`id`, `supply_id`, `action`, `quantity`, `reason`, `created_at`, `action_type`) VALUES
-(1, 1, 'out', 2, '', '2025-07-16 05:45:03', 'in'),
-(2, 1, 'in', 20, '', '2025-08-04 03:52:16', 'in'),
-(3, 6, 'in', 5, '', '2025-09-22 08:42:55', 'in'),
-(4, 1, 'in', 5, '', '2025-09-22 08:45:03', 'out');
-
 -- --------------------------------------------------------
 
 --
@@ -422,14 +427,67 @@ CREATE TABLE `supplies` (
 --
 
 INSERT INTO `supplies` (`id`, `name`, `price`, `quantity`, `category`, `created_at`) VALUES
-(1, 'Broom', 150.00, 15, 'Cleaning', '2025-07-09 14:07:48'),
-(3, 'Toilet Papers', 100.00, 2, 'Cleaning', '2025-07-09 14:56:50'),
-(5, 'Towels', 20.00, 30, 'Cleaning', '2025-08-04 03:51:34'),
-(6, 'Tissues', 250.00, 15, 'Cleaning', '2025-09-22 08:20:45'),
-(11, 'Test', 300.00, 20, 'Maintenance', '2025-09-29 18:21:59'),
-(14, 'Cleaning Spray', 300.00, 20, 'Cleaning', '2025-09-29 18:33:51'),
-(16, 'Hammer', 250.00, 1, 'Maintenance', '2025-09-29 19:05:34'),
-(18, 'Pork Steak', 70.00, 10, 'Food', '2025-10-12 04:56:36');
+(19, 'Mami', 70.00, 1, 'Food', '2025-10-22 13:18:21'),
+(20, 'Nissin Cup (Beef)', 40.00, 24, 'Food', '2025-10-22 13:20:40'),
+(21, 'Nissin Cup (Chicken)', 40.00, 24, 'Food', '2025-10-22 13:21:39'),
+(22, 'Nissin Cup (Spicy Seafood)', 40.00, 24, 'Food', '2025-10-22 13:21:53'),
+(23, 'Longganisa', 100.00, 1, 'Food', '2025-10-22 13:24:23'),
+(24, 'Sisig', 100.00, 1, 'Food', '2025-10-22 13:24:52'),
+(25, 'Bopis', 100.00, 1, 'Food', '2025-10-22 13:25:05'),
+(26, 'Tocino', 100.00, 1, 'Food', '2025-10-22 13:25:17'),
+(27, 'Tapa', 100.00, 1, 'Food', '2025-10-22 13:25:29'),
+(28, 'Hotdog', 100.00, 1, 'Food', '2025-10-22 13:25:39'),
+(29, 'Dinuguan', 115.00, 1, 'Food', '2025-10-22 13:25:51'),
+(30, 'Chicken Adobo', 120.00, 1, 'Food', '2025-10-22 13:26:02'),
+(31, 'Bicol Express', 125.00, 1, 'Food', '2025-10-22 13:26:12'),
+(32, 'Chicharon', 60.00, 1, 'Food', '2025-10-22 13:27:04'),
+(33, 'Chicken Skin', 60.00, 1, 'Food', '2025-10-22 13:27:15'),
+(34, 'Shanghai (3pcs)', 40.00, 1, 'Food', '2025-10-22 13:27:43'),
+(35, 'Gulay (3pcs)', 40.00, 1, 'Food', '2025-10-22 13:28:00'),
+(36, 'Toge (4pcs)', 40.00, 1, 'Food', '2025-10-22 13:28:11'),
+(37, 'French Fries (BBQ)', 40.00, 1, 'Food', '2025-10-22 13:28:33'),
+(38, 'French Fries (Sour Cream)', 40.00, 1, 'Food', '2025-10-22 13:28:42'),
+(39, 'French Fries (Cheese)', 40.00, 1, 'Food', '2025-10-22 13:28:55'),
+(40, 'Cheese Sticks (12pcs)', 30.00, 1, 'Food', '2025-10-22 13:29:05'),
+(41, 'Tinapay (3pcs)', 20.00, 1, 'Food', '2025-10-22 13:29:14'),
+(42, 'Tinapay with Spread (3pcs)', 30.00, 1, 'Food', '2025-10-22 13:29:24'),
+(43, 'Burger Regular', 35.00, 1, 'Food', '2025-10-22 13:29:35'),
+(44, 'Burger with Cheese', 40.00, 1, 'Food', '2025-10-22 13:29:44'),
+(45, 'Nagaraya Butter Yellow (Small)', 20.00, 1, 'Food', '2025-10-22 13:29:53'),
+(46, 'Nova Country Cheddar (Small)', 25.00, 1, 'Food', '2025-10-22 13:30:03'),
+(47, 'Bottled Water (500ml)', 25.00, 1, 'Food', '2025-10-22 13:30:12'),
+(48, 'Purified Hot Water Only (Mug)', 10.00, 1, 'Food', '2025-10-22 13:30:23'),
+(49, 'Ice Bucket', 40.00, 1, 'Food', '2025-10-22 13:30:33'),
+(50, 'Coke Mismo', 25.00, 24, 'Food', '2025-10-22 13:31:23'),
+(51, 'Royal Mismo', 25.00, 25, 'Food', '2025-10-22 13:31:32'),
+(52, 'Sting Energy Drink', 25.00, 24, 'Food', '2025-10-22 13:31:57'),
+(53, 'Dragon Fruit', 70.00, 1, 'Food', '2025-10-22 13:32:33'),
+(54, 'Mango', 70.00, 1, 'Food', '2025-10-22 13:32:47'),
+(55, 'Cucumber', 70.00, 1, 'Food', '2025-10-22 13:32:57'),
+(56, 'Avocado', 70.00, 1, 'Food', '2025-10-22 13:33:08'),
+(57, 'Chocolate', 40.00, 1, 'Food', '2025-10-22 13:33:20'),
+(58, 'Taro', 40.00, 1, 'Food', '2025-10-22 13:33:32'),
+(59, 'Ube', 40.00, 1, 'Food', '2025-10-22 13:33:54'),
+(60, 'Strawberry', 40.00, 1, 'Food', '2025-10-22 13:34:04'),
+(61, 'Pineapple Juice', 60.00, 1, 'Food', '2025-10-22 13:34:22'),
+(62, 'Instant Coffee', 25.00, 1, 'Food', '2025-10-22 13:34:39'),
+(63, 'Brewed Coffee', 45.00, 1, 'Food', '2025-10-22 13:34:50'),
+(64, 'Hot Tea (Green)', 25.00, 1, 'Food', '2025-10-22 13:35:00'),
+(65, 'Hot Tea (Black)', 25.00, 1, 'Food', '2025-10-22 13:35:10'),
+(66, 'Milo Hot Chocolate Drink', 25.00, 1, 'Food', '2025-10-22 13:35:21'),
+(67, 'Face Mask Disposable', 5.00, 24, 'Cleaning', '2025-10-22 13:35:46'),
+(68, 'Toothbrush with Toothpaste', 25.00, 20, 'Cleaning', '2025-10-22 13:36:10'),
+(69, 'Colgate Toothpaste', 20.00, 24, 'Cleaning', '2025-10-22 13:36:38'),
+(70, 'Modess All Night Extra Long Pad', 20.00, 24, 'Cleaning', '2025-10-22 13:36:51'),
+(71, 'Sunsilk', 15.00, 24, 'Cleaning', '2025-10-22 13:37:04'),
+(72, 'Creamsilk Shampoo', 15.00, 24, 'Cleaning', '2025-10-22 13:37:14'),
+(73, 'Palmolive Anti-Dandruff', 15.00, 24, 'Cleaning', '2025-10-22 13:37:26'),
+(74, 'Dove', 15.00, 24, 'Cleaning', '2025-10-22 13:37:41'),
+(75, 'Empress Keratin', 15.00, 24, 'Cleaning', '2025-10-22 13:37:52'),
+(76, 'Creamsilk Conditioner', 15.00, 24, 'Cleaning', '2025-10-22 13:38:02'),
+(77, 'Trust Condom (3pcs)', 60.00, 24, 'Cleaning', '2025-10-22 13:38:18'),
+(78, 'Disposable Spoon', 2.00, 24, 'Cleaning', '2025-10-22 13:38:41'),
+(79, 'Disposable Fork', 2.00, 24, 'Cleaning', '2025-10-22 13:38:53');
 
 -- --------------------------------------------------------
 
@@ -583,13 +641,13 @@ ALTER TABLE `announcements`
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
 -- AUTO_INCREMENT for table `checkins`
 --
 ALTER TABLE `checkins`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=90;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=93;
 
 --
 -- AUTO_INCREMENT for table `complaints`
@@ -619,7 +677,7 @@ ALTER TABLE `keycards`
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- AUTO_INCREMENT for table `payments`
@@ -655,7 +713,7 @@ ALTER TABLE `stock_logs`
 -- AUTO_INCREMENT for table `supplies`
 --
 ALTER TABLE `supplies`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
 
 --
 -- AUTO_INCREMENT for table `users`
