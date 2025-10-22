@@ -34,7 +34,7 @@ if (empty($room_number)) {
 
 // ✅ Fetch all necessary order details (include created_at)
 $stmt = $conn->prepare("
-  SELECT id, item_name, size, price, quantity, mode_payment, status, created_at 
+  SELECT id, item_name, size, price, quantity, status, created_at 
   FROM orders 
   WHERE room_number = ?
   ORDER BY created_at DESC
