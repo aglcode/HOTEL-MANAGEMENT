@@ -566,7 +566,7 @@ body.scrolled .sticky-filter-bar {
   width: 350px;
   height: 100%;
   background: #fff;
-  box-shadow: -4px 0 12px rgba(0,0,0,0.1);
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   padding: 20px;
@@ -603,30 +603,16 @@ body.scrolled .sticky-filter-bar {
   display: none !important;
 }
 
-/* 🎨 Stylish size dropdown for Lomi */
-.size-select {
-  background-color: #fdf3f3;
-  border: 1px solid var(--matte-black);
-  border-radius: 8px;
-  padding: 4px 6px;
-  font-size: 0.85rem;
-  color: var(--matte-black);
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
+/* Removed Lomi size dropdown styling (.size-select) */
 
-.size-select:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.3)
-}
-
+/* Overlay background when cart opens */
 .cart-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0, 0, 0, 0.4);
   display: none;
   z-index: 1040;
 }
@@ -635,12 +621,14 @@ body.scrolled .sticky-filter-bar {
   display: block;
 }
 
+/* Cart items list */
 .cart-items {
   flex: 1;
   overflow-y: auto;
-  max-height: 60vh;
+  max-height: 75%;
 }
 
+/* Individual cart item */
 .cart-item {
   display: flex;
   align-items: center;
@@ -668,6 +656,7 @@ body.scrolled .sticky-filter-bar {
   font-size: 0.95rem;
 }
 
+/* Quantity control */
 .qty-control {
   display: flex;
   align-items: center;
@@ -683,18 +672,35 @@ body.scrolled .sticky-filter-bar {
   height: 25px;
   border-radius: 50%;
   line-height: 1;
+  transition: background 0.2s ease;
 }
 
+.qty-control button:hover {
+  background: #a00000;
+}
+
+/* Confirm order button */
 .btn-confirm {
   background: var(--maroon);
   color: #fff;
   font-weight: 600;
   border-radius: 12px;
   padding: 10px 0;
+  transition: background 0.2s ease;
 }
 
 .btn-confirm:hover {
   background: #a00000;
+}
+
+/* Total section in footer */
+.cart-footer .fw-bold {
+  font-size: 1.2rem;
+  color: var(--matte-black);
+}
+
+.cart-footer span#total {
+  font-weight: 700;
 }
 
 /* 👁️ VIEW ORDER BUTTON (Matte Black Theme) */
@@ -982,18 +988,9 @@ body.scrolled .sticky-filter-bar {
             <div id="cartItems" class="cart-items mt-3"></div>
 
             <div class="cart-footer mt-auto">
-              <div class="d-flex justify-content-between mb-2">
-                <span>Subtotal</span>
-                <span id="subtotal">₱0.00</span>
-              </div>
-              <div class="d-flex justify-content-between mb-2">
-                <span>Delivery Fee</span>
-                <span>₱50.00</span>
-              </div>
-              <hr>
               <div class="d-flex justify-content-between fw-bold fs-5 mb-3">
                 <span>Total</span>
-                <span id="total">₱50.00</span>
+                <span id="total">₱0.00</span>
               </div>
               <button class="btn w-100 btn-confirm" id="confirmOrderBtn">
                 Confirm Order
@@ -1023,21 +1020,6 @@ body.scrolled .sticky-filter-bar {
           <div class="menu-type noodles">
             <h5 class="fw-bold mt-5 mb-3 text-maroon">Noodles</h5>
             <div class="row g-4 mb-4">
-              <!-- Lomi -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Noodle</span>
-                  <img src="image/Lomi.png" class="card-img-top" alt="Lomi">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Lomi</h6>
-                    <p class="text-muted small mb-4">Thick savory noodles</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">S-₱60 M-₱70 L-₱80</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
               <!-- Mami -->
               <div class="col-md-4 col-lg-4">
@@ -2446,12 +2428,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeCart = document.getElementById("closeCart");
   const cartCount = document.getElementById("cartCount");
   const cartItemsContainer = document.getElementById("cartItems");
-  const subtotalEl = document.getElementById("subtotal");
   const totalEl = document.getElementById("total");
   const emptyCartEl = document.getElementById("emptyCart");
   const cartFooter = document.querySelector(".cart-footer");
   const confirmOrderBtn = document.getElementById("confirmOrderBtn");
-  const DELIVERY_FEE = 50;
 
   let cart = JSON.parse(localStorage.getItem("cartData")) || [];
 
@@ -2477,20 +2457,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const name = card.querySelector("h5, h6")?.textContent.trim() || "Unnamed";
       const img = card.querySelector("img")?.src || "";
-      let price = 0;
-      let size = "Unit";
+      const priceText = card.querySelector(".price")?.textContent.trim() || "₱0";
+      const price = parseFloat(priceText.replace(/[^\d.]/g, "")) || 0;
 
-      if (name === "Lomi") {
-        price = 60;
-        size = "Small";
-      } else {
-        const priceText = card.querySelector(".price")?.textContent.trim() || "₱0";
-        price = parseFloat(priceText.replace(/[^\d.]/g, "")) || 0;
-      }
-
-      const existing = cart.find((i) => i.name === name && i.size === size);
+      const existing = cart.find((i) => i.name === name);
       if (existing) existing.qty++;
-      else cart.push({ name, size, price, qty: 1, img });
+      else cart.push({ name, price, qty: 1, img });
 
       updateCart();
     });
@@ -2499,19 +2471,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // === UPDATE CART DISPLAY ===
   function updateCart() {
     cartItemsContainer.innerHTML = "";
-    let subtotal = 0, totalQty = 0;
+    let total = 0, totalQty = 0;
 
     cart.forEach((item, index) => {
-      subtotal += item.price * item.qty;
+      total += item.price * item.qty;
       totalQty += item.qty;
-
-      const sizeSelect = item.name === "Lomi" ? `
-        <select class="form-select form-select-sm size-select" data-index="${index}">
-          <option value="Small" ${item.size === "Small" ? "selected" : ""}>Small (₱60)</option>
-          <option value="Medium" ${item.size === "Medium" ? "selected" : ""}>Medium (₱70)</option>
-          <option value="Large" ${item.size === "Large" ? "selected" : ""}>Large (₱80)</option>
-        </select>
-      ` : `<p class="text-muted small mb-1">${item.size}</p>`;
 
       const cartItem = document.createElement("div");
       cartItem.classList.add("cart-item");
@@ -2519,7 +2483,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <img src="${item.img}" alt="${item.name}">
         <div class="cart-item-info">
           <h6>${item.name}</h6>
-          ${sizeSelect}
+          <p class="text-muted small mb-1">₱${item.price.toFixed(2)} each</p>
           <p class="fw-bold mb-1">₱${(item.price * item.qty).toFixed(2)}</p>
         </div>
         <div class="qty-control">
@@ -2531,8 +2495,7 @@ document.addEventListener("DOMContentLoaded", () => {
       cartItemsContainer.appendChild(cartItem);
     });
 
-    subtotalEl.textContent = `₱${subtotal.toFixed(2)}`;
-    totalEl.textContent = `₱${(subtotal + DELIVERY_FEE).toFixed(2)}`;
+    totalEl.textContent = `₱${total.toFixed(2)}`;
     cartCount.textContent = totalQty;
 
     const isEmpty = cart.length === 0;
@@ -2558,23 +2521,11 @@ document.addEventListener("DOMContentLoaded", () => {
         updateCart();
       });
     });
-
-    document.querySelectorAll(".size-select").forEach((sel) => {
-      sel.addEventListener("change", (e) => {
-        const i = e.target.dataset.index;
-        const newSize = e.target.value;
-        cart[i].size = newSize;
-        if (newSize === "Small") cart[i].price = 60;
-        if (newSize === "Medium") cart[i].price = 70;
-        if (newSize === "Large") cart[i].price = 80;
-        updateCart();
-      });
-    });
   }
 
   updateCart();
 
-  // === CONFIRM ORDER FLOW ===
+  // === CONFIRM ORDER FLOW (NO PAYMENT OPTION, WITH LOADING SPINNER) ===
   confirmOrderBtn.addEventListener("click", async () => {
     if (cart.length === 0) {
       Swal.fire("Empty Cart", "Please add items before confirming.", "warning");
@@ -2594,17 +2545,14 @@ document.addEventListener("DOMContentLoaded", () => {
         max-width:360px;
         margin:0 auto;
       ">
-
-        <!-- Receipt Header -->
         <div style="text-align:center;border-bottom:2px dashed #ccc;padding-bottom:8px;margin-bottom:10px;">
           <h3 style="margin:0;color:#9c2b27;">Gitarra Apartelle</h3>
-          <p style="margin:0;font-size:0.85em;color:#666;">Order Receipt</p>
-          <p style="margin:3px 0 0 0;font-size:0.8em;">Date: ${new Date().toLocaleString()}</p>
+          <p style="margin:0;font-size:0.85em;color:#666;">Order List</p>
+          <p style="margin:3px 0 0 0;font-size:0.8em;">Date: ${formatDateTime(new Date())}</p>
         </div>
-
-        <!-- Receipt Body -->
         <ul style="list-style:none;padding-left:0;margin:0;">
     `;
+
     cart.forEach((i) => {
       summaryHtml += `
         <li style="
@@ -2616,53 +2564,21 @@ document.addEventListener("DOMContentLoaded", () => {
           font-size:0.9em;
           gap:8px;
         ">
-          <span style="word-break:break-word;">
-            <b>${i.name}</b> (${i.size}) × ${i.qty}
-          </span>
-          <span style="
-            text-align:right;
-            white-space:nowrap;
-            min-width:70px;
-            font-weight:600;
-          ">
-            ₱${(i.price * i.qty).toFixed(2)}
-          </span>
+          <span><b>${i.name}</b> × ${i.qty}</span>
+          <span style="text-align:right;font-weight:600;">₱${(i.price * i.qty).toFixed(2)}</span>
         </li>
       `;
     });
+
+    const total = cart.reduce((a,b)=>a+b.price*b.qty,0);
     summaryHtml += `
         </ul>
-
-        <!-- Totals -->
-        <div style="
-          border-top:2px dashed #ccc;
-          padding-top:10px;
-          margin-top:10px;
-          font-size:0.9em;
-        ">
-          <p style="margin:3px 0;"><b>Subtotal:</b> ₱${cart.reduce((a,b)=>a+b.price*b.qty,0).toFixed(2)}</p>
-          <p style="margin:3px 0;"><b>Delivery Fee:</b> ₱${DELIVERY_FEE.toFixed(2)}</p>
-          <p style="
-            margin:8px 0 0;
-            font-weight:700;
-            color:#9c2b27;
-            border-top:1px dotted #ccc;
-            padding-top:6px;
-            font-size:1em;
-          ">
-            Total: ₱${(cart.reduce((a,b)=>a+b.price*b.qty,0)+DELIVERY_FEE).toFixed(2)}
+        <div style="border-top:2px dashed #ccc;padding-top:10px;margin-top:10px;">
+          <p style="margin:8px 0 0;font-weight:700;color:#9c2b27;text-align:right;">
+            Total: ₱${total.toFixed(2)}
           </p>
         </div>
-
-        <!-- Footer -->
-        <div style="
-          border-top:2px dashed #ccc;
-          margin-top:10px;
-          text-align:center;
-          padding-top:8px;
-          font-size:0.8em;
-          color:#555;
-        ">
+        <div style="border-top:2px dashed #ccc;margin-top:10px;text-align:center;padding-top:8px;font-size:0.8em;color:#555;">
           <p style="margin:0;">Thank you for ordering with ❤️</p>
           <p style="margin:0;color:#9c2b27;font-weight:600;">Gitarra Apartelle</p>
         </div>
@@ -2670,7 +2586,7 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
 
     const confirmRes = await Swal.fire({
-      title: "🧾 Confirm Your Order?",
+      title: "🧾 Confirm Add Order?",
       html: summaryHtml,
       icon: "question",
       showCancelButton: true,
@@ -2679,229 +2595,67 @@ document.addEventListener("DOMContentLoaded", () => {
       confirmButtonColor: "#9c2b27",
       cancelButtonColor: "#555",
       background: "#fff",
-      customClass: {
-        popup: 'swal2-rounded',
-        title: 'swal2-title-styled'
-      },
       allowOutsideClick: false
     });
 
     if (!confirmRes.isConfirmed) return;
 
-    // Step 2: Payment Info
-    const payRes = await Swal.fire({
-      title: "💳 Select Payment Option",
-      html: `
-        <div style="text-align:left;display:flex;flex-direction:column;gap:15px;">
-          <select id="modePayment" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;">
-            <option value="cash">Cash</option>
-            <option value="gcash">GCash</option>
-          </select>
-          <div id="gcashDetails"
-              style="display:none;background:#222;color:white;padding:15px;border-radius:10px;margin-top:5px;">
-            <p><strong>📱 GCash Payment Info</strong></p>
-            <p>📞 09171234567</p>
-            <p>👤 Juan Dela Cruz</p>
-            <label for="refNumber">🔢 Reference Number</label>
-            <input id="refNumber" type="text" maxlength="14"
-              placeholder="Enter 12–14 digit Ref No."
-              style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc;">
-          </div>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: "Next",
-      cancelButtonText: "Back",
-      confirmButtonColor: "#333",
-      cancelButtonColor: "#9c2b27",
-      allowOutsideClick: false,
-
-      didOpen: () => {
-        const modeSelect = document.getElementById("modePayment");
-        const gcashDetails = document.getElementById("gcashDetails");
-        modeSelect.addEventListener("change", () => {
-          gcashDetails.style.display = modeSelect.value === "gcash" ? "block" : "none";
-        });
-      },
-
-      preConfirm: () => {
-        const mode = document.getElementById("modePayment").value;
-        const ref = document.getElementById("refNumber")?.value.trim() || null;
-        if (mode === "gcash" && !/^[0-9]{12,14}$/.test(ref)) {
-          Swal.showValidationMessage("Enter a valid 12–14 digit GCash Ref No.");
-          return false;
-        }
-        return { mode_payment: mode, ref_number: mode === "gcash" ? ref : null };
-      }
-    });
-
-    if (!payRes.isConfirmed) return;
-    const { mode_payment, ref_number } = payRes.value;
-
-    // Step 3: Receipt Preview
-    const total = cart.reduce((a, b) => a + b.price * b.qty, 0) + DELIVERY_FEE;
-    const receiptHTML = `
-      <div id="receipt-content" style="
-        font-family:'Poppins','Courier New',monospace;
-        color:#333;
-        background:#fff;
-        border:2px dashed #9c2b27;
-        border-radius:10px;
-        padding:15px 20px;
-        width:350px;
-        margin:0 auto;
-        text-align:left;
-      ">
-
-        <!-- Header -->
-        <div style="text-align:center;border-bottom:2px dashed #ccc;padding-bottom:8px;margin-bottom:10px;">
-          <img src="image/logo-light.png" style="width:70px;margin-bottom:6px;">
-          <h3 style="margin:0;color:#9c2b27;">Gitarra Apartelle</h3>
-          <p style="margin:0;font-size:0.85em;color:#555;">Official Receipt</p>
-          <p style="margin:3px 0 0;font-size:0.8em;">${new Date().toLocaleString()}</p>
-        </div>
-
-        <!-- Items Table -->
-        <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
-          <thead>
-            <tr style="border-bottom:1px dotted #ccc;">
-              <th align="left">Item</th>
-              <th align="center" style="width:40px;">Qty</th>
-              <th align="right">Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${cart.map(i => `
-              <tr style="border-bottom:1px dotted #eee;">
-                <td style="padding:4px 0;word-break:break-word;">
-                  <b>${i.name}</b> (${i.size})
-                </td>
-                <td align="center">${i.qty}</td>
-                <td align="right" style="white-space: nowrap; word-break: keep-all;">₱${(i.price * i.qty).toFixed(2)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-
-        <!-- Summary Section -->
-        <div style="
-          border-top:2px dashed #ccc;
-          padding-top:10px;
-          margin-top:10px;
-          font-size:0.9em;
-        ">
-          <p style="margin:4px 0;"><b>Subtotal:</b> ₱${cart.reduce((a,b)=>a+b.price*b.qty,0).toFixed(2)}</p>
-          <p style="margin:4px 0;"><b>Delivery Fee:</b> ₱${DELIVERY_FEE.toFixed(2)}</p>
-          <p style="
-            margin:8px 0;
-            font-weight:700;
-            color:#9c2b27;
-            border-top:1px dotted #ccc;
-            padding-top:6px;
-            font-size:1em;
-          ">
-            Total: ₱${total.toFixed(2)}
-          </p>
-          <p style="margin:4px 0;text-align:center"><b>Payment:</b> ${mode_payment.toUpperCase()}</p>
-          ${mode_payment === "gcash" ? `<p style="margin:4px 0;text-align:center">Ref#: ${ref_number}</p>` : ""}
-        </div>
-
-        <!-- Footer -->
-        <div style="
-          border-top:2px dashed #ccc;
-          margin-top:10px;
-          text-align:center;
-          padding-top:8px;
-          font-size:0.8em;
-          color:#555;
-        ">
-          <p style="margin:0;">Thank you for ordering with ❤️</p>
-          <p style="margin:0;color:#9c2b27;font-weight:600;">Gitarra Apartelle</p>
-        </div>
-      </div>
-    `;
-
+    // Step 2: Show Loading Spinner
     Swal.fire({
-      title: "✅ Order Ready!",
-      html: receiptHTML,
-      showConfirmButton: true,
-      confirmButtonText: "Download Receipt",
-      confirmButtonColor: "#333",
-      allowOutsideClick: false
-    }).then(async (r) => {
-      if (r.isConfirmed) {
-        // === Generate PDF Receipt ===
-        const receiptElement = document.getElementById("receipt-content");
-
-        // Adjust font and spacing for canvas clarity
-        receiptElement.style.fontSize = "0.70em";
-        receiptElement.style.letterSpacing = "0.5px";  // 🟢 adds space between letters
-        receiptElement.style.wordSpacing = "2px";      // 🟢 adds space between words
-        receiptElement.style.textRendering = "geometricPrecision"; // 🟢 cleaner text rendering
-
-        // Capture receipt as canvas
-        const canvas = await html2canvas(receiptElement, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: "#ffffff"
-        });
-
-        const imgData = canvas.toDataURL("image/png");
-        const { jsPDF } = window.jspdf;
-
-        // Dynamically set PDF size to match actual content height
-        const pdfWidth = 240;
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-        // Create PDF with dynamic height
-        const pdf = new jsPDF({
-          orientation: "p",
-          unit: "px",
-          format: [pdfWidth, pdfHeight]
-        });
-
-        // Add the image
-        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-
-        // Save it
-        pdf.save(`receipt_${Date.now()}.pdf`);
-
-        // === POST TO DATABASE AFTER DOWNLOAD ===
-        await Promise.all(cart.map(item =>
-          fetch("guest_add_order.php", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              item_name: item.name,
-              size: item.size,
-              price: item.price * item.qty,
-              quantity: item.qty,
-              total: item.price * item.qty,
-              mode_payment,
-              ref_number: mode_payment === "gcash" ? ref_number : null
-            })
-          })
-        ));
-
-        // ✅ SUCCESS TOAST
-        Swal.fire({
-          toast: true,
-          position: "top-end",
-          icon: "success",
-          title: "Order saved successfully!",
-          showConfirmButton: false,
-          timer: 2000,
-          timerProgressBar: true
-        });
-
-        // Wait a moment for the toast to show, then reset
-        setTimeout(() => {
-          localStorage.removeItem("cartData");
-          window.location.reload();
-        }, 2200);
+      title: "Saving Order...",
+      text: "Please wait a moment",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
       }
     });
+
+    try {
+      // Post each item to PHP backend
+      await Promise.all(cart.map(item =>
+        fetch("guest_add_order.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            item_name: item.name,
+            price: item.price,
+            quantity: item.qty,
+            total: item.price * item.qty
+          })
+        })
+      ));
+
+      // Success toast
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: "Order saved successfully!",
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true
+      });
+
+      setTimeout(() => {
+        localStorage.removeItem("cartData");
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      Swal.fire("Error", "Failed to save order. Please try again.", "error");
+    }
   });
+
+  // 🕒 Format Date and Time
+  function formatDateTime(date) {
+    const options = { month: "long", day: "numeric", year: "numeric" };
+    const formattedDate = date.toLocaleDateString("en-US", options);
+    const hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const hour12 = hours % 12 || 12;
+    const formattedTime = `${hour12}:${minutes} ${ampm}`;
+    return `${formattedDate} | ${formattedTime}`;
+  }
 });
 </script>
 
@@ -2918,173 +2672,167 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const orders = data.orders;
+    let orders = data.orders;
     if (!orders.length) {
       Swal.fire("No Orders", "You have not placed any orders yet.", "info");
       return;
     }
 
-    // ✅ Group orders by exact created_at timestamp date + hour + minute only
-    const grouped = {};
-    orders.forEach(order => {
-      const [datePart, timePart] = order.created_at.split(" ");
-      const [hour, minute] = timePart.split(":"); // ignore seconds
-      const key = `${datePart} ${hour}:${minute}`;
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(order);
-    });
-
-    // ✅ Build summarized receipt table
-    const receiptListHTML = `
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-family:'Poppins',sans-serif;font-size:0.9em;">
-          <thead>
-            <tr style="background:#222;color:#fff;">
-              <th>Date Ordered</th>
-              <th>Items</th>
-              <th>Total</th>
-              <th>Payment</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${Object.entries(grouped).map(([created_at, groupOrders], index) => {
-              const total = groupOrders.reduce((sum, o) => sum + parseFloat(o.price), 0);
-              const [datePart, timePart] = created_at.split(" ");
-              const formattedTime = convertTo12Hour(timePart);
-              const formattedDate = new Date(datePart).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric"
-              });
-              const paymentMethod = groupOrders[0].mode_payment.toUpperCase();
-
-              // ✅ Create multiline item summary
-              const itemSummary = groupOrders
-                .map(o => `${escapeHtml(o.item_name)} ×${o.quantity}`)
-                .join("<br>");
-
-              return `
-                <tr style="border-bottom:1px solid #ddd;vertical-align:top;">
-                  <td style="text-align:left;align-content:center;white-space:nowrap;padding:6px;">
-                    ${formattedDate}<br>
-                    <span style="color:#555;font-size:0.85em;">${formattedTime}</span>
-                  </td>
-                  <td style="text-align:left;width:280px;line-height:1.4;padding:6px;">
-                    ${itemSummary}
-                  </td>
-                  <td style="padding:6px;align-content:center;">₱${total.toFixed(2)}</td>
-                  <td style="padding:6px;align-content:center;">${paymentMethod}</td>
-                  <td style="padding:6px;align-content:center;">
-                    <button class="btn-view-receipt" data-created="${created_at}"
-                      style="padding:5px 10px;background:#9c2b27;color:#fff;border:none;border-radius:4px;cursor:pointer;">
-                      View Receipt
-                    </button>
-                  </td>
-                </tr>
-              `;
-            }).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    // ✅ Show list of receipts
-    Swal.fire({
-      title: "🧾 Order Receipts",
-      html: receiptListHTML,
-      width: "800px",
-      showConfirmButton: false,
-      showCancelButton: true,
-      cancelButtonText: "Close",
-      didOpen: () => {
-        const popup = Swal.getPopup();
-        popup.querySelectorAll(".btn-view-receipt").forEach(btn => {
-          btn.addEventListener("click", () => {
-            const created_at = btn.dataset.created;
-            showReceipt(created_at);
-          });
+    // ✅ Merge duplicate items
+    const mergedOrders = [];
+    orders.forEach(o => {
+      const existing = mergedOrders.find(m => m.item_name === o.item_name);
+      if (existing) {
+        existing.quantity += parseInt(o.quantity);
+        existing.price += parseFloat(o.price);
+      } else {
+        mergedOrders.push({
+          item_name: o.item_name,
+          quantity: parseInt(o.quantity),
+          price: parseFloat(o.price)
         });
       }
     });
 
-    // ✅ Detailed Receipt Popup
-    function showReceipt(created_at) {
-      const groupOrders = grouped[created_at];
-      const total = groupOrders.reduce((sum, o) => sum + parseFloat(o.price), 0);
-      const [datePart, timePart] = created_at.split(" ");
-      const formattedTime = convertTo12Hour(timePart);
-      const formattedDate = new Date(datePart).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric"
-      });
-      const paymentMethod = groupOrders[0].mode_payment.toUpperCase();
+    const grandTotal = mergedOrders.reduce((sum, o) => sum + o.price, 0);
 
-      const receiptHTML = `
-        <div style="text-align:left;font-family:'Poppins',sans-serif;color:#333;">
-          <div style="text-align:center;margin-bottom:10px;">
-            <h3 style="margin:0;">🧾 Receipt</h3>
-            <div style="font-size:0.85em;color:#555;">
-              <b>Date:</b> ${formattedDate} <b>Time:</b> ${formattedTime}<br>
-              <b>Payment:</b> ${paymentMethod}
-            </div>
-          </div>
-
-          <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
+    // ✅ Show order summary
+    Swal.fire({
+      title: "🧾 Order Summary",
+      html: `
+        <div id="orderSummaryWrapper" style="overflow-x:auto;max-height:300px;">
+          <table style="width:100%;border-collapse:collapse;font-family:'Poppins',sans-serif;font-size:0.9em;">
             <thead>
-              <tr style="background:#f7f7f7;border-bottom:1px solid #ccc;">
-                <th style="text-align:left;padding:6px;">Item</th>
-                <th>Size</th>
-                <th>Qty</th>
-                <th style="text-align:right;padding:6px;">Price</th>
+              <tr style="background:#222;color:#fff;">
+                <th style="padding:8px;text-align:left;">Item</th>
+                <th style="padding:8px;text-align:center;">Qty</th>
+                <th style="padding:8px;text-align:right;">Price</th>
               </tr>
             </thead>
             <tbody>
-              ${groupOrders.map(o => `
-                <tr>
-                  <td style="padding:6px;">${escapeHtml(o.item_name)}</td>
-                  <td style="text-align:center;">${o.size || "N/A"}</td>
+              ${mergedOrders.map(o => `
+                <tr style="border-bottom:1px solid #ddd;">
+                  <td style="padding:6px;text-align:left;">${escapeHtml(o.item_name)}</td>
                   <td style="text-align:center;">${o.quantity}</td>
-                  <td style="text-align:right;">₱${parseFloat(o.price).toFixed(2)}</td>
+                  <td style="text-align:right;">₱${o.price.toFixed(2)}</td>
                 </tr>
               `).join("")}
             </tbody>
             <tfoot>
               <tr style="border-top:2px solid #000;font-weight:bold;">
-                <td colspan="3" style="text-align:right;padding:6px;">Total:</td>
-                <td style="text-align:right;">₱${total.toFixed(2)}</td>
+                <td colspan="2" style="text-align:right;padding:6px;">Total:</td>
+                <td style="text-align:right;padding:6px;">₱${grandTotal.toFixed(2)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
-      `;
+      `,
+      width: "550px",
+      confirmButtonText: "Download Receipt",
+      confirmButtonColor: "#9c2b27",
+      showCancelButton: true,
+      cancelButtonText: "Close",
+    }).then(async result => {
+      if (result.isConfirmed) {
+        const swalContent = Swal.getHtmlContainer();
+        const summary = swalContent.querySelector("#orderSummaryWrapper");
 
+        if (!summary) {
+          Swal.fire("Error", "Receipt content not found.", "error");
+          return;
+        }
+
+        await generatePOSPDF(summary);
+      }
+    });
+
+    // ✅ Generate POS receipt style PDF
+    async function generatePOSPDF(summaryElement) {
       Swal.fire({
-        title: "Receipt Details",
-        html: receiptHTML,
-        width: "650px",
-        showConfirmButton: false,
-        showCancelButton: true,
-        cancelButtonText: "Close",
+        title: "Generating Receipt...",
+        html: "Please wait while we create your receipt.",
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
       });
+
+      try {
+        const clone = summaryElement.cloneNode(true);
+        const wrapper = document.createElement("div");
+        wrapper.style.position = "absolute";
+        wrapper.style.left = "-9999px";
+        wrapper.style.background = "#fff";
+        wrapper.style.color = "#000";
+        wrapper.style.width = "80mm"; /* ✅ Typical POS width */
+        wrapper.style.fontFamily = "monospace";
+        wrapper.style.fontSize = "12px";
+        wrapper.style.lineHeight = "1.3";
+        wrapper.style.padding = "10px";
+        wrapper.style.textAlign = "left";
+
+        wrapper.innerHTML = `
+          <div style="text-align:center;">
+            <h3 style="margin:0;">Gitarra Apartelle</h3>
+            <hr style="border:1px dashed #000;margin:8px 0;">
+            <p style="font-size:10px;">${formatDateTime(new Date())}</p>
+            <hr style="border:1px dashed #000;margin:8px 0;">
+          </div>
+          ${clone.outerHTML}
+          <hr style="border:1px dashed #000;margin:8px 0;">
+          <div style="text-align:center;font-size:11px;">
+            <p>Thank you for ordering with</p>
+            <p>Visit us again soon!</p>
+          </div>
+        `;
+
+        document.body.appendChild(wrapper);
+
+        const canvas = await html2canvas(wrapper, { scale: 3 });
+        const imgData = canvas.toDataURL("image/png");
+
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+          orientation: "p",
+          unit: "mm",
+          format: [80, (canvas.height * 80) / canvas.width], // ✅ auto height
+        });
+
+        pdf.addImage(imgData, "PNG", 0, 0, 80, (canvas.height * 80) / canvas.width);
+        pdf.save(`Receipt_${new Date().toISOString().split("T")[0]}.pdf`);
+
+        document.body.removeChild(wrapper);
+
+        Swal.fire({
+          icon: "success",
+          title: "Receipt Downloaded!",
+          toast: true,
+          position: "top-end",
+          showConfirmButton: false,
+          timer: 1500
+        });
+      } catch (err) {
+        console.error(err);
+        Swal.fire("Error", "Failed to generate receipt PDF.", "error");
+      } finally {
+        Swal.close();
+      }
     }
 
-    // 🕒 Convert 24-hour → 12-hour format
-    function convertTo12Hour(timeStr) {
-      if (!timeStr) return "";
-      const [hour, minute] = timeStr.split(":");
-      const h = parseInt(hour, 10);
-      const ampm = h >= 12 ? "PM" : "AM";
-      const hour12 = h % 12 || 12;
-      return `${hour12}:${minute} ${ampm}`;
-    }
-
-    // 🛡️ Escape HTML
+    // ✅ Helper functions
     function escapeHtml(str) {
       return String(str).replace(/[&<>"']/g, s =>
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s])
       );
+    }
+
+    function formatDateTime(date) {
+      const options = { month: "long", day: "numeric", year: "numeric" };
+      const formattedDate = date.toLocaleDateString("en-US", options);
+      const hours = date.getHours();
+      const minutes = date.getMinutes().toString().padStart(2, "0");
+      const ampm = hours >= 12 ? "PM" : "AM";
+      const hour12 = hours % 12 || 12;
+      const formattedTime = `${hour12}:${minutes} ${ampm}`;
+      return `${formattedDate} ${formattedTime}`;
     }
   });
 });
