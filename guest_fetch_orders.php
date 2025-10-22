@@ -32,14 +32,29 @@ if (empty($room_number)) {
   exit;
 }
 
-// ✅ Fetch all necessary order details (include created_at)
+// ✅ Get the current check-in date for this room
+$checkinStmt = $conn->prepare("SELECT check_in_date FROM checkins WHERE room_number = ? AND status = 'checked_in' LIMIT 1");
+$checkinStmt->bind_param("s", $room_number);
+$checkinStmt->execute();
+$checkinStmt->bind_result($check_in_date);
+$checkinStmt->fetch();
+$checkinStmt->close();
+
+// ✅ If no active check-in, return empty
+if (empty($check_in_date)) {
+  echo json_encode(["success" => false, "message" => "No active check-in for this room."]);
+  exit;
+}
+
+// ✅ Fetch orders created AFTER the current check-in time
 $stmt = $conn->prepare("
-  SELECT id, item_name, size, price, quantity, mode_payment, status, created_at 
+  SELECT id, item_name, size, price, quantity, status, created_at 
   FROM orders 
   WHERE room_number = ?
+  AND created_at >= ?
   ORDER BY created_at DESC
 ");
-$stmt->bind_param("s", $room_number);
+$stmt->bind_param("ss", $room_number, $check_in_date);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -54,3 +69,4 @@ echo json_encode(["success" => true, "orders" => $orders]);
 
 $stmt->close();
 $conn->close();
+?>
