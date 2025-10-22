@@ -51,6 +51,7 @@ $upcoming_bookings_result = $conn->query("
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <link href="style.css" rel="stylesheet">
 
 <style>
@@ -532,6 +533,7 @@ $upcoming_bookings_result = $conn->query("
 </div>
 
 </div>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
 function updateClock(){
@@ -664,7 +666,19 @@ function renderOrders(data) {
 
 // mark all orders for a room as served
 async function markAllServed(roomNumber) {
-  if (!confirm(`Mark all orders in Room ${roomNumber} as served?`)) return;
+  // SweetAlert2 confirmation
+  const result = await Swal.fire({
+    title: 'Mark All as Served?',
+    text: `Are you sure you want to mark all orders in Room ${roomNumber} as served?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#198754',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Yes, mark as served',
+    cancelButtonText: 'Cancel'
+  });
+
+  if (!result.isConfirmed) return;
 
   const formData = new FormData();
   formData.append("room_number", roomNumber);
@@ -681,38 +695,62 @@ async function markAllServed(roomNumber) {
       body: formData
     });
 
-    const result = await res.json();
+    const response = await res.json();
 
-  if (result.success) {
-    // 🟢 Mark all served visually
-    serveBtn.classList.remove("btn-success");
-    serveBtn.classList.add("btn-secondary");
-    serveBtn.textContent = "All Served";
-    printBtn.classList.remove("d-none");
+    if (response.success) {
+      // 🟢 Mark all served visually
+      serveBtn.classList.remove("btn-success");
+      serveBtn.classList.add("btn-secondary");
+      serveBtn.textContent = "All Served";
+      printBtn.classList.remove("d-none");
 
-    // 🧹 Immediately clear served orders from DB
-    await fetch("update_room_status.php", {
-      method: "POST",
-      body: new URLSearchParams({
-        room_number: roomNumber,
-        status: "served"
-      })
-    });
+      // 🧹 Immediately clear served orders from DB
+      await fetch("update_room_status.php", {
+        method: "POST",
+        body: new URLSearchParams({
+          room_number: roomNumber,
+          status: "served"
+        })
+      });
 
-    // Refresh dashboard after cleanup
-    clearInterval(orderInterval);
-    setTimeout(() => {
-      fetchOrders(true);
-      orderInterval = setInterval(fetchOrders, 8000);
-    }, 2000);
-  } else {
-      alert("Failed to update order status.");
+      // Success message
+      await Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: `All orders for Room ${roomNumber} have been marked as served.`,
+        timer: 2000,
+        showConfirmButton: false
+      });
+
+      // Refresh dashboard after cleanup
+      clearInterval(orderInterval);
+      setTimeout(() => {
+        fetchOrders(true);
+        orderInterval = setInterval(fetchOrders, 8000);
+      }, 2000);
+    } else {
+      // Error alert
+      await Swal.fire({
+        icon: 'error',
+        title: 'Update Failed',
+        text: 'Failed to update order status. Please try again.',
+        confirmButtonColor: '#dc3545'
+      });
+      
       serveBtn.disabled = false;
       serveBtn.textContent = "Mark All Served";
     }
   } catch (err) {
     console.error(err);
-    alert("An error occurred while updating the order.");
+    
+    // Error alert
+    await Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'An error occurred while updating the order. Please try again.',
+      confirmButtonColor: '#dc3545'
+    });
+    
     serveBtn.disabled = false;
     serveBtn.textContent = "Mark All Served";
   }

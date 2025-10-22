@@ -792,7 +792,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                         <th>Check-Out</th>
                         <th>Room #</th>
                         <th>Duration</th>
-                        <th>Guests</th>
+                        <!-- <th>Guests</th> -->
                         <th>Action/Status</th>
                     </tr>
                 </thead>
@@ -867,7 +867,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                         <td class="align-middle"><?= date("M d, Y h:i A", strtotime($booking['end_date'])) ?></td>
                         <td class="align-middle"><?= $booking['room_number'] ?></td>
                         <td class="align-middle"><?= $booking['duration'] ?> hrs</td>
-                        <td class="align-middle"><?= $booking['num_people'] ?></td>
+                        <!-- <td class="align-middle"><?= $booking['num_people'] ?></td> -->
                         <td class="align-middle">
                             <?php
                                 $room_check = $conn->prepare("SELECT status FROM rooms WHERE room_number = ?");

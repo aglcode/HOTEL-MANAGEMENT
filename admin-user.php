@@ -723,9 +723,9 @@ style="background-color: #871D2B;">
               <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
               <select name="role" id="role" class="form-select" required>
                 <option value="" selected disabled>Select a role</option>
-                <option value="Admin">Admin</option>
+                <!-- <option value="Admin">Admin</option> -->
                 <option value="Receptionist">Receptionist</option>
-                <option value="Guest">Guest</option>
+                <!-- <option value="Guest">Guest</option> -->
               </select>
             </div>
           </div>

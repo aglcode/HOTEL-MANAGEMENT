@@ -139,9 +139,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $room_number = $_POST['room_number'];
     $duration = (int)$_POST['duration'];
     $start_date = $_POST['start_date'];
-    $payment_mode = $_POST['payment_mode'];
-    $amount_paid = (float)$_POST['amount_paid'];
-    $reference_number = $_POST['reference_number'] ?? '';
+    
+    // Payment will be collected at check-in
+    $payment_mode = 'pending';
+    $amount_paid = 0.00;
+    $reference_number = '';
 
     if ($age < 18) {
         $error = "Guest must be at least 18 years old.";
@@ -162,6 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 case 6: $total_price = $room['price_6hrs']; break;
                 case 12: $total_price = $room['price_12hrs']; break;
                 case 24: $total_price = $room['price_24hrs']; break;
+                case 48: $total_price = $room['price_24hrs'] * 2; break;
                 default: $total_price = $room['price_ot']; break;
             }
 
@@ -175,7 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conflict_query = $conn->prepare("
                 SELECT COUNT(*) as conflicts FROM bookings 
                 WHERE room_number = ? 
-                AND status IN ('upcoming', 'active')
+                AND status IN ('upcoming', 'active', 'pending')
                 AND NOT (end_date <= ? OR start_date >= ?)
             ");
             $conflict_query->bind_param("sss", $room_number, $start_date, $end_date);
@@ -186,9 +189,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Room is not available for the selected time period.";
             } else {
                 $booking_token = generateBookingToken();
-                $change_amount = max(0, $amount_paid - $total_price);
+                $change_amount = 0.00;
 
-                // Insert booking
+                // Insert booking with pending payment
                 $insert_query = $conn->prepare("
                     INSERT INTO bookings (
                         guest_name, email, telephone, address, age, num_people,
@@ -215,9 +218,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'address' => $address,
                         'age' => $age,
                         'num_people' => $num_people,
-                        'payment_mode' => $payment_mode,
-                        'amount_paid' => number_format($amount_paid, 2),
-                        'change_amount' => number_format($change_amount, 2)
+                        'payment_mode' => 'Pay at Check-in',
+                        'amount_paid' => '0.00',
+                        'change_amount' => '0.00'
                     ];
 
                     $emailSent = sendBookingEmail($email, $guest_name, $booking_token, $bookingDetails);
@@ -238,7 +241,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get available rooms
 $rooms = [];
-$result = $conn->query("SELECT * FROM rooms WHERE status = 'available'");
+$query = "SELECT * FROM rooms WHERE status != 'maintenance' ORDER BY room_number";
+$result = $conn->query($query);
 while ($room = $result->fetch_assoc()) {
     $rooms[$room['room_number']] = $room;
 }
@@ -257,9 +261,9 @@ while ($room = $result->fetch_assoc()) {
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <style>
         :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            --accent-color: #667eea;
+            --primary-gradient: linear-gradient(135deg, #8b1d2d 0%, #4a0e1a 100%);
+            --secondary-gradient: linear-gradient(135deg, #c72c41 0%, #8b1d2d 100%);
+            --accent-color: #8b1d2d;
             --text-dark: #2c3e50;
             --text-light: #7f8c8d;
             --border-radius: 15px;
@@ -335,8 +339,8 @@ while ($room = $result->fetch_assoc()) {
 
         /* Hero Section */
         .hero-section {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%), 
-                        url('https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80') center/cover;
+            background: linear-gradient(135deg, rgba(199, 44, 65, 0.9) 0%, rgba(139, 29, 45, 0.9) 100%), 
+                       url('Image/home.jpg') center/cover no-repeat;
             height: 100vh;
             display: flex;
             align-items: center;
@@ -581,6 +585,108 @@ while ($room = $result->fetch_assoc()) {
             font-size: 0.875rem;
         }
 
+.custom-footer {
+  background-color: #121212;
+  color: #d9d9d9;
+  padding: 60px 0 25px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.footer-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 50px;
+}
+
+.footer-column h5,
+.footer-column h6 {
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.footer-brand {
+  font-size: 20px;
+  margin-bottom: 15px;
+}
+
+.footer-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.footer-nav a {
+  color: #d9d9d9;
+  text-decoration: none;
+  font-size: 15px;
+  transition: color 0.3s ease;
+}
+
+.footer-nav a:hover {
+  color: #c72c41;
+}
+
+.contact-section {
+  margin-bottom: 15px;
+}
+
+.contact-section h6 {
+  color: #fff;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.contact-section p,
+.contact-section a {
+  color: #d9d9d9;
+  font-size: 14px;
+  text-decoration: none;
+  margin: 0;
+}
+
+.contact-section a:hover {
+  color: #c72c41;
+}
+
+.map-container {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.footer-divider {
+  border: none;
+  border-top: 1px solid #333;
+  margin: 40px 0 25px;
+}
+
+.footer-bottom {
+  text-align: left;
+}
+
+.footer-bottom p {
+  font-size: 13px;
+  color: #aaa;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .footer-content {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+
+  .map-container iframe {
+    height: 200px;
+  }
+}
+
+
         .input-group-text {
             background: var(--primary-gradient);
             color: white;
@@ -774,7 +880,7 @@ while ($room = $result->fetch_assoc()) {
     <nav class="navbar navbar-expand-lg navbar-light fixed-top">
         <div class="container">
             <a class="navbar-brand" href="#">
-                <i class="fas fa-building me-2"></i>Gitarra Apartelle
+                Gitarra Apartelle
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -795,7 +901,9 @@ while ($room = $result->fetch_assoc()) {
         <div class="container">
             <div class="hero-content" data-aos="fade-up" data-aos-duration="1000">
                 <h1 class="hero-title">Welcome to Gitarra Apartelle</h1>
-                <p class="hero-subtitle">Experience luxury, comfort, and exceptional service in the heart of the city</p>
+                <p class="hero-subtitle">Discover a unique guitar-inspired HOTEL in Brgy Bunggo, Calamba City. Laguna.
+This charming place combines a love of music with a clean and secure atmosphere,
+perfect for relaxation.</p>
                 <a href="#booking" class="btn hero-btn">
                     <i class="fas fa-calendar-check me-2"></i>Book Your Stay Now
                 </a>
@@ -919,30 +1027,31 @@ while ($room = $result->fetch_assoc()) {
                                         <label class="form-label">Full Name *</label>
                                         <input type="text" name="guest_name" class="form-control" required placeholder="Enter your full name">
                                     </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Email Address *</label>
-                                        <input type="email" name="email" class="form-control" required placeholder="your.email@example.com">
-                                        <div class="form-text">We'll send your booking confirmation to this email</div>
-                                    </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Email Address *</label>
+                                    <input type="email" name="email" id="email_input" class="form-control" required placeholder="your.email@example.com">
+                                    <div class="form-text">We'll send your booking confirmation to this email</div>
+                                    <div class="invalid-feedback">Please enter a valid email address (e.g., name@example.com).</div>
+                                </div>
                                     <div class="mb-3">
                                         <label class="form-label">Phone Number *</label>
-                                        <input type="text" name="telephone" class="form-control" required pattern="\d{10,11}" placeholder="09123456789">
-                                        <div class="form-text">Enter a valid 10-11 digit phone number</div>
+                                        <input type="text" name="telephone" id="telephone_input" class="form-control" required pattern="\d{4}-\d{3}-\d{4}" maxlength="13" placeholder="09XX-XXX-XXXX">
+                                        <div class="invalid-feedback">Phone number must be in format 09XX-XXX-XXXX (11 digits).</div>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Complete Address *</label>
                                         <input type="text" name="address" class="form-control" required placeholder="Street, City, Province">
                                     </div>
                                     <div class="row">
-                                        <div class="col-md-6 mb-3">
-                                            <label class="form-label">Age *</label>
-                                            <input type="number" name="age" class="form-control" required min="18" placeholder="18">
-                                            <div class="form-text">Must be 18 or older</div>
-                                        </div>
-                                        <div class="col-md-6 mb-3">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Age *</label>
+                                        <input type="number" name="age" id="age_input" class="form-control" required min="18" placeholder="Must be 18 or older">
+                                        <div class="invalid-feedback">Guest must be at least 18 years old.</div>
+                                    </div>
+                                        <!-- <div class="col-md-6 mb-3">
                                             <label class="form-label">Number of Guests *</label>
                                             <input type="number" name="num_people" class="form-control" required min="1" placeholder="1">
-                                        </div>
+                                        </div> -->
                                     </div>
                                 </div>
                             </div>
@@ -955,114 +1064,122 @@ while ($room = $result->fetch_assoc()) {
                                     <h6><i class="fas fa-calendar-alt me-2"></i>Booking Details</h6>
                                 </div>
                                 <div class="form-card-body">
-                                    <div class="mb-3">
-                                        <label class="form-label">Select Room *</label>
-                                        <select name="room_number" class="form-select" onchange="updatePrice()" required>
-                                            <option value="">Choose your preferred room</option>
-                                            <?php foreach ($rooms as $room): ?>
-                                                <option value="<?= $room['room_number'] ?>">
-                                                    Room <?= $room['room_number'] ?> - <?= $room['room_type'] ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Stay Duration *</label>
-                                        <select name="duration" class="form-select" onchange="updatePrice()" required>
-                                            <option value="3">3 Hours</option>
-                                            <option value="6">6 Hours</option>
-                                            <option value="12">12 Hours (Half Day)</option>
-                                            <option value="24">24 Hours (Full Day)</option>
-                                            <option value="48">48 Hours (2 Days)</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Check-in Date & Time *</label>
-                                        <input type="datetime-local" name="start_date" class="form-control" onchange="updateCheckout()" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Estimated Check-out</label>
-                                        <input type="text" id="checkout_datetime" class="form-control" readonly placeholder="Select check-in time first">
-                                    </div>
-                                    <div class="mb-3">
+<div class="mb-3">
+    <label class="form-label">Select Room *</label>
+    <select name="room_number" id="room_select" class="form-select" onchange="updatePrice(); checkRoomAvailability();" required>
+        <option value="">Choose your preferred room</option>
+        <?php foreach ($rooms as $room): ?>
+            <option value="<?= $room['room_number'] ?>" data-status="<?= $room['status'] ?>">
+                Room <?= $room['room_number'] ?> - <?= $room['room_type'] ?>
+                <?= $room['status'] == 'booked' ? '(Currently Booked)' : '' ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Stay Duration *</label>
+    <select name="duration" id="duration_select" class="form-select" onchange="updatePrice(); checkRoomAvailability();" required>
+        <option value="3">3 Hours</option>
+        <option value="6">6 Hours</option>
+        <option value="12">12 Hours (Half Day)</option>
+        <option value="24">24 Hours (Full Day)</option>
+        <option value="48">48 Hours (2 Days)</option>
+    </select>
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Check-in Date & Time *</label>
+    <input type="datetime-local" name="start_date" id="checkin_input" class="form-control" onchange="updateCheckout(); checkRoomAvailability();" required>
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Estimated Check-out</label>
+    <input type="text" id="checkout_datetime" class="form-control" readonly placeholder="Select check-in time first">
+</div>
+
+<div id="availability-message" class="mb-3"></div>
+
+                                    <!-- <div class="mb-3">
                                         <label class="form-label">Total Price</label>
                                         <div class="input-group">
                                             <span class="input-group-text">₱</span>
                                             <input type="text" id="total_price" class="form-control" readonly placeholder="0.00">
                                         </div>
-                                    </div>
+                                    </div> -->
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- Payment Information -->
-                        <div class="col-12">
-                            <div class="payment-card" data-aos="fade-up" data-aos-delay="300">
-                                <div class="form-card-header">
-                                    <h6><i class="fas fa-credit-card me-2"></i>Payment Information</h6>
-                                </div>
-                                <div class="form-card-body">
-                                    <div class="row">
-                                        <div class="col-md-4 mb-3">
-                                            <label class="form-label">Payment Method *</label>
-                                            <select name="payment_mode" class="form-select" onchange="togglePaymentFields(this.value)" required>
-                                                <option value="">Select payment method</option>
-                                                <option value="Cash">💵 Cash Payment</option>
-                                                <option value="GCash">📱 GCash</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-4 mb-3">
-                                            <label class="form-label">Amount to Pay *</label>
-                                            <div class="input-group">
-                                                <span class="input-group-text">₱</span>
-                                                <input type="number" name="amount_paid" class="form-control" step="0.01" oninput="calculateChange()" required placeholder="0.00">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4 mb-3" id="change_field" style="display: none;">
-                                            <label class="form-label">Change</label>
-                                            <div class="input-group">
-                                                <span class="input-group-text">₱</span>
-                                                <input type="text" id="change_display" class="form-control" readonly placeholder="0.00">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- GCash Section -->
-                                    <div id="gcash_section" class="gcash-section" style="display: none;">
-                                        <div class="row align-items-center">
-                                            <div class="col-md-8">
-                                                <div class="alert alert-info mb-3">
-                                                    <i class="fas fa-info-circle me-2"></i>
-                                                    <strong>GCash Payment Instructions:</strong><br>
-                                                    1. Send your payment to the GCash number provided<br>
-                                                    2. Take a screenshot of the transaction<br>
-                                                    3. Enter the 13-digit reference number below
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label class="form-label">GCash Reference Number *</label>
-                                                    <input type="text" name="reference_number" class="form-control" placeholder="Enter 13-digit reference number" maxlength="13">
-                                                    <div class="form-text">This can be found in your GCash transaction receipt</div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="gcash-info">
-                                                    <div class="mb-2">
-                                                        <i class="fab fa-google-pay fa-2x text-primary mb-2"></i>
-                                                    </div>
-                                                    <p class="mb-1"><strong>GCash Number:</strong></p>
-                                                    <p class="gcash-number">09123456789</p>
-                                                    <p class="mb-1"><strong>Account Name:</strong></p>
-                                                    <p class="text-muted mb-0">Gitarra Apartelle</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+<!-- Booking Summary -->
+<div class="col-12">
+    <div class="payment-card" data-aos="fade-up" data-aos-delay="300">
+        <div class="form-card-header">
+            <h6><i class="fas fa-info-circle me-2"></i>Booking Summary</h6>
+        </div>
+        <div class="form-card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Total Amount</label>
+                    <div class="input-group">
+                        <span class="input-group-text">₱</span>
+                        <input type="text" id="total_price_display" class="form-control" readonly placeholder="0.00">
                     </div>
-                    
-                    <input type="hidden" id="room_data" value='<?= json_encode($rooms) ?>'>
+                    <input type="hidden" name="total_price" id="total_price_hidden">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Stay Duration</label>
+                    <input type="text" id="duration_display" class="form-control" readonly placeholder="Not selected">
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Payment Instructions:</strong><br>
+                Payment will be collected upon check-in at the front desk. You can pay via Cash or GCash.
+            </div>
+            
+            <div class="booking-details mt-3">
+                <h6 class="mb-3">Booking Details Summary:</h6>
+                <table class="table table-bordered">
+                    <tbody>
+                        <tr>
+                            <td><strong>Guest Name:</strong></td>
+                            <td id="summary_guest">-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Contact:</strong></td>
+                            <td id="summary_contact">-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Room:</strong></td>
+                            <td id="summary_room">-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Check-in:</strong></td>
+                            <td id="summary_checkin">-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Check-out:</strong></td>
+                            <td id="summary_checkout">-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Total Amount:</strong></td>
+                            <td id="summary_total"><strong>₱0.00</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<input type="hidden" id="room_data" value='<?= json_encode($rooms) ?>'>
+
+<!-- Hidden payment fields with default values -->
+<input type="hidden" name="payment_mode" value="pending">
+<input type="hidden" name="amount_paid" value="0">
+<input type="hidden" name="reference_number" value="">
                     
                     <div class="d-grid gap-2 mt-4" data-aos="fade-up" data-aos-delay="400">
                         <button type="submit" class="btn btn-primary btn-lg">
@@ -1105,7 +1222,8 @@ while ($room = $result->fetch_assoc()) {
                                     <i class="fas fa-map-marker-alt"></i>
                                 </div>
                                 <h5>Visit Us</h5>
-                                <p class="text-muted">123 Main Street, City Center</p>
+                                <p class="text-muted">
+Purok 6 Bunggo road barangay Bunggo, Calamba, Philippines, 4027</p>
                             </div>
                         </div>
                     </div>
@@ -1114,19 +1232,62 @@ while ($room = $result->fetch_assoc()) {
         </div>
     </section>
 
-    <!-- Footer -->
-    <footer class="py-4" style="background: var(--text-dark); color: white;">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <p class="mb-0">&copy; 2024 Gitarra Apartelle. All rights reserved.</p>
-                </div>
-                <div class="col-md-6 text-md-end">
-                    <p class="mb-0">Made with <i class="fas fa-heart text-danger"></i> for our guests</p>
-                </div>
-            </div>
+<!-- Footer -->
+<footer class="custom-footer">
+  <div class="container">
+    <div class="footer-content">
+      <!-- Column 1: Brand & Navigation -->
+      <div class="footer-column">
+        <h5 class="footer-brand">Gitarra Apartelle</h5>
+        <ul class="footer-nav list-unstyled">
+          <li><a href="#hero">Home</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#booking">Book Now</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </div>
+
+      <!-- Column 2: Contact Info -->
+      <div class="footer-column">
+        <div class="contact-section">
+          <h6>Call Us</h6>
+          <p>+63 912 345 6789</p>
         </div>
-    </footer>
+        <div class="contact-section">
+          <h6>Email Us</h6>
+          <p><a href="mailto:gitarraapartelle@gmail.com">gitarraapartelle@gmail.com</a></p>
+        </div>
+        <div class="contact-section">
+          <h6>Visit Us</h6>
+          <p>
+Purok 6 Bunggo road barangay Bunggo, Calamba, Philippines, 4027</p>
+        </div>
+      </div>
+
+      <!-- Column 3: Map -->
+      <div class="footer-column">
+        <h6>Our Location</h6>
+        <div class="map-container">
+          <iframe 
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3868.648972775003!2d121.06453207467415!3d14.156723186278718!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33bd7b43ac989a09%3A0x6ab86b83dce9dcc6!2sGITARRA%20Apartelle%20(HOTEL)!5e0!3m2!1sen!2sph!4v1761133744027!5m2!1sen!2sph"
+            width="100%"
+            height="180"
+            style="border:0; border-radius:8px;"
+            allowfullscreen=""
+            loading="lazy">
+          </iframe>
+        </div>
+      </div>
+    </div>
+
+    <hr class="footer-divider">
+
+    <div class="footer-bottom">
+      <p>&copy; 2024 Gitarra Apartelle. All rights reserved.</p>
+    </div>
+  </div>
+</footer>
+
 
     <!-- Loading Modal -->
 <div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true">
@@ -1198,12 +1359,27 @@ while ($room = $result->fetch_assoc()) {
             const form = document.getElementById('bookingForm');
             form.classList.add('loading');
             
-            const age = parseInt(document.querySelector('input[name="age"]').value);
+            const ageInput = document.querySelector('input[name="age"]');
+            const age = parseInt(ageInput.value);
+
             if (age < 18) {
-                alert("Guest must be at least 18 years old.");
+                ageInput.classList.add('is-invalid');
+                
+                // Show toast notification
+                showToast("Guest must be at least 18 years old.", 'danger', 4000);
+                
+                // Scroll to the age input
+                ageInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Focus on the input
+                ageInput.focus();
+                
                 form.classList.remove('loading');
                 return false;
             }
+
+            // Remove invalid class if age is valid
+            ageInput.classList.remove('is-invalid');
 
             const paymentMode = document.querySelector('select[name="payment_mode"]').value;
             const amountPaid = parseFloat(document.querySelector('input[name="amount_paid"]').value) || 0;
@@ -1398,6 +1574,388 @@ while ($room = $result->fetch_assoc()) {
       console.error(err);
     });
   });
+});
+
+
+// Store booked schedules for each room
+const roomSchedules = <?php
+    $schedule_query = "SELECT room_number, check_in_date, check_out_date 
+                       FROM checkins 
+                       WHERE status IN ('scheduled', 'checked_in')";
+    $schedule_result = $conn->query($schedule_query);
+    $schedules = [];
+    while ($schedule = $schedule_result->fetch_assoc()) {
+        $room_num = $schedule['room_number'];
+        if (!isset($schedules[$room_num])) {
+            $schedules[$room_num] = [];
+        }
+        $schedules[$room_num][] = [
+            'check_in' => $schedule['check_in_date'],
+            'check_out' => $schedule['check_out_date']
+        ];
+    }
+    echo json_encode($schedules);
+?>;
+
+function checkRoomAvailability() {
+    const roomSelect = document.getElementById('room_select');
+    const checkinInput = document.getElementById('checkin_input');
+    const durationSelect = document.getElementById('duration_select');
+    const messageDiv = document.getElementById('availability-message');
+    
+    const roomNumber = roomSelect.value;
+    const checkinTime = checkinInput.value;
+    const duration = parseInt(durationSelect.value);
+    
+    if (!roomNumber || !checkinTime || !duration) {
+        messageDiv.innerHTML = '';
+        return true;
+    }
+    
+    // Calculate checkout time
+    const selectedCheckin = new Date(checkinTime);
+    const selectedCheckout = new Date(selectedCheckin.getTime() + duration * 60 * 60 * 1000);
+    
+    const schedules = roomSchedules[roomNumber] || [];
+    
+    // Check for conflicts
+    let isAvailable = true;
+    let conflictSchedule = null;
+    
+    for (let schedule of schedules) {
+        const bookedCheckin = new Date(schedule.check_in);
+        const bookedCheckout = new Date(schedule.check_out);
+        
+        // Check for overlap: (start1 < end2) AND (end1 > start2)
+        if (selectedCheckin < bookedCheckout && selectedCheckout > bookedCheckin) {
+            isAvailable = false;
+            conflictSchedule = schedule;
+            break;
+        }
+    }
+    
+    if (isAvailable) {
+        messageDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle"></i> Room is available for selected time period</div>';
+        checkinInput.setCustomValidity('');
+        return true;
+    } else {
+        const bookedCheckin = new Date(conflictSchedule.check_in);
+        const bookedCheckout = new Date(conflictSchedule.check_out);
+        
+        const formattedCheckin = bookedCheckin.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+        
+        const formattedCheckout = bookedCheckout.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+        
+        messageDiv.innerHTML = `<div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i> <strong>Room Not Available</strong><br>
+            This room is booked from <strong>${formattedCheckin}</strong> to <strong>${formattedCheckout}</strong>.<br>
+            Please select a different time or room.
+        </div>`;
+        
+        checkinInput.setCustomValidity('This time slot conflicts with an existing booking');
+        return false;
+    }
+}
+
+// Add this formatDateTime function (to match your checkout format)
+function formatDateTime(date) {
+    if (!(date instanceof Date) || isNaN(date)) {
+        return '-';
+    }
+    
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    let hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // 0 should be 12
+    const hoursStr = String(hours).padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hoursStr}:${minutes} ${ampm}`;
+}
+
+// Update your existing updateCheckout function
+function updateCheckout() {
+    const checkinInput = document.getElementById('checkin_input');
+    const durationSelect = document.getElementById('duration_select');
+    const checkoutDisplay = document.getElementById('checkout_datetime');
+    
+    const checkinTime = checkinInput.value;
+    const duration = parseInt(durationSelect.value);
+    
+    if (checkinTime && duration) {
+        const checkin = new Date(checkinInput.value);
+        const checkout = new Date(checkin.getTime() + duration * 60 * 60 * 1000);
+        
+        // Format to match: 22/10/2025 09:32 pm
+        const day = String(checkout.getDate()).padStart(2, '0');
+        const month = String(checkout.getMonth() + 1).padStart(2, '0');
+        const year = checkout.getFullYear();
+        
+        let hours = checkout.getHours();
+        const minutes = String(checkout.getMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'pm' : 'am';
+        hours = hours % 12;
+        hours = hours ? hours : 12; // 0 should be 12
+        const hoursStr = String(hours).padStart(2, '0');
+        
+        const formatted = `${day}/${month}/${year} ${hoursStr}:${minutes} ${ampm}`;
+        
+        checkoutDisplay.value = formatted;
+        
+        // Check availability after updating checkout
+        checkRoomAvailability();
+    } else {
+        checkoutDisplay.value = '';
+    }
+    
+    // ADD THIS LINE - Update the summary after setting checkout
+    updateBookingSummary();
+}
+
+// Update booking summary display
+function updateBookingSummary() {
+    const guestName = document.querySelector('input[name="guest_name"]')?.value || '-';
+    const telephone = document.querySelector('input[name="telephone"]')?.value || '-';
+    const roomSelect = document.getElementById('room_select');
+    const checkinInput = document.getElementById('checkin_input');
+    const checkoutDisplay = document.getElementById('checkout_datetime');
+    const totalPrice = document.getElementById('total_price_display')?.value || '0.00';
+    
+    // Update summary fields
+    document.getElementById('summary_guest').textContent = guestName;
+    document.getElementById('summary_contact').textContent = telephone;
+    
+    if (roomSelect && roomSelect.value) {
+        const roomText = roomSelect.options[roomSelect.selectedIndex].text;
+        document.getElementById('summary_room').textContent = roomText;
+    } else {
+        document.getElementById('summary_room').textContent = '-';
+    }
+    
+    // Check-in with formatted date
+    if (checkinInput && checkinInput.value) {
+        const checkin = new Date(checkinInput.value);
+        document.getElementById('summary_checkin').textContent = formatDateTime(checkin);
+    } else {
+        document.getElementById('summary_checkin').textContent = '-';
+    }
+    
+    // Check-out - just use the already formatted value
+    if (checkoutDisplay && checkoutDisplay.value && checkoutDisplay.value.trim() !== '') {
+        document.getElementById('summary_checkout').textContent = checkoutDisplay.value;
+    } else {
+        document.getElementById('summary_checkout').textContent = '-';
+    }
+    
+    document.getElementById('summary_total').innerHTML = '<strong>₱' + totalPrice + '</strong>';
+}
+
+// Add event listeners to update summary when fields change
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (!checkRoomAvailability()) {
+                e.preventDefault();
+                alert('Please resolve the room availability conflict before booking.');
+                return false;
+            }
+        });
+    }
+
+// Real-time age validation - ADD THIS
+    const ageInput = document.querySelector('input[name="age"]');
+    if (ageInput) {
+        ageInput.addEventListener('input', function() {
+            const age = parseInt(this.value);
+            
+            if (this.value && age < 18) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+        
+        ageInput.addEventListener('blur', function() {
+            const age = parseInt(this.value);
+            
+            if (this.value && age < 18) {
+                this.classList.add('is-invalid');
+            }
+        });
+    }
+
+        // Real-time phone number validation with auto-formatting - REPLACE THIS SECTION
+    const telephoneInput = document.querySelector('input[name="telephone"]');
+    if (telephoneInput) {
+        // Format phone number as user types
+        telephoneInput.addEventListener('input', function(e) {
+            // Remove all non-digits
+            let value = this.value.replace(/\D/g, '');
+            
+            // Limit to 11 digits
+            if (value.length > 11) {
+                value = value.slice(0, 11);
+            }
+            
+            // Format: 09XX-XXX-XXXX
+            let formatted = '';
+            if (value.length > 0) {
+                formatted = value.slice(0, 4);
+                if (value.length > 4) {
+                    formatted += '-' + value.slice(4, 7);
+                }
+                if (value.length > 7) {
+                    formatted += '-' + value.slice(7, 11);
+                }
+            }
+            
+            this.value = formatted;
+            
+            // Validate: must be exactly 11 digits (13 chars with dashes)
+            const digitsOnly = formatted.replace(/\D/g, '');
+            if (digitsOnly.length > 0 && digitsOnly.length !== 11) {
+                this.classList.add('is-invalid');
+            } else if (digitsOnly.length === 11 && !digitsOnly.startsWith('09')) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+        
+        // Validate on blur
+        telephoneInput.addEventListener('blur', function() {
+            const digitsOnly = this.value.replace(/\D/g, '');
+            if (digitsOnly.length > 0 && (digitsOnly.length !== 11 || !digitsOnly.startsWith('09'))) {
+                this.classList.add('is-invalid');
+            }
+        });
+        
+        // Prevent non-numeric input (except backspace, delete, etc.)
+        telephoneInput.addEventListener('keypress', function(e) {
+            if (e.key && !/^\d$/.test(e.key)) {
+                e.preventDefault();
+            }
+        });
+    }
+    
+        // Real-time email validation - ADD THIS
+    const emailInput = document.querySelector('input[name="email"]');
+    if (emailInput) {
+        // Email validation regex pattern
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        
+        emailInput.addEventListener('input', function() {
+            const email = this.value.trim();
+            
+            if (email.length > 0 && !emailPattern.test(email)) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+        
+        emailInput.addEventListener('blur', function() {
+            const email = this.value.trim();
+            
+            if (email.length > 0 && !emailPattern.test(email)) {
+                this.classList.add('is-invalid');
+            }
+        });
+    }
+    
+    // Add listeners for real-time summary updates
+    const guestNameInput = document.querySelector('input[name="guest_name"]');
+    const roomSelect = document.getElementById('room_select');
+    const checkinInput = document.getElementById('checkin_input');
+    const durationSelect = document.getElementById('duration_select');
+    
+    if (guestNameInput) guestNameInput.addEventListener('input', updateBookingSummary);
+    if (telephoneInput) telephoneInput.addEventListener('input', updateBookingSummary);
+    if (roomSelect) roomSelect.addEventListener('change', updateBookingSummary);
+    if (durationSelect) durationSelect.addEventListener('change', updateBookingSummary);
+    // Note: checkinInput already calls updateCheckout() which now calls updateBookingSummary()
+});
+
+// Update the existing updatePrice function to also update summary
+function updatePrice() {
+    const roomSelect = document.getElementById('room_select');
+    const durationSelect = document.getElementById('duration_select');
+    
+    if (!roomSelect || !durationSelect) return;
+    
+    const roomNumber = roomSelect.value;
+    const duration = durationSelect.value;
+    
+    if (roomNumber && duration) {
+        const roomsData = JSON.parse(document.getElementById('room_data').value);
+        const room = Object.values(roomsData).find(r => r.room_number == roomNumber);
+        
+        if (room) {
+            let price = 0;
+            let durationText = '';
+            
+            switch(duration) {
+                case '3':
+                    price = parseFloat(room.price_3hrs);
+                    durationText = '3 Hours';
+                    break;
+                case '6':
+                    price = parseFloat(room.price_6hrs);
+                    durationText = '6 Hours';
+                    break;
+                case '12':
+                    price = parseFloat(room.price_12hrs);
+                    durationText = '12 Hours';
+                    break;
+                case '24':
+                    price = parseFloat(room.price_24hrs);
+                    durationText = '24 Hours';
+                    break;
+                case '48':
+                    price = parseFloat(room.price_24hrs) * 2;
+                    durationText = '48 Hours (2 Days)';
+                    break;
+            }
+            
+            document.getElementById('total_price_display').value = price.toFixed(2);
+            document.getElementById('total_price_hidden').value = price.toFixed(2);
+            document.getElementById('duration_display').value = durationText;
+            
+            // Update summary
+            updateBookingSummary();
+        }
+    }
+}
+
+// Add event listeners to update summary when fields change
+document.addEventListener('DOMContentLoaded', function() {
+    const guestNameInput = document.querySelector('input[name="guest_name"]');
+    const telephoneInput = document.querySelector('input[name="telephone"]');
+    
+    if (guestNameInput) {
+        guestNameInput.addEventListener('input', updateBookingSummary);
+    }
+    
+    if (telephoneInput) {
+        telephoneInput.addEventListener('input', updateBookingSummary);
+    }
 });
     </script>
 </body>
