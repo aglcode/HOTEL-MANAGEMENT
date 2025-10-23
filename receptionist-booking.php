@@ -654,6 +654,21 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
   margin-right: 0;
 }
 
+#availability-message .alert {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Responsive Adjustments */
 @media (max-width: 992px) {
   .content {
@@ -1085,7 +1100,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                             <!-- Guest Information -->
                             <div class="col-md-6">
                                 <div class="card border-0 shadow-sm h-100 rounded-3">
-                                    <div class="card-header bg-primary text-white rounded-top-3">
+                                    <div class="card-header text-white rounded-top-3" style="background-color: #8b1d2d;">
                                         <h6 class="mb-0 fw-semibold"><i class="fas fa-user me-2"></i>Guest Information</h6>
                                     </div>
                                     <div class="card-body">
@@ -1094,25 +1109,28 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                                             <input type="text" name="guest_name" id="guestName" class="form-control" required>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="email" class="form-label fw-medium">Email Address *</label>
-                                            <input type="email" name="email" id="email" class="form-control" required>
-                                            <small class="text-muted">We'll send your booking confirmation here</small>
+                                            <label class="form-label">Email Address *</label>
+                                            <input type="email" name="email" id="email_input" class="form-control" required placeholder="your.email@example.com">
+                                            <div class="form-text">We'll send your booking confirmation to this email</div>
+                                            <div class="invalid-feedback">Please enter a valid email address (e.g., name@example.com).</div>
                                         </div>
                                         <div class="mb-3">
                                             <label for="telephone" class="form-label fw-medium">Phone Number *</label>
-                                            <input type="text" name="telephone" id="telephone" class="form-control" required pattern="\d{10,11}">
-                                            <small class="text-muted">Enter a valid 10-11 digit phone number</small>
+                                            <input type="text" name="telephone" id="telephone" class="form-control" required placeholder="09XX-XXX-XXXX" maxlength="13">
+                                            <small class="text-muted">Enter a valid 11-digit phone number (format: 09XX-XXX-XXXX)</small>
+                                            <div class="invalid-feedback">Please enter exactly 11 digits starting with 09.</div>
                                         </div>
                                         <div class="mb-3">
                                             <label for="address" class="form-label fw-medium">Complete Address *</label>
                                             <input type="text" name="address" id="address" class="form-control" required>
                                         </div>
                                         <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <label for="age" class="form-label fw-medium">Age *</label>
-                                                <input type="number" name="age" id="age" class="form-control" required>
-                                                <small class="text-muted">Must be 18+</small>
-                                            </div>
+                                        <div class="col-md-6">
+                                            <label for="age" class="form-label fw-medium">Age *</label>
+                                            <input type="number" name="age" id="age" class="form-control" required min="18" max="120" placeholder="18">
+                                            <small class="text-muted">Must be 18 years or older</small>
+                                            <div class="invalid-feedback">You must be at least 18 years old to book.</div>
+                                        </div>
                                             <div class="col-md-6">
                                                 <label for="numPeople" class="form-label fw-medium">Guests *</label>
                                                 <input type="number" name="num_people" id="numPeople" class="form-control" required>
@@ -1125,43 +1143,52 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                             <!-- Booking Details -->
                             <div class="col-md-6">
                                 <div class="card border-0 shadow-sm h-100 rounded-3">
-                                    <div class="card-header bg-primary text-white rounded-top-3">
+                                    <div class="card-header text-white rounded-top-3" style="background-color: #8b1d2d;">
                                         <h6 class="mb-0 fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Booking Details</h6>
                                     </div>
                                     <div class="card-body">
                                         <div class="mb-3">
-                                            <label for="roomNumber" class="form-label fw-medium">Select Room *</label>
-                                            <select name="room_number" id="roomNumber" class="form-select" required onchange="updatePrice()">
-                                                <option value="">Choose your preferred room</option>
-                                                <?php
-                                               // ✅ Show all rooms, even if currently booked, so future booking is allowed
-                                            $room_query = "
-                                                SELECT room_number, room_type, price_3hrs, price_6hrs, price_12hrs, price_24hrs, price_ot, status
-                                                FROM rooms
-                                                ORDER BY room_number ASC
-                                            ";
-                                            $room_result = $conn->query($room_query);
+    <label for="roomNumber" class="form-label fw-medium">Select Room *</label>
+    <select name="room_number" id="roomNumber" class="form-select" required onchange="updatePrice(); checkRoomAvailability();">
+        <option value="">Choose your preferred room</option>
+        <?php
+        // Show all rooms, even if currently booked, so future booking is allowed
+        $room_query = "
+            SELECT room_number, room_type, price_3hrs, price_6hrs, price_12hrs, price_24hrs, price_ot, status
+            FROM rooms
+            ORDER BY room_number ASC
+        ";
+        $room_result = $conn->query($room_query);
 
-                                            while ($room = $room_result->fetch_assoc()) {
-                                                // Label booked rooms visually but still selectable
-                                                $disabled = ($room['status'] === 'maintenance') ? 'disabled' : ''; // disable only maintenance rooms
-                                                $label = ucfirst($room['status']);
-                                                $display_text = "Room {$room['room_number']} ({$room['room_type']}) - {$label}";
-                                                
-                                                echo "<option value='{$room['room_number']}' 
-                                                        data-price3='{$room['price_3hrs']}'
-                                                        data-price6='{$room['price_6hrs']}'
-                                                        data-price12='{$room['price_12hrs']}'
-                                                        data-price24='{$room['price_24hrs']}'
-                                                        data-priceOt='{$room['price_ot']}'
-                                                        $disabled>
-                                                        $display_text
-                                                      </option>";
-                                            }
+        while ($room = $room_result->fetch_assoc()) {
+            // Disable only maintenance rooms
+            $disabled = ($room['status'] === 'maintenance') ? 'disabled' : '';
+            $label = ucfirst($room['status']);
+            $display_text = "Room {$room['room_number']} - {$room['room_type']}";
+            
+            // Add status indicator for currently booked rooms
+            if ($room['status'] === 'booked') {
+                $display_text .= " (Currently Booked)";
+            }
+            
+            echo "<option value='{$room['room_number']}' 
+                    data-price3='{$room['price_3hrs']}'
+                    data-price6='{$room['price_6hrs']}'
+                    data-price12='{$room['price_12hrs']}'
+                    data-price24='{$room['price_24hrs']}'
+                    data-priceOt='{$room['price_ot']}'
+                    data-status='{$room['status']}'
+                    $disabled>
+                    $display_text
+                  </option>";
+        }
+        ?>
+    </select>
+</div>
 
-                                                ?>
-                                            </select>
-                                        </div>
+<!-- Availability message display area -->
+<div id="availability-message" class="mb-3"></div>
+
                                         <div class="mb-3">
                                             <label for="duration" class="form-label fw-medium">Stay Duration *</label>
                                             <select name="duration" id="duration" class="form-select" required>
@@ -1191,7 +1218,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 
                         <!-- Payment Information -->
                         <div class="card shadow-sm border-0 mt-4 rounded-3">
-                            <div class="card-header text-white rounded-top-3" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);">
+                        <div class="card-header text-white rounded-top-3" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%);">
                                 <h6 class="mb-0 fw-semibold">
                                     <i class="fas fa-credit-card me-2"></i>Payment Information
                                 </h6>
@@ -1209,7 +1236,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                                     <div class="col-md-6">
                                         <label for="amountPaid" class="form-label fw-medium">Amount to Pay *</label>
                                         <div class="input-group">
-                                            <span class="input-group-text" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
+                                            <span class="input-group-text" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%); color: #fff;">₱</span>
                                             <input type="number" name="amount_paid" id="amountPaid" class="form-control" min="0" step="0.01" required oninput="calculateChange();">
                                         </div>
                                     </div>
@@ -1250,7 +1277,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                                     <div class="col-md-6">
                                         <label for="changeAmount" class="form-label fw-medium">Change</label>
                                         <div class="input-group">
-                                            <span class="input-group-text" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
+                                            <span class="input-group-text" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%); color: #fff;">₱</span>
                                             <input type="text" id="changeAmount" class="form-control" readonly value="0.00">
                                         </div>
                                     </div>
@@ -1264,7 +1291,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                 <!-- Footer -->
                 <div class="modal-footer bg-light p-3">
                     <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary rounded-pill px-4" style="background: linear-gradient(135deg, #6a11cb 0%, #fbc2eb 100%); border: none; font-weight:600;">
+                  <button type="submit" class="btn btn-primary rounded-pill px-4" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%); border: none; font-weight:600;">
                         <i class="fas fa-calendar-check me-2"></i>Confirm & Reserve
                     </button>
                 </div>
@@ -1345,6 +1372,308 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script>
+
+// Store booked schedules for each room from BOOKINGS table
+const roomSchedules = <?php
+    $schedule_query = "SELECT room_number, start_date, end_date 
+                       FROM bookings 
+                       WHERE status NOT IN ('cancelled', 'completed')";
+    $schedule_result = $conn->query($schedule_query);
+    $schedules = [];
+    while ($schedule = $schedule_result->fetch_assoc()) {
+        $room_num = $schedule['room_number'];
+        if (!isset($schedules[$room_num])) {
+            $schedules[$room_num] = [];
+        }
+        $schedules[$room_num][] = [
+            'check_in' => $schedule['start_date'],
+            'check_out' => $schedule['end_date']
+        ];
+    }
+    echo json_encode($schedules);
+?>;
+
+function checkRoomAvailability() {
+    const roomSelect = document.getElementById('roomNumber');
+    const checkinInput = document.getElementById('startDate'); // ✅ Fixed ID
+    const durationSelect = document.getElementById('duration'); // ✅ Fixed ID
+    const messageDiv = document.getElementById('availability-message');
+    
+    const roomNumber = roomSelect?.value;
+    const checkinTime = checkinInput?.value;
+    const durationValue = durationSelect?.value;
+    
+    if (!roomNumber || !checkinTime || !durationValue) {
+        messageDiv.innerHTML = '';
+        if (checkinInput) checkinInput.setCustomValidity('');
+        return true;
+    }
+    
+    // Parse duration
+    const duration = parseInt(durationValue);
+    
+    // Calculate checkout time
+    const selectedCheckin = new Date(checkinTime);
+    const selectedCheckout = new Date(selectedCheckin.getTime() + duration * 60 * 60 * 1000);
+    
+    const schedules = roomSchedules[roomNumber] || [];
+    
+    // Check for conflicts
+    let isAvailable = true;
+    let conflictSchedule = null;
+    
+    for (let schedule of schedules) {
+        const bookedCheckin = new Date(schedule.check_in);
+        const bookedCheckout = new Date(schedule.check_out);
+        
+        // Check for overlap: (start1 < end2) AND (end1 > start2)
+        if (selectedCheckin < bookedCheckout && selectedCheckout > bookedCheckin) {
+            isAvailable = false;
+            conflictSchedule = schedule;
+            break;
+        }
+    }
+    
+    if (isAvailable) {
+        messageDiv.innerHTML = `
+            <div class="alert alert-success border-0 shadow-sm" style="background-color: #d4edda; border-radius: 12px;">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill text-success me-2" style="font-size: 1.2rem;"></i>
+                    <span class="text-success fw-medium">Room is available for selected time period</span>
+                </div>
+            </div>`;
+        if (checkinInput) checkinInput.setCustomValidity('');
+        return true;
+    } else {
+        const bookedCheckin = new Date(conflictSchedule.check_in);
+        const bookedCheckout = new Date(conflictSchedule.check_out);
+        
+        const formatOptions = {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        };
+        
+        const formattedCheckin = bookedCheckin.toLocaleString('en-US', formatOptions);
+        const formattedCheckout = bookedCheckout.toLocaleString('en-US', formatOptions);
+        
+        messageDiv.innerHTML = `
+            <div class="alert alert-danger border-0 shadow-sm" style="background-color: #f8d7da; border-radius: 12px;">
+                <div class="mb-2">
+                    <strong class="text-danger" style="font-size: 1.1rem;">Room Not Available</strong>
+                </div>
+                <p class="mb-0 text-danger">
+                    This room is booked from <strong>${formattedCheckin}</strong> to <strong>${formattedCheckout}</strong>.<br>
+                    Please select a different time or room.
+                </p>
+            </div>`;
+        
+        if (checkinInput) checkinInput.setCustomValidity('This time slot conflicts with an existing booking');
+        return false;
+    }
+}
+
+// Add event listeners when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const roomSelect = document.getElementById('roomNumber');
+    const checkinInput = document.getElementById('startDate'); // ✅ Fixed ID
+    const durationSelect = document.getElementById('duration'); // ✅ Fixed ID
+    const bookingModal = document.getElementById('bookingModal');
+    
+    // Check availability when any field changes
+    if (roomSelect) roomSelect.addEventListener('change', checkRoomAvailability);
+    if (checkinInput) checkinInput.addEventListener('change', checkRoomAvailability);
+    if (durationSelect) durationSelect.addEventListener('change', checkRoomAvailability);
+    
+    // Prevent form submission if there's a conflict
+    if (bookingModal) {
+        const bookingForm = bookingModal.querySelector('form');
+        if (bookingForm) {
+            bookingForm.addEventListener('submit', function(e) {
+                const isAvailable = checkRoomAvailability();
+                
+                if (!isAvailable) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Scroll to the error message
+                    const messageDiv = document.getElementById('availability-message');
+                    if (messageDiv) {
+                        messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    
+                    // Show additional alert
+                    setTimeout(() => {
+                        alert('⚠️ Cannot proceed with booking!\n\nThis room is not available for the selected time period. Please choose a different time or room.');
+                    }, 300);
+                    
+                    return false;
+                }
+            });
+        }
+    }
+});
+
+// Real-time email validation
+const emailInput = document.querySelector('input[name="email"]');
+if (emailInput) {
+    // Email validation regex pattern
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    emailInput.addEventListener('input', function() {
+        const email = this.value.trim();
+        
+        if (email.length > 0 && !emailPattern.test(email)) {
+            this.classList.add('is-invalid');
+        } else {
+            this.classList.remove('is-invalid');
+        }
+    });
+    
+    emailInput.addEventListener('blur', function() {
+        const email = this.value.trim();
+        
+        if (email.length > 0 && !emailPattern.test(email)) {
+            this.classList.add('is-invalid');
+        }
+    });
+    
+    // Add form submission validation
+    const form = emailInput.closest('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const email = emailInput.value.trim();
+            
+            if (!emailPattern.test(email)) {
+                e.preventDefault();
+                emailInput.classList.add('is-invalid');
+                emailInput.focus();
+            }
+        });
+    }
+}
+
+// Phone number validation and auto-formatting
+const phoneInput = document.querySelector('input[name="telephone"]');
+if (phoneInput) {
+    phoneInput.addEventListener('input', function(e) {
+        // Remove all non-digit characters
+        let value = this.value.replace(/\D/g, '');
+        
+        // Limit to 11 digits
+        if (value.length > 11) {
+            value = value.slice(0, 11);
+        }
+        
+        // Auto-format to 09XX-XXX-XXXX
+        if (value.length >= 4) {
+            value = value.slice(0, 4) + '-' + value.slice(4);
+        }
+        if (value.length >= 8) {
+            value = value.slice(0, 8) + '-' + value.slice(8);
+        }
+        
+        this.value = value;
+        
+        // Validation: must be exactly 11 digits and start with 09
+        const digitsOnly = value.replace(/\D/g, '');
+        if (digitsOnly.length === 11 && digitsOnly.startsWith('09')) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else if (digitsOnly.length > 0) {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        } else {
+            this.classList.remove('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    });
+    
+    phoneInput.addEventListener('blur', function() {
+        const digitsOnly = this.value.replace(/\D/g, '');
+        
+        if (digitsOnly.length > 0 && (digitsOnly.length !== 11 || !digitsOnly.startsWith('09'))) {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    });
+    
+    // Form submission validation
+    const form = phoneInput.closest('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const digitsOnly = phoneInput.value.replace(/\D/g, '');
+            
+            if (digitsOnly.length !== 11 || !digitsOnly.startsWith('09')) {
+                e.preventDefault();
+                phoneInput.classList.add('is-invalid');
+                phoneInput.classList.remove('is-valid');
+                phoneInput.focus();
+            }
+        });
+    }
+}
+// Age validation (18+)
+const ageInput = document.querySelector('input[name="age"]');
+if (ageInput) {
+    ageInput.addEventListener('input', function() {
+        const age = parseInt(this.value);
+        
+        // Remove invalid class when empty
+        if (this.value === '') {
+            this.classList.remove('is-invalid');
+            this.classList.remove('is-valid');
+            return;
+        }
+        
+        // Validate age
+        if (age < 18 || age > 120 || isNaN(age)) {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        } else {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        }
+    });
+    
+    ageInput.addEventListener('blur', function() {
+        const age = parseInt(this.value);
+        
+        if (this.value !== '' && (age < 18 || age > 120 || isNaN(age))) {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    });
+    
+    // Prevent typing negative numbers and decimals
+    ageInput.addEventListener('keydown', function(e) {
+        // Prevent minus sign, plus sign, decimal point, and 'e'
+        if (e.key === '-' || e.key === '+' || e.key === '.' || e.key === 'e' || e.key === 'E') {
+            e.preventDefault();
+        }
+    });
+    
+    // Form submission validation
+    const form = ageInput.closest('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const age = parseInt(ageInput.value);
+            
+            if (age < 18 || age > 120 || isNaN(age) || ageInput.value === '') {
+                e.preventDefault();
+                ageInput.classList.add('is-invalid');
+                ageInput.classList.remove('is-valid');
+                ageInput.focus();
+                
+                // Show alert for better UX
+                alert('You must be at least 18 years old to make a booking.');
+            }
+        });
+    }
+}
+
     // Update clock
     function updateClock() {
         const now = new Date();
