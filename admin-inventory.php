@@ -512,6 +512,7 @@ try {
       <a href="admin-report.php"><i class="fa-solid fa-file-lines"></i> Reports</a>
       <a href="admin-supplies.php"><i class="fa-solid fa-cube"></i> Supplies</a>
       <a href="admin-inventory.php" class="active"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
+      <a href="admin-archive.php"><i class="fa-solid fa-archive"></i> Archived</a>
     </div>
 
     <div class="signout">

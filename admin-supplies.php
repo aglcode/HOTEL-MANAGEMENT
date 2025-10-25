@@ -47,21 +47,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         exit();
     }
-    elseif ($action === 'delete' && $id) {
-        $stmt = $conn->prepare("DELETE FROM supplies WHERE id = ?");
-        $stmt->bind_param("i", $id);
-        if ($stmt->execute()) {
-            header("Location: admin-supplies.php?success=deleted");
-        } else {
-            $errorCode = $conn->errno;
-            if ($errorCode == 1451) { // foreign key violation
-                header("Location: admin-supplies.php?error=foreign_key_violation");
-            } else {
-                header("Location: admin-supplies.php?error=unknown");
-            }
-        }
-        exit();
+elseif ($action === 'archive' && $id) {
+    // Archive the supply instead of deleting
+    $stmt = $conn->prepare("UPDATE supplies SET is_archived = 1, archived_at = NOW() WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    if ($stmt->execute()) {
+        header("Location: admin-supplies.php?success=archived");
+    } else {
+        header("Location: admin-supplies.php?error=unknown");
     }
+    exit();
+}
 }
 
 $search = $_GET['search'] ?? '';
@@ -82,7 +78,8 @@ if (!empty($category)) {
     $types .= 's';
 }
 
-$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+$where[] = "is_archived = 0";
+$whereSql = 'WHERE ' . implode(' AND ', $where);
 $stmt = $conn->prepare("SELECT * FROM supplies $whereSql ORDER BY name ASC");
 if ($types) $stmt->bind_param($types, ...$params);
 $stmt->execute();
@@ -108,6 +105,9 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <style>
+    .user-actions .action-btn.archive:hover {
+  color: #f59e0b; /* amber/orange color */
+}
 .stat-card {
     border-radius: 12px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.05);
@@ -248,8 +248,8 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
   color: #2563eb; /* blue-600 */
 }
 
-.user-actions .action-btn.delete:hover {
-  color: #dc2626; /* red-600 */
+.user-actions .action-btn.archive:hover {
+  color: #f59e0b; /* amber/orange */
 }
 
   /* === Sidebar Navigation === */
@@ -414,6 +414,7 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
       <a href="admin-report.php"><i class="fa-solid fa-file-lines"></i> Reports</a>
       <a href="admin-supplies.php" class="active"><i class="fa-solid fa-cube"></i> Supplies</a>
       <a href="admin-inventory.php"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
+      <a href="admin-archive.php"><i class="fa-solid fa-archive"></i> Archived</a>
     </div>
 
     <div class="signout">
@@ -545,7 +546,7 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
           <?php
             if ($_GET['success'] == 'added') echo "Supply added successfully!";
             if ($_GET['success'] == 'edited') echo "Supply edited successfully!";
-            if ($_GET['success'] == 'deleted') echo "Supply deleted successfully!";
+            if ($_GET['success'] == 'archived') echo "Supply archived successfully!";
           ?>
         </div>
         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
@@ -670,10 +671,10 @@ document.addEventListener("DOMContentLoaded", () => {
                       onclick="populateEditForm(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>', <?= $s['price'] ?>, <?= $s['quantity'] ?>, '<?= $s['category'] ?>')">
                   <i class="fas fa-edit"></i>
                 </span>
-                <span class="action-btn delete" 
-                      onclick="confirmDelete(<?= $s['id'] ?>)">
-                  <i class="fas fa-trash"></i>
-                </span>
+<span class="action-btn archive" 
+      onclick="confirmArchive(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>')">
+  <i class="fas fa-archive"></i>
+</span>
               </td>
             </tr>
             <?php endforeach; ?>
@@ -776,40 +777,40 @@ document.addEventListener("DOMContentLoaded", () => {
     <div class="modal-content border-0 shadow-lg">
       
       <!-- Header -->
-      <div class="modal-header border-0 pb-2">
-        <h5 class="modal-title fw-bold text-danger" id="deleteModalLabel">
-          <i class="fas fa-exclamation-triangle me-2"></i>Confirm Deletion
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
+<div class="modal-header border-0 pb-2">
+  <h5 class="modal-title fw-bold text-warning" id="deleteModalLabel">
+    <i class="fas fa-archive me-2"></i>Archive Supply
+  </h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
       <hr class="my-0">
 
       <!-- Body -->
-      <div class="modal-body text-center">
-        <div class="mb-3">
-          <div class="rounded-circle bg-danger bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
-            <i class="fas fa-trash text-danger fa-2x"></i>
-          </div>
-        </div>
-        <h5 class="fw-bold mb-2">Delete supply?</h5>
-        <p class="text-muted mb-0">
-          Are you sure you want to delete this supply?<br>
-          This action cannot be undone and all associated data will be permanently removed.
-        </p>
-      </div>
+<div class="modal-body text-center">
+  <div class="mb-3">
+    <div class="rounded-circle bg-warning bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
+      <i class="fas fa-archive text-warning fa-2x"></i>
+    </div>
+  </div>
+  <h5 class="fw-bold mb-2">Archive this supply?</h5>
+  <p class="text-muted mb-0">
+    Are you sure you want to archive <span id="supplyToArchive" class="fw-semibold text-dark"></span>?<br>
+    This supply will be moved to the archive. You can restore or permanently delete it from the archive page.
+  </p>
+</div>
       <hr class="my-0">
 
       <!-- Footer -->
-      <div class="modal-footer border-0 justify-content-center">
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-        <form id="deleteForm" method="POST" style="display:inline">
-          <input type="hidden" name="action" value="delete">
-          <input type="hidden" name="id" id="deleteSupplyId">
-          <button type="submit" class="btn btn-danger">
-            <i class="fas fa-trash me-1"></i> Delete
-          </button>
-        </form>
-      </div>
+<div class="modal-footer border-0 justify-content-center">
+  <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+  <form id="archiveForm" method="POST" style="display:inline">
+    <input type="hidden" name="action" value="archive">
+    <input type="hidden" name="id" id="archiveSupplyId">
+    <button type="submit" class="btn btn-warning">
+      <i class="fas fa-archive me-1"></i> Archive Supply
+    </button>
+  </form>
+</div>
 
     </div>
   </div>
@@ -850,9 +851,10 @@ function resetAddForm() {
   document.getElementById('supplySubmitBtn').innerText = 'Add Supply';
 }
 
-// Triggered when clicking the "Delete" button
-function confirmDelete(id) {
-  document.getElementById('deleteSupplyId').value = id;
+// Triggered when clicking the "Archive" button
+function confirmArchive(id, name) {
+  document.getElementById('archiveSupplyId').value = id;
+  document.getElementById('supplyToArchive').textContent = name;
   const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
   modal.show();
 }
