@@ -473,7 +473,7 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
                     <i class="fas fa-tags"></i>
                 </div>
             </div>
-            <h3 class="fw-bold mb-1">3</h3>
+            <h3 class="fw-bold mb-1">2</h3>
             <p class="stat-change text-success">+2% <span>from last month</span></p>
         </div>
     </div>
@@ -515,9 +515,8 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
           <span class="input-group-text bg-white"><i class="fas fa-tags"></i></span>
           <select name="category" class="form-select border-start-0 same-height">
             <option value="">All Categories</option>
-            <option value="Cleaning" <?= $category === 'Cleaning' ? 'selected' : '' ?>>Cleaning</option>
-            <option value="Maintenance" <?= $category === 'Maintenance' ? 'selected' : '' ?>>Maintenance</option>
             <option value="Food" <?= $category === 'Food' ? 'selected' : '' ?>>Food</option>
+            <option value="Non-Food" <?= $category === 'Non-Food' ? 'selected' : '' ?>>Non-Food</option>
           </select>
         </div>
       </div>
@@ -622,12 +621,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="d-flex align-items-center">
                   <!-- Avatar with custom category colors -->
                   <div class="avatar-sm 
-                      <?php if ($s['category'] == 'Cleaning'): ?>
-                        bg-blue-100 text-blue-800 border-blue-200
-                      <?php elseif ($s['category'] == 'Maintenance'): ?>
-                        bg-amber-100 text-amber-800 border-amber-200
-                      <?php else: ?>
+                      <?php if ($s['category'] == 'Food'): ?>
                         bg-green-100 text-green-800 border-green-200
+                      <?php else: ?>
+                        bg-info-100 text-info-800 border-info-200
                       <?php endif; ?>
                       rounded-circle d-flex align-items-center justify-content-center me-2" 
                       style="width: 32px; height: 32px; border:1px solid;">
@@ -638,15 +635,13 @@ document.addEventListener("DOMContentLoaded", () => {
               </td>
               <td>₱<?= number_format($s['price'], 2) ?></td>
                 <td>
-                  <span class="badge rounded-pill 
-                    <?php if ($s['quantity'] > 10): ?>
-                      bg-green-100 text-green-800 border-green-200
-                    <?php elseif ($s['quantity'] > 5): ?>
-                      bg-yellow-100 text-yellow-800 border-yellow-200
-                    <?php else: ?>
-                      bg-amber-100 text-amber-800 border-amber-200
-                    <?php endif; ?>
-                  ">
+                <span class="badge 
+                  <?php if ($s['category'] == 'Food'): ?>
+                    bg-green-100 text-green-800 border-green-200
+                  <?php else: ?>
+                    bg-blue-100 text-blue-800 border-blue-200
+                  <?php endif; ?>
+                ">
                     <?= (int)$s['quantity'] ?>
                   </span>
                 </td>
@@ -655,12 +650,10 @@ document.addEventListener("DOMContentLoaded", () => {
               <td>
                 <!-- Category badge with same custom color sets -->
                 <span class="badge 
-                  <?php if ($s['category'] == 'Cleaning'): ?>
-                    bg-yellow-100 text-yellow-800 border-yellow-200
-                  <?php elseif ($s['category'] == 'Maintenance'): ?>
-                    bg-amber-100 text-amber-800 border-amber-200
-                  <?php else: ?>
+                  <?php if ($s['category'] == 'Food'): ?>
                     bg-green-100 text-green-800 border-green-200
+                  <?php else: ?>
+                    bg-blue-100 text-blue-800 border-blue-200
                   <?php endif; ?>
                 ">
                   <?= htmlspecialchars($s['category']) ?>
@@ -751,9 +744,8 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="input-group-text bg-white"><i class="fas fa-tags"></i></span>
               <select class="form-select border-start-0" id="supplyCategory" name="category" required>
                 <option value="" disabled selected>Select a category</option>
-                <option value="Cleaning">Cleaning</option>
-                <option value="Maintenance">Maintenance</option>
                 <option value="Food">Food</option>
+                <option value="Non-Food">Non-Food</option>
               </select>
             </div>
           </div>

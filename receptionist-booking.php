@@ -68,12 +68,13 @@ $conn->query("
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_booking'])) {
     $booking_id = intval($_POST['booking_id']);
     $cancellation_reason = trim($_POST['cancellation_reason']);
+    $cancelled_by = $_SESSION['user_id'] ?? null; // Get the logged-in user's ID
     
     if (empty($cancellation_reason)) {
         $_SESSION['error_msg'] = 'Cancellation reason is required.';
     } else {
-        $stmt = $conn->prepare("UPDATE bookings SET status = 'cancelled', cancellation_reason = ?, cancelled_at = NOW() WHERE id = ?");
-        $stmt->bind_param("si", $cancellation_reason, $booking_id);
+        $stmt = $conn->prepare("UPDATE bookings SET status = 'cancelled', cancellation_reason = ?, cancelled_by = ?, cancelled_at = NOW() WHERE id = ?");
+        $stmt->bind_param("sii", $cancellation_reason, $cancelled_by, $booking_id);
         
         if ($stmt->execute()) {
             $_SESSION['success_msg'] = 'Booking has been cancelled successfully.';
