@@ -7,14 +7,32 @@ if (!isset($_GET['room_number'])) {
 }
 
 $room = $_GET['room_number'];
-$query = "SELECT * FROM orders WHERE room_number = ? AND status = 'served'";
+
+// First, get the active check-in session for this room
+$checkinQuery = "SELECT id, check_in_date FROM checkins WHERE room_number = ? AND status = 'checked_in' LIMIT 1";
+$checkinStmt = $conn->prepare($checkinQuery);
+$checkinStmt->bind_param("s", $room);
+$checkinStmt->execute();
+$checkinResult = $checkinStmt->get_result();
+
+if ($checkinResult->num_rows === 0) {
+  echo "<p>No active check-in session found for this room.</p>";
+  exit;
+}
+
+$checkinData = $checkinResult->fetch_assoc();
+$checkInDate = $checkinData['check_in_date'];
+$checkinStmt->close();
+
+// Now fetch orders created AFTER the check-in time
+$query = "SELECT * FROM orders WHERE room_number = ? AND created_at >= ? AND status = 'served' ORDER BY created_at ASC";
 $stmt = $conn->prepare($query);
-$stmt->bind_param("s", $room);
+$stmt->bind_param("ss", $room, $checkInDate);
 $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows === 0) {
-  echo "<p>No served orders found for this room.</p>";
+  echo "<p>No served orders found for this room during the current check-in session.</p>";
   exit;
 }
 

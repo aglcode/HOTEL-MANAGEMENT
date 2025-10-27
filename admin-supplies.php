@@ -11,57 +11,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $category = trim($_POST['category'] ?? '');
     $id = $_POST['id'] ?? null;
 
-    if ($action === 'edit' && $id) {
+        // Handle image upload
+    $image = null;
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $filename = $_FILES['image']['name'];
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        
+        if (in_array($ext, $allowed)) {
+            $newFilename = uniqid('supply_', true) . '.' . $ext;
+            $uploadPath = 'uploads/supplies/' . $newFilename;
+            
+            // Create directory if it doesn't exist
+            if (!is_dir('uploads/supplies')) {
+                mkdir('uploads/supplies', 0777, true);
+            }
+            
+            if (move_uploaded_file($_FILES['image']['tmp_name'], $uploadPath)) {
+                $image = $uploadPath;
+            }
+        }
+    }
+
+if ($action === 'edit' && $id) {
+    // If new image uploaded, use it; otherwise keep existing
+    if ($image) {
+        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, image = ? WHERE id = ?");
+        $stmt->bind_param("sdissi", $name, $price, $quantity, $category, $image, $id);
+    } else {
         $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ? WHERE id = ?");
         $stmt->bind_param("sdisi", $name, $price, $quantity, $category, $id);
+    }
+    if ($stmt->execute()) {
+        header("Location: admin-supplies.php?success=edited");
+    } else {
+        header("Location: admin-supplies.php?error=unknown");
+    }
+    exit();
+} 
+elseif ($action === 'add') {
+    $stmt = $conn->prepare("SELECT id, quantity FROM supplies WHERE LOWER(name) = LOWER(?) AND category = ?");
+    $stmt->bind_param("ss", $name, $category);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($row = $result->fetch_assoc()) {
+        $newQty = $row['quantity'] + $quantity;
+        $stmt = $conn->prepare("UPDATE supplies SET quantity = ?, price = ? WHERE id = ?");
+        $stmt->bind_param("idi", $newQty, $price, $row['id']);
         if ($stmt->execute()) {
             header("Location: admin-supplies.php?success=edited");
         } else {
             header("Location: admin-supplies.php?error=unknown");
         }
-        exit();
-    } 
-    elseif ($action === 'add') {
-        $stmt = $conn->prepare("SELECT id, quantity FROM supplies WHERE LOWER(name) = LOWER(?) AND category = ?");
-        $stmt->bind_param("ss", $name, $category);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        if ($row = $result->fetch_assoc()) {
-            $newQty = $row['quantity'] + $quantity;
-            $stmt = $conn->prepare("UPDATE supplies SET quantity = ?, price = ? WHERE id = ?");
-            $stmt->bind_param("idi", $newQty, $price, $row['id']);
-            if ($stmt->execute()) {
-                header("Location: admin-supplies.php?success=edited");
-            } else {
-                header("Location: admin-supplies.php?error=unknown");
-            }
-        } else {
-            $stmt = $conn->prepare("INSERT INTO supplies (name, price, quantity, category) VALUES (?, ?, ?, ?)");
-            $stmt->bind_param("sdis", $name, $price, $quantity, $category);
-            if ($stmt->execute()) {
-                header("Location: admin-supplies.php?success=added");
-            } else {
-                header("Location: admin-supplies.php?error=unknown");
-            }
-        }
-        exit();
-    }
-    elseif ($action === 'delete' && $id) {
-        $stmt = $conn->prepare("DELETE FROM supplies WHERE id = ?");
-        $stmt->bind_param("i", $id);
+    } else {
+        $stmt = $conn->prepare("INSERT INTO supplies (name, price, quantity, category, image) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sdiss", $name, $price, $quantity, $category, $image);
         if ($stmt->execute()) {
-            header("Location: admin-supplies.php?success=deleted");
+            header("Location: admin-supplies.php?success=added");
         } else {
-            $errorCode = $conn->errno;
-            if ($errorCode == 1451) { // foreign key violation
-                header("Location: admin-supplies.php?error=foreign_key_violation");
-            } else {
-                header("Location: admin-supplies.php?error=unknown");
-            }
+            header("Location: admin-supplies.php?error=unknown");
         }
-        exit();
     }
+    exit();
+}
+elseif ($action === 'archive' && $id) {
+    // Archive the supply
+    $stmt = $conn->prepare("UPDATE supplies SET is_archived = 1, archived_at = NOW() WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    if ($stmt->execute()) {
+        header("Location: admin-supplies.php?success=archived");
+    } else {
+        header("Location: admin-supplies.php?error=unknown");
+    }
+    exit();
+}
+elseif ($action === 'archive' && $id) {
+    // Archive the supply instead of deleting
+    // If new image uploaded, use it; otherwise keep existing
+    if ($image) {
+        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, image = ? WHERE id = ?");
+        $stmt->bind_param("sdissi", $name, $price, $quantity, $category, $image, $id);
+    } else {
+        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ? WHERE id = ?");
+        $stmt->bind_param("sdisi", $name, $price, $quantity, $category, $id);
+    }
+    if ($stmt->execute()) {
+        header("Location: admin-supplies.php?success=archived");
+    } else {
+        header("Location: admin-supplies.php?error=unknown");
+    }
+    exit();
+}
 }
 
 $search = $_GET['search'] ?? '';
@@ -82,7 +123,8 @@ if (!empty($category)) {
     $types .= 's';
 }
 
-$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+$where[] = "is_archived = 0";
+$whereSql = 'WHERE ' . implode(' AND ', $where);
 $stmt = $conn->prepare("SELECT * FROM supplies $whereSql ORDER BY name ASC");
 if ($types) $stmt->bind_param($types, ...$params);
 $stmt->execute();
@@ -108,6 +150,9 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <style>
+    .user-actions .action-btn.archive:hover {
+  color: #f59e0b; /* amber/orange color */
+}
 .stat-card {
     border-radius: 12px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.05);
@@ -248,8 +293,8 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
   color: #2563eb; /* blue-600 */
 }
 
-.user-actions .action-btn.delete:hover {
-  color: #dc2626; /* red-600 */
+.user-actions .action-btn.archive:hover {
+  color: #f59e0b; /* amber/orange */
 }
 
   /* === Sidebar Navigation === */
@@ -414,6 +459,7 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
       <a href="admin-report.php"><i class="fa-solid fa-file-lines"></i> Reports</a>
       <a href="admin-supplies.php" class="active"><i class="fa-solid fa-cube"></i> Supplies</a>
       <a href="admin-inventory.php"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
+      <a href="admin-archive.php"><i class="fa-solid fa-archive"></i> Archived</a>
     </div>
 
     <div class="signout">
@@ -472,7 +518,7 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
                     <i class="fas fa-tags"></i>
                 </div>
             </div>
-            <h3 class="fw-bold mb-1">3</h3>
+            <h3 class="fw-bold mb-1">2</h3>
             <p class="stat-change text-success">+2% <span>from last month</span></p>
         </div>
     </div>
@@ -514,9 +560,8 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
           <span class="input-group-text bg-white"><i class="fas fa-tags"></i></span>
           <select name="category" class="form-select border-start-0 same-height">
             <option value="">All Categories</option>
-            <option value="Cleaning" <?= $category === 'Cleaning' ? 'selected' : '' ?>>Cleaning</option>
-            <option value="Maintenance" <?= $category === 'Maintenance' ? 'selected' : '' ?>>Maintenance</option>
             <option value="Food" <?= $category === 'Food' ? 'selected' : '' ?>>Food</option>
+            <option value="Non-Food" <?= $category === 'Non-Food' ? 'selected' : '' ?>>Non-Food</option>
           </select>
         </div>
       </div>
@@ -545,7 +590,7 @@ $totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['q
           <?php
             if ($_GET['success'] == 'added') echo "Supply added successfully!";
             if ($_GET['success'] == 'edited') echo "Supply edited successfully!";
-            if ($_GET['success'] == 'deleted') echo "Supply deleted successfully!";
+            if ($_GET['success'] == 'archived') echo "Supply archived successfully!";
           ?>
         </div>
         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
@@ -617,35 +662,37 @@ document.addEventListener("DOMContentLoaded", () => {
           <?php if (count($supplies) > 0): ?>
             <?php foreach ($supplies as $s): ?>
             <tr>
-              <td class="ps-3">
-                <div class="d-flex align-items-center">
-                  <!-- Avatar with custom category colors -->
+            <td class="ps-3">
+              <div class="d-flex align-items-center">
+                <?php if (!empty($s['image']) && file_exists($s['image'])): ?>
+                  <img src="<?= htmlspecialchars($s['image']) ?>" 
+                      alt="<?= htmlspecialchars($s['name']) ?>" 
+                      class="rounded me-2" 
+                      style="width: 40px; height: 40px; object-fit: cover;">
+                <?php else: ?>
                   <div class="avatar-sm 
-                      <?php if ($s['category'] == 'Cleaning'): ?>
-                        bg-blue-100 text-blue-800 border-blue-200
-                      <?php elseif ($s['category'] == 'Maintenance'): ?>
-                        bg-amber-100 text-amber-800 border-amber-200
-                      <?php else: ?>
+                      <?php if ($s['category'] == 'Food'): ?>
                         bg-green-100 text-green-800 border-green-200
+                      <?php else: ?>
+                        bg-info-100 text-info-800 border-info-200
                       <?php endif; ?>
                       rounded-circle d-flex align-items-center justify-content-center me-2" 
-                      style="width: 32px; height: 32px; border:1px solid;">
+                      style="width: 40px; height: 40px; border:1px solid;">
                     <span><?= strtoupper(substr($s['name'], 0, 1)) ?></span>
                   </div>
-                  <div><?= htmlspecialchars($s['name']) ?></div>
-                </div>
-              </td>
+                <?php endif; ?>
+                <div><?= htmlspecialchars($s['name']) ?></div>
+              </div>
+            </td>
               <td>₱<?= number_format($s['price'], 2) ?></td>
                 <td>
-                  <span class="badge rounded-pill 
-                    <?php if ($s['quantity'] > 10): ?>
-                      bg-green-100 text-green-800 border-green-200
-                    <?php elseif ($s['quantity'] > 5): ?>
-                      bg-yellow-100 text-yellow-800 border-yellow-200
-                    <?php else: ?>
-                      bg-amber-100 text-amber-800 border-amber-200
-                    <?php endif; ?>
-                  ">
+                <span class="badge 
+                  <?php if ($s['category'] == 'Food'): ?>
+                    bg-green-100 text-green-800 border-green-200
+                  <?php else: ?>
+                    bg-blue-100 text-blue-800 border-blue-200
+                  <?php endif; ?>
+                ">
                     <?= (int)$s['quantity'] ?>
                   </span>
                 </td>
@@ -654,26 +701,24 @@ document.addEventListener("DOMContentLoaded", () => {
               <td>
                 <!-- Category badge with same custom color sets -->
                 <span class="badge 
-                  <?php if ($s['category'] == 'Cleaning'): ?>
-                    bg-yellow-100 text-yellow-800 border-yellow-200
-                  <?php elseif ($s['category'] == 'Maintenance'): ?>
-                    bg-amber-100 text-amber-800 border-amber-200
-                  <?php else: ?>
+                  <?php if ($s['category'] == 'Food'): ?>
                     bg-green-100 text-green-800 border-green-200
+                  <?php else: ?>
+                    bg-blue-100 text-blue-800 border-blue-200
                   <?php endif; ?>
                 ">
                   <?= htmlspecialchars($s['category']) ?>
                 </span>
               </td>
               <td class="text-center user-actions">
-                <span class="action-btn edit me-2" 
-                      onclick="populateEditForm(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>', <?= $s['price'] ?>, <?= $s['quantity'] ?>, '<?= $s['category'] ?>')">
+              <span class="action-btn edit me-2" 
+                    onclick="populateEditForm(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>', <?= $s['price'] ?>, <?= $s['quantity'] ?>, '<?= $s['category'] ?>', '<?= htmlspecialchars($s['image'] ?? '', ENT_QUOTES) ?>')">
                   <i class="fas fa-edit"></i>
                 </span>
-                <span class="action-btn delete" 
-                      onclick="confirmDelete(<?= $s['id'] ?>)">
-                  <i class="fas fa-trash"></i>
-                </span>
+<span class="action-btn archive" 
+      onclick="confirmArchive(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>')">
+  <i class="fas fa-archive"></i>
+</span>
               </td>
             </tr>
             <?php endforeach; ?>
@@ -696,7 +741,7 @@ document.addEventListener("DOMContentLoaded", () => {
 <div class="modal fade" id="addSupplyModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg rounded-3">
-      <form id="supplyForm" method="POST">
+      <form id="supplyForm" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="action" id="supplyAction" value="add">
         <input type="hidden" name="id" id="supplyId">
 
@@ -720,6 +765,17 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="input-group-text bg-white"><i class="fas fa-box"></i></span>
               <input type="text" class="form-control border-start-0" id="supplyName" name="name" placeholder="Enter supply name" required>
             </div>
+          </div>
+
+          <!-- Image Upload -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Supply Image (Optional)</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="fas fa-image"></i></span>
+              <input type="file" class="form-control border-start-0" id="supplyImage" name="image" accept="image/*">
+            </div>
+            <small class="text-muted">Accepted formats: JPG, PNG, GIF, WebP</small>
+            <div id="imagePreview" class="mt-2"></div>
           </div>
 
           <!-- Price -->
@@ -750,9 +806,8 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="input-group-text bg-white"><i class="fas fa-tags"></i></span>
               <select class="form-select border-start-0" id="supplyCategory" name="category" required>
                 <option value="" disabled selected>Select a category</option>
-                <option value="Cleaning">Cleaning</option>
-                <option value="Maintenance">Maintenance</option>
                 <option value="Food">Food</option>
+                <option value="Non-Food">Non-Food</option>
               </select>
             </div>
           </div>
@@ -776,40 +831,40 @@ document.addEventListener("DOMContentLoaded", () => {
     <div class="modal-content border-0 shadow-lg">
       
       <!-- Header -->
-      <div class="modal-header border-0 pb-2">
-        <h5 class="modal-title fw-bold text-danger" id="deleteModalLabel">
-          <i class="fas fa-exclamation-triangle me-2"></i>Confirm Deletion
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
+<div class="modal-header border-0 pb-2">
+  <h5 class="modal-title fw-bold text-warning" id="deleteModalLabel">
+    <i class="fas fa-archive me-2"></i>Archive Supply
+  </h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
       <hr class="my-0">
 
       <!-- Body -->
-      <div class="modal-body text-center">
-        <div class="mb-3">
-          <div class="rounded-circle bg-danger bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
-            <i class="fas fa-trash text-danger fa-2x"></i>
-          </div>
-        </div>
-        <h5 class="fw-bold mb-2">Delete supply?</h5>
-        <p class="text-muted mb-0">
-          Are you sure you want to delete this supply?<br>
-          This action cannot be undone and all associated data will be permanently removed.
-        </p>
-      </div>
+<div class="modal-body text-center">
+  <div class="mb-3">
+    <div class="rounded-circle bg-warning bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
+      <i class="fas fa-archive text-warning fa-2x"></i>
+    </div>
+  </div>
+  <h5 class="fw-bold mb-2">Archive this supply?</h5>
+  <p class="text-muted mb-0">
+    Are you sure you want to archive <span id="supplyToArchive" class="fw-semibold text-dark"></span>?<br>
+    This supply will be moved to the archive. You can restore or permanently delete it from the archive page.
+  </p>
+</div>
       <hr class="my-0">
 
       <!-- Footer -->
-      <div class="modal-footer border-0 justify-content-center">
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-        <form id="deleteForm" method="POST" style="display:inline">
-          <input type="hidden" name="action" value="delete">
-          <input type="hidden" name="id" id="deleteSupplyId">
-          <button type="submit" class="btn btn-danger">
-            <i class="fas fa-trash me-1"></i> Delete
-          </button>
-        </form>
-      </div>
+<div class="modal-footer border-0 justify-content-center">
+  <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+  <form id="archiveForm" method="POST" style="display:inline">
+    <input type="hidden" name="action" value="archive">
+    <input type="hidden" name="id" id="archiveSupplyId">
+    <button type="submit" class="btn btn-warning">
+      <i class="fas fa-archive me-1"></i> Archive Supply
+    </button>
+  </form>
+</div>
 
     </div>
   </div>
@@ -823,7 +878,7 @@ document.addEventListener("DOMContentLoaded", () => {
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 <script>
 // Triggered when clicking the "Edit" button
-function populateEditForm(id, name, price, quantity, category) {
+function populateEditForm(id, name, price, quantity, category, image) {
   document.getElementById('supplyId').value = id;
   document.getElementById('supplyName').value = name;
   document.getElementById('supplyPrice').value = price;
@@ -831,6 +886,17 @@ function populateEditForm(id, name, price, quantity, category) {
   document.getElementById('supplyCategory').value = category;
   document.getElementById('supplyAction').value = 'edit';
   document.getElementById('addSupplyModalLabel').innerText = 'Edit Supply';
+
+  // Clear file input
+  document.getElementById('supplyImage').value = '';
+  
+  // Show current image if exists
+  const preview = document.getElementById('imagePreview');
+  if (image) {
+    preview.innerHTML = `<div class="alert alert-info p-2">Current image: <img src="${image}" style="max-width:100px; max-height:100px;" class="ms-2"></div>`;
+  } else {
+    preview.innerHTML = '';
+  }
 
   // Change button text
   document.getElementById('supplySubmitBtn').innerText = 'Save Changes';
@@ -850,9 +916,26 @@ function resetAddForm() {
   document.getElementById('supplySubmitBtn').innerText = 'Add Supply';
 }
 
-// Triggered when clicking the "Delete" button
-function confirmDelete(id) {
-  document.getElementById('deleteSupplyId').value = id;
+// Image preview
+document.getElementById('supplyImage').addEventListener('change', function(e) {
+  const preview = document.getElementById('imagePreview');
+  const file = e.target.files[0];
+  
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      preview.innerHTML = `<img src="${e.target.result}" class="img-thumbnail" style="max-width: 200px;">`;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    preview.innerHTML = '';
+  }
+});
+
+// Triggered when clicking the "Archive" button
+function confirmArchive(id, name) {
+  document.getElementById('archiveSupplyId').value = id;
+  document.getElementById('supplyToArchive').textContent = name;
   const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
   modal.show();
 }

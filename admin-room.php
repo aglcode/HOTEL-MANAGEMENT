@@ -59,41 +59,32 @@ if (isset($_POST['edit_room'])) {
     exit();
 }
 
-// Handle Delete
-if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['room_id'])) {
+// Handle Archive
+if (isset($_GET['action']) && $_GET['action'] == 'archive' && isset($_GET['room_id'])) {
     $room_id = $_GET['room_id'];
-    // Check for related records in the checkins table
-    $check_stmt = $conn->prepare("SELECT COUNT(*) as count FROM checkins WHERE room_number = (SELECT room_number FROM rooms WHERE id = ?)");
-    $check_stmt->bind_param("i", $room_id);
-    $check_stmt->execute();
-    $related_count = $check_stmt->get_result()->fetch_assoc()['count'];
-    $check_stmt->close();
-
-    if ($related_count > 0) {
-        header("Location: admin-room.php?error=foreign_key_violation");
-        exit();
-    }
-
-    // Proceed with deletion if no related records
-    $stmt = $conn->prepare("DELETE FROM rooms WHERE id = ?");
+    
+    // Archive the room instead of deleting
+    $query = "UPDATE rooms SET is_archived = 1, archived_at = NOW() WHERE id = ?";
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("i", $room_id);
     $stmt->execute();
     $stmt->close();
-    header("Location: admin-room.php?success=deleted");
+
+    header("Location: admin-room.php?success=archived");
     exit();
 }
 
 // Fetch room data
-$result = $conn->query("SELECT * FROM rooms ORDER BY room_number ASC");
+$result = $conn->query("SELECT * FROM rooms WHERE is_archived = 0 ORDER BY room_number ASC");
 
 // Total rooms
-$total_rooms = $conn->query("SELECT COUNT(*) as total FROM rooms")->fetch_assoc()['total'];
+$total_rooms = $conn->query("SELECT COUNT(*) as total FROM rooms WHERE is_archived = 0")->fetch_assoc()['total'];
 
 // Count maintenance rooms
-$maintenance_rooms = $conn->query("SELECT COUNT(*) as total FROM rooms WHERE status = 'maintenance'")->fetch_assoc()['total'];
+$maintenance_rooms = $conn->query("SELECT COUNT(*) as total FROM rooms WHERE status = 'maintenance' AND is_archived = 0")->fetch_assoc()['total'];
 
 // Count available rooms
-$available_rooms = $conn->query("SELECT COUNT(*) as total FROM rooms WHERE status = 'available'")->fetch_assoc()['total'];
+$available_rooms = $conn->query("SELECT COUNT(*) as total FROM rooms WHERE status = 'available' AND is_archived = 0")->fetch_assoc()['total'];
 
 // Room to edit
 $room_to_edit = null;
@@ -120,6 +111,9 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
     <link href="style.css" rel="stylesheet">
 
     <style>
+      .user-actions .action-btn.archive:hover {
+  color: #f59e0b; /* amber/orange color */
+}
 .stat-card {
     border-radius: 12px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.05);
@@ -506,6 +500,7 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
       <a href="admin-report.php"><i class="fa-solid fa-file-lines"></i> Reports</a>
       <a href="admin-supplies.php"><i class="fa-solid fa-cube"></i> Supplies</a>
       <a href="admin-inventory.php"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
+      <a href="admin-archive.php"><i class="fa-solid fa-archive"></i> Archived</a>
     </div>
 
     <div class="signout">
@@ -535,7 +530,8 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
           <?php
             if ($_GET['success'] == 'added') echo "Room added successfully!";
             if ($_GET['success'] == 'edited') echo "Room edited successfully!";
-            if ($_GET['success'] == 'deleted') echo "Room deleted successfully!";
+            // if ($_GET['success'] == 'deleted') echo "Room deleted successfully!";
+            if ($_GET['success'] == 'archived') echo "Room archived successfully!";
           ?>
         </div>
         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
@@ -810,9 +806,11 @@ document.addEventListener("DOMContentLoaded", () => {
                   <i class="fas fa-edit"></i>
                 </a>
 
-                  <a href="admin-room.php?action=delete&room_id=<?= $room['id'] ?>" class="p-1 action-btn delete" title="Delete">
-                    <i class="fas fa-trash"></i>
-                  </a>
+<a href="javascript:void(0)" 
+   onclick="confirmArchive(<?= $room['id'] ?>, '<?= htmlspecialchars($room['room_number']) ?>')"
+   class="p-1 action-btn archive" title="Archive">
+   <i class="fas fa-archive"></i>
+</a>
                 </div>
               </td>
             </tr>
@@ -942,36 +940,36 @@ document.addEventListener("DOMContentLoaded", () => {
     <div class="modal-content border-0 shadow-lg">
       
       <!-- Header -->
-      <div class="modal-header border-0 pb-2">
-        <h5 class="modal-title fw-bold text-danger" id="deleteModalLabel">
-          <i class="fas fa-exclamation-triangle me-2"></i>Confirm Deletion
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
+<div class="modal-header border-0 pb-2">
+  <h5 class="modal-title fw-bold text-warning" id="deleteModalLabel">
+    <i class="fas fa-archive me-2"></i>Archive Room
+  </h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
       <hr class="my-0"> <!-- Line after header -->
       
       <!-- Body -->
-      <div class="modal-body text-center">
-        <div class="mb-3">
-          <div class="rounded-circle bg-danger bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
-            <i class="fas fa-trash text-danger fa-2x"></i>
-          </div>
-        </div>
-        <h5 class="fw-bold mb-2">Delete room?</h5>
-        <p class="text-muted mb-0">
-          Are you sure you want to delete room <span id="roomToDelete" class="fw-semibold text-dark"></span>?<br>
-          This action cannot be undone and all associated data will be permanently removed.
-        </p>
-      </div>
+<div class="modal-body text-center">
+  <div class="mb-3">
+    <div class="rounded-circle bg-warning bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
+      <i class="fas fa-archive text-warning fa-2x"></i>
+    </div>
+  </div>
+  <h5 class="fw-bold mb-2">Archive this room?</h5>
+  <p class="text-muted mb-0">
+    Are you sure you want to archive room <span id="roomToArchive" class="fw-semibold text-dark"></span>?<br>
+    This room will be moved to the archive. You can restore or permanently delete it from the archive page.
+  </p>
+</div>
       <hr class="my-0"> <!-- Line before buttons -->
       
       <!-- Footer -->
-      <div class="modal-footer border-0 justify-content-center">
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-        <a href="#" id="confirmDeleteBtn" class="btn btn-danger">
-          <i class="fas fa-trash me-1"></i> Delete
-        </a>
-      </div>
+<div class="modal-footer border-0 justify-content-center">
+  <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+  <a href="#" id="confirmArchiveBtn" class="btn btn-warning">
+    <i class="fas fa-archive me-1"></i> Archive Room
+  </a>
+</div>
     </div>
   </div>
 </div> 
@@ -1156,25 +1154,14 @@ document.querySelectorAll(".action-btn.edit").forEach(btn => {
 });
 
 
-  // delete modal 
-  document.querySelectorAll(".action-btn.delete").forEach(btn => {
-    btn.addEventListener("click", function (e) {
-      e.preventDefault();
-
-    
-      const deleteUrl = this.getAttribute("href");
-      const roomRow = this.closest("tr");
-      const roomNumber = roomRow.querySelector("td").textContent.trim();
-
-     
-      document.getElementById("roomToDelete").textContent = `#${roomNumber}`;
-      document.getElementById("confirmDeleteBtn").setAttribute("href", deleteUrl);
-
-
-      const modal = new bootstrap.Modal(document.getElementById("deleteModal"));
-      modal.show();
-    });
-  });
+  // archive modal 
+function confirmArchive(roomId, roomNumber) {
+  const archiveUrl = `admin-room.php?action=archive&room_id=${roomId}`;
+  document.getElementById("roomToArchive").textContent = `#${roomNumber}`;
+  document.getElementById("confirmArchiveBtn").setAttribute("href", archiveUrl);
+  const modal = new bootstrap.Modal(document.getElementById("deleteModal"));
+  modal.show();
+}
 
 
     </script>
