@@ -749,7 +749,7 @@ style="background-color: #871D2B;"
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <span class="badge bg-secondary"><?= $log['room_number'] ?></span>
+                                            <span class="badge bg-info"><?= $log['room_number'] ?></span>
                                         </td>
                                         <td>
                                             <small><?= date('M d, Y', strtotime($log['date'])) ?></small>
@@ -768,12 +768,18 @@ style="background-color: #871D2B;"
                                             
                                             switch($log['status']) {
                                                 case 'completed':
-                                                case 'checked_out':
                                                     $statusClass = 'bg-success';
                                                     break;
+                                                case 'checked_out':
+                                                    $statusClass = 'bg-secondary';
+                                                    $statusText = 'Checked Out';
+                                                    break;
                                                 case 'active':
-                                                case 'checked_in':
                                                     $statusClass = 'bg-info';
+                                                    break;
+                                                case 'checked_in':
+                                                    $statusClass = 'bg-success';
+                                                    $statusText = 'Checked In';
                                                     break;
                                                 case 'upcoming':
                                                 case 'scheduled':

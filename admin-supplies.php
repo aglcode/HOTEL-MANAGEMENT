@@ -11,46 +11,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $category = trim($_POST['category'] ?? '');
     $id = $_POST['id'] ?? null;
 
-    if ($action === 'edit' && $id) {
+        // Handle image upload
+    $image = null;
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $filename = $_FILES['image']['name'];
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        
+        if (in_array($ext, $allowed)) {
+            $newFilename = uniqid('supply_', true) . '.' . $ext;
+            $uploadPath = 'uploads/supplies/' . $newFilename;
+            
+            // Create directory if it doesn't exist
+            if (!is_dir('uploads/supplies')) {
+                mkdir('uploads/supplies', 0777, true);
+            }
+            
+            if (move_uploaded_file($_FILES['image']['tmp_name'], $uploadPath)) {
+                $image = $uploadPath;
+            }
+        }
+    }
+
+if ($action === 'edit' && $id) {
+    // If new image uploaded, use it; otherwise keep existing
+    if ($image) {
+        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, image = ? WHERE id = ?");
+        $stmt->bind_param("sdissi", $name, $price, $quantity, $category, $image, $id);
+    } else {
         $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ? WHERE id = ?");
         $stmt->bind_param("sdisi", $name, $price, $quantity, $category, $id);
+    }
+    if ($stmt->execute()) {
+        header("Location: admin-supplies.php?success=edited");
+    } else {
+        header("Location: admin-supplies.php?error=unknown");
+    }
+    exit();
+} 
+elseif ($action === 'add') {
+    $stmt = $conn->prepare("SELECT id, quantity FROM supplies WHERE LOWER(name) = LOWER(?) AND category = ?");
+    $stmt->bind_param("ss", $name, $category);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($row = $result->fetch_assoc()) {
+        $newQty = $row['quantity'] + $quantity;
+        $stmt = $conn->prepare("UPDATE supplies SET quantity = ?, price = ? WHERE id = ?");
+        $stmt->bind_param("idi", $newQty, $price, $row['id']);
         if ($stmt->execute()) {
             header("Location: admin-supplies.php?success=edited");
         } else {
             header("Location: admin-supplies.php?error=unknown");
         }
-        exit();
-    } 
-    elseif ($action === 'add') {
-        $stmt = $conn->prepare("SELECT id, quantity FROM supplies WHERE LOWER(name) = LOWER(?) AND category = ?");
-        $stmt->bind_param("ss", $name, $category);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        if ($row = $result->fetch_assoc()) {
-            $newQty = $row['quantity'] + $quantity;
-            $stmt = $conn->prepare("UPDATE supplies SET quantity = ?, price = ? WHERE id = ?");
-            $stmt->bind_param("idi", $newQty, $price, $row['id']);
-            if ($stmt->execute()) {
-                header("Location: admin-supplies.php?success=edited");
-            } else {
-                header("Location: admin-supplies.php?error=unknown");
-            }
+    } else {
+        $stmt = $conn->prepare("INSERT INTO supplies (name, price, quantity, category, image) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sdiss", $name, $price, $quantity, $category, $image);
+        if ($stmt->execute()) {
+            header("Location: admin-supplies.php?success=added");
         } else {
-            $stmt = $conn->prepare("INSERT INTO supplies (name, price, quantity, category) VALUES (?, ?, ?, ?)");
-            $stmt->bind_param("sdis", $name, $price, $quantity, $category);
-            if ($stmt->execute()) {
-                header("Location: admin-supplies.php?success=added");
-            } else {
-                header("Location: admin-supplies.php?error=unknown");
-            }
+            header("Location: admin-supplies.php?error=unknown");
         }
-        exit();
     }
+    exit();
+}
 elseif ($action === 'archive' && $id) {
-    // Archive the supply instead of deleting
+    // Archive the supply
     $stmt = $conn->prepare("UPDATE supplies SET is_archived = 1, archived_at = NOW() WHERE id = ?");
     $stmt->bind_param("i", $id);
+    if ($stmt->execute()) {
+        header("Location: admin-supplies.php?success=archived");
+    } else {
+        header("Location: admin-supplies.php?error=unknown");
+    }
+    exit();
+}
+elseif ($action === 'archive' && $id) {
+    // Archive the supply instead of deleting
+    // If new image uploaded, use it; otherwise keep existing
+    if ($image) {
+        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, image = ? WHERE id = ?");
+        $stmt->bind_param("sdissi", $name, $price, $quantity, $category, $image, $id);
+    } else {
+        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ? WHERE id = ?");
+        $stmt->bind_param("sdisi", $name, $price, $quantity, $category, $id);
+    }
     if ($stmt->execute()) {
         header("Location: admin-supplies.php?success=archived");
     } else {
@@ -617,9 +662,14 @@ document.addEventListener("DOMContentLoaded", () => {
           <?php if (count($supplies) > 0): ?>
             <?php foreach ($supplies as $s): ?>
             <tr>
-              <td class="ps-3">
-                <div class="d-flex align-items-center">
-                  <!-- Avatar with custom category colors -->
+            <td class="ps-3">
+              <div class="d-flex align-items-center">
+                <?php if (!empty($s['image']) && file_exists($s['image'])): ?>
+                  <img src="<?= htmlspecialchars($s['image']) ?>" 
+                      alt="<?= htmlspecialchars($s['name']) ?>" 
+                      class="rounded me-2" 
+                      style="width: 40px; height: 40px; object-fit: cover;">
+                <?php else: ?>
                   <div class="avatar-sm 
                       <?php if ($s['category'] == 'Food'): ?>
                         bg-green-100 text-green-800 border-green-200
@@ -627,12 +677,13 @@ document.addEventListener("DOMContentLoaded", () => {
                         bg-info-100 text-info-800 border-info-200
                       <?php endif; ?>
                       rounded-circle d-flex align-items-center justify-content-center me-2" 
-                      style="width: 32px; height: 32px; border:1px solid;">
+                      style="width: 40px; height: 40px; border:1px solid;">
                     <span><?= strtoupper(substr($s['name'], 0, 1)) ?></span>
                   </div>
-                  <div><?= htmlspecialchars($s['name']) ?></div>
-                </div>
-              </td>
+                <?php endif; ?>
+                <div><?= htmlspecialchars($s['name']) ?></div>
+              </div>
+            </td>
               <td>₱<?= number_format($s['price'], 2) ?></td>
                 <td>
                 <span class="badge 
@@ -660,8 +711,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 </span>
               </td>
               <td class="text-center user-actions">
-                <span class="action-btn edit me-2" 
-                      onclick="populateEditForm(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>', <?= $s['price'] ?>, <?= $s['quantity'] ?>, '<?= $s['category'] ?>')">
+              <span class="action-btn edit me-2" 
+                    onclick="populateEditForm(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>', <?= $s['price'] ?>, <?= $s['quantity'] ?>, '<?= $s['category'] ?>', '<?= htmlspecialchars($s['image'] ?? '', ENT_QUOTES) ?>')">
                   <i class="fas fa-edit"></i>
                 </span>
 <span class="action-btn archive" 
@@ -690,7 +741,7 @@ document.addEventListener("DOMContentLoaded", () => {
 <div class="modal fade" id="addSupplyModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg rounded-3">
-      <form id="supplyForm" method="POST">
+      <form id="supplyForm" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="action" id="supplyAction" value="add">
         <input type="hidden" name="id" id="supplyId">
 
@@ -714,6 +765,17 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="input-group-text bg-white"><i class="fas fa-box"></i></span>
               <input type="text" class="form-control border-start-0" id="supplyName" name="name" placeholder="Enter supply name" required>
             </div>
+          </div>
+
+          <!-- Image Upload -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Supply Image (Optional)</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="fas fa-image"></i></span>
+              <input type="file" class="form-control border-start-0" id="supplyImage" name="image" accept="image/*">
+            </div>
+            <small class="text-muted">Accepted formats: JPG, PNG, GIF, WebP</small>
+            <div id="imagePreview" class="mt-2"></div>
           </div>
 
           <!-- Price -->
@@ -816,7 +878,7 @@ document.addEventListener("DOMContentLoaded", () => {
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 <script>
 // Triggered when clicking the "Edit" button
-function populateEditForm(id, name, price, quantity, category) {
+function populateEditForm(id, name, price, quantity, category, image) {
   document.getElementById('supplyId').value = id;
   document.getElementById('supplyName').value = name;
   document.getElementById('supplyPrice').value = price;
@@ -824,6 +886,17 @@ function populateEditForm(id, name, price, quantity, category) {
   document.getElementById('supplyCategory').value = category;
   document.getElementById('supplyAction').value = 'edit';
   document.getElementById('addSupplyModalLabel').innerText = 'Edit Supply';
+
+  // Clear file input
+  document.getElementById('supplyImage').value = '';
+  
+  // Show current image if exists
+  const preview = document.getElementById('imagePreview');
+  if (image) {
+    preview.innerHTML = `<div class="alert alert-info p-2">Current image: <img src="${image}" style="max-width:100px; max-height:100px;" class="ms-2"></div>`;
+  } else {
+    preview.innerHTML = '';
+  }
 
   // Change button text
   document.getElementById('supplySubmitBtn').innerText = 'Save Changes';
@@ -842,6 +915,22 @@ function resetAddForm() {
   // Reset button text
   document.getElementById('supplySubmitBtn').innerText = 'Add Supply';
 }
+
+// Image preview
+document.getElementById('supplyImage').addEventListener('change', function(e) {
+  const preview = document.getElementById('imagePreview');
+  const file = e.target.files[0];
+  
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      preview.innerHTML = `<img src="${e.target.result}" class="img-thumbnail" style="max-width: 200px;">`;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    preview.innerHTML = '';
+  }
+});
 
 // Triggered when clicking the "Archive" button
 function confirmArchive(id, name) {
