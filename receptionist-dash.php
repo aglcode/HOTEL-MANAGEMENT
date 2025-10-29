@@ -54,6 +54,10 @@ $upcoming_bookings_result = $conn->query("
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gitarra Apartelle - Receptionist Dashboard</title>
+
+<!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
+
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -719,7 +723,7 @@ async function fetchOrders(forceUpdate = false) {
   }
 }
 
-// 🧱 Move your rendering HTML part to a new function
+// 🧱 Rendering function
 function renderOrders(data) {
   const container = document.getElementById("order-list");
 
@@ -807,6 +811,10 @@ function renderOrders(data) {
   html += '</div>';
   container.innerHTML = html;
 }
+
+// Initialize
+fetchOrders(true);
+orderInterval = setInterval(fetchOrders, 8000);
 
 
 // mark all orders for a room as served

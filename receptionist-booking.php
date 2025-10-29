@@ -318,6 +318,8 @@ $total_pages = ceil($total_records / $limit);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gitarra Apartelle - Booking Management</title>
+        <!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -960,7 +962,7 @@ if ($result->num_rows > 0) {
 
         // Decide status based on booking and checkin records
         if ($row['status'] === 'completed') {
-            $status_class = "bg-secondary";
+            $status_class = "bg-success";
             $status_text = "Completed";
         } elseif ($row['status'] === 'cancelled') {
             $status_class = "bg-danger";
@@ -971,7 +973,7 @@ if ($result->num_rows > 0) {
                 $status_class = "bg-warning text-dark";
                 $status_text = "In Use";
             } elseif ($latestCheckin['status'] === 'checked_out') {
-                $status_class = "bg-secondary";
+                $status_class = "bg-success";
                 $status_text = "Completed";
                 // Update booking status to completed
                 $updateStatus = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
@@ -993,7 +995,7 @@ if ($result->num_rows > 0) {
                 $status_class = "bg-success";
                 $status_text = "Active";
             } elseif ($now > $end) {
-                $status_class = "bg-secondary";
+                $status_class = "bg-success";
                 $status_text = "Completed";
             } else {
                 $status_class = "bg-secondary";
