@@ -144,6 +144,8 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gitarra Apartelle - Guest Order</title>
+      <!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
 
   <!-- ========== FONTS & ICONS ========== -->
   <!-- Google Fonts -->

@@ -83,24 +83,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_booking'])) {
         }
         $stmt->close();
     }
-    header('Location: receptionist-booking.php');
+    header('Location: receptionist-booking.php?success=cancelled');
     exit();
 }
 
 // Handle booking submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_booking'])) {
-    $guest_name   = $_POST['guest_name'];
+    $guest_name   = $_POST['guest_name'] ?? '';
     $email        = $_POST['email'] ?? '';
-    $address      = $_POST['address'];
-    $telephone    = $_POST['telephone'];
-    $age          = (int)$_POST['age'];
-    $num_people   = isset($_POST['num_people']) ? (int)$_POST['num_people'] : 1; // Default to 1 if not provided
-    $room_number  = $_POST['room_number'];
-    $duration     = $_POST['duration'];
-    $payment_mode = $_POST['payment_mode'];
+    $address      = $_POST['address'] ?? '';
+    $telephone    = $_POST['telephone'] ?? '';
+    $age          = isset($_POST['age']) ? (int)$_POST['age'] : 0;
+    $num_people   = isset($_POST['num_people']) ? (int)$_POST['num_people'] : 1;
+    $room_number  = $_POST['room_number'] ?? '';
+    $duration     = $_POST['duration'] ?? '';
+    $payment_mode = $_POST['payment_mode'] ?? '';
     $reference    = $_POST['reference_number'] ?? '';
-    $amount_paid  = floatval($_POST['amount_paid']);
-    $start_date   = $_POST['start_date'];
+    $amount_paid  = isset($_POST['amount_paid']) ? floatval($_POST['amount_paid']) : 0;
+    $start_date   = $_POST['start_date'] ?? '';
     
     // Generate booking token
     $booking_token = generateBookingToken();
@@ -318,6 +318,8 @@ $total_pages = ceil($total_records / $limit);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gitarra Apartelle - Booking Management</title>
+        <!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -933,96 +935,74 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
           </tr>
         </thead>
         <tbody>
-                            <?php
-                            if ($result->num_rows > 0) {
-                                $index = $offset + 1;
-                                while ($row = $result->fetch_assoc()):
-                                    $now = new DateTime();
-                                    $start = new DateTime($row['start_date']);
-                                    $end = new DateTime($row['end_date']);
+                          <?php
+if ($result->num_rows > 0) {
+    $index = $offset + 1;
+    while ($row = $result->fetch_assoc()):
+        $now = new DateTime();
+        $start = new DateTime($row['start_date']);
+        $end = new DateTime($row['end_date']);
 
-                                    // Get latest checkin (if any) for this guest + room
-                                    $latestCheckin = null;
-                                    $lcStmt = $conn->prepare("
-                                        SELECT check_in_date, check_out_date 
-                                        FROM checkins 
-                                        WHERE guest_name = ? AND room_number = ? 
-                                        ORDER BY check_in_date DESC 
-                                        LIMIT 1
-                                    ");
-                                    $lcStmt->bind_param("ss", $row['guest_name'], $row['room_number']);
-                                    $lcStmt->execute();
-                                    $lcRes = $lcStmt->get_result();
-                                    if ($lcRes && $lcRow = $lcRes->fetch_assoc()) {
-                                        $latestCheckin = $lcRow;
-                                    }
-                                    $lcStmt->close();
+        // Get latest checkin (if any) for this guest + room
+        $latestCheckin = null;
+        $lcStmt = $conn->prepare("
+            SELECT check_in_date, check_out_date, status 
+            FROM checkins 
+            WHERE guest_name = ? AND room_number = ? 
+            ORDER BY check_in_date DESC 
+            LIMIT 1
+        ");
+        $lcStmt->bind_param("ss", $row['guest_name'], $row['room_number']);
+        $lcStmt->execute();
+        $lcRes = $lcStmt->get_result();
+        if ($lcRes && $lcRow = $lcRes->fetch_assoc()) {
+            $latestCheckin = $lcRow;
+        }
+        $lcStmt->close();
 
-                                    // Also detect any current occupant for the room (any guest)
-                                    $currentOccupant = null;
-                                    $occStmt = $conn->prepare("
-                                        SELECT guest_name 
-                                        FROM checkins 
-                                        WHERE room_number = ? 
-                                          AND check_in_date <= NOW() 
-                                          AND check_out_date > NOW() 
-                                        ORDER BY check_in_date DESC 
-                                        LIMIT 1
-                                    ");
-                                    $occStmt->bind_param("s", $row['room_number']);
-                                    $occStmt->execute();
-                                    $occRes = $occStmt->get_result();
-                                    if ($occRes && $occRow = $occRes->fetch_assoc()) {
-                                        $currentOccupant = $occRow['guest_name'];
-                                    }
-                                    $occStmt->close();
-
-                                  // Decide status: prefer latest checkin status if present (override booking.status)
-                                  if ($row['status'] === 'completed') {
-                                      // ✅ Show as Completed directly
-                                      $status_class = "bg-secondary";
-                                      $status_text = "Completed";
-                                  } else {
-                                      if ($latestCheckin) {
-                                          $ci_out = new DateTime($latestCheckin['check_out_date']);
-                                          $ci_in = new DateTime($latestCheckin['check_in_date']);
-                                          if ($ci_in <= $now && $ci_out > $now) {
-                                              $status_class = "bg-warning text-dark";
-                                              $status_text = "In Use";
-                                          } elseif ($ci_out <= $now) {
-                                              $status_class = "bg-secondary";
-                                              $status_text = "Completed";
-                                              $updateStatus = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
-                                              $updateStatus->bind_param('i', $row['id']);
-                                              $updateStatus->execute();
-                                              $updateStatus->close();
-                                          } else {
-                                              $status_class = "bg-info";
-                                              $status_text = "Upcoming";
-                                          }
-                                      } else {
-                                          if ($row['status'] === 'cancelled') {
-                                              $status_class = "bg-danger";
-                                              $status_text = "Cancelled";
-                                          } elseif ($currentOccupant) {
-                                              $status_class = "bg-warning text-dark";
-                                              $status_text = "In Use";
-                                          } elseif ($now < $start) {
-                                              $status_class = "bg-info";
-                                              $status_text = "Upcoming";
-                                          } elseif ($now >= $start && $now <= $end) {
-                                              $status_class = "bg-success";
-                                              $status_text = "Active";
-                                          } elseif ($now > $end) {
-                                              $status_class = "bg-secondary";
-                                              $status_text = "Completed";
-                                          } else {
-                                              $status_class = "bg-secondary";
-                                              $status_text = ucfirst($row['status']);
-                                          }
-                                      }
-                                  }
-                            ?>
+        // Decide status based on booking and checkin records
+        if ($row['status'] === 'completed') {
+            $status_class = "bg-success";
+            $status_text = "Completed";
+        } elseif ($row['status'] === 'cancelled') {
+            $status_class = "bg-danger";
+            $status_text = "Cancelled";
+        } elseif ($latestCheckin) {
+            // This guest has a checkin record for this room
+            if ($latestCheckin['status'] === 'checked_in') {
+                $status_class = "bg-warning text-dark";
+                $status_text = "In Use";
+            } elseif ($latestCheckin['status'] === 'checked_out') {
+                $status_class = "bg-success";
+                $status_text = "Completed";
+                // Update booking status to completed
+                $updateStatus = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
+                $updateStatus->bind_param('i', $row['id']);
+                $updateStatus->execute();
+                $updateStatus->close();
+            } else {
+                // Status is 'scheduled' - show as upcoming
+                $status_class = "bg-info";
+                $status_text = "Upcoming";
+            }
+        } else {
+            // No checkin record exists for this specific guest+room combo
+            // Use booking dates to determine status
+            if ($now < $start) {
+                $status_class = "bg-info";
+                $status_text = "Upcoming";
+            } elseif ($now >= $start && $now <= $end) {
+                $status_class = "bg-success";
+                $status_text = "Active";
+            } elseif ($now > $end) {
+                $status_class = "bg-success";
+                $status_text = "Completed";
+            } else {
+                $status_class = "bg-secondary";
+                $status_text = ucfirst($row['status']);
+            }
+        }
+?>
                             <tr>
                                  <td><?= $index++ ?></td>
             <td class="text-center align-middle">
@@ -1057,14 +1037,12 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
             <td><?= !empty($row['booking_token']) ? htmlspecialchars($row['booking_token']) : '<span class="text-muted">No token</span>' ?></td>
             <td><span class="badge <?= $status_class ?>"><?= $status_text ?></span></td>
             <td class="text-center">
-              <?php if ($status_text !== 'Completed'): ?>
-              <div class="d-flex justify-content-center gap-2">
+            <div class="d-flex justify-content-center gap-2">
                 <button class="btn btn-sm btn-outline-primary" onclick="viewGuestDetails(<?= $row['id'] ?>)" title="View"><i class="fas fa-user"></i></button>
+                <?php if ($status_text === 'Upcoming'): ?>
                 <button class="btn btn-sm btn-outline-danger" onclick="cancelBooking(<?= $row['id'] ?>, '<?= htmlspecialchars($row['guest_name']) ?>')" title="Cancel"><i class="fas fa-times"></i></button>
-              </div>
-              <?php else: ?>
-                <span class="text-muted small">No actions</span>
-              <?php endif; ?>
+                <?php endif; ?>
+            </div>
             </td>
           </tr>
           <?php endwhile; } else { ?>
@@ -1306,7 +1284,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 <div class="modal fade" id="cancelBookingModal" tabindex="-1" aria-labelledby="cancelBookingModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form method="POST" id="cancelBookingForm" onsubmit="return confirm('Are you sure you want to cancel this booking?');">
+<form method="POST" id="cancelBookingForm">
         <div class="modal-header bg-danger text-white">
           <h5 class="modal-title" id="cancelBookingModalLabel"><i class="fas fa-times-circle me-2"></i>Cancel Booking</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -1340,6 +1318,21 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 
 <!-- End Cancel Booking Modal -->
 
+<!-- Toast container for Cancellation -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+  <?php if (isset($_GET['success']) && $_GET['success'] === 'cancelled'): ?>
+    <div id="cancelSuccessToast" class="toast align-items-center text-bg-success border-0 fade" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-check-circle me-2"></i>
+          Booking cancelled successfully!
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+</div>
+
 
     <!-- Guest Details Modal -->
     <div class="modal fade" id="guestDetailsModal" tabindex="-1" aria-labelledby="guestDetailsModalLabel" aria-hidden="true">
@@ -1367,12 +1360,55 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <!-- DataTables JS -->
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script>
+
+    // toast alert for cancellation
+    document.addEventListener("DOMContentLoaded", function () {
+  const toastEl = document.querySelector(".toast");
+  if (toastEl) {
+    const toast = new bootstrap.Toast(toastEl);
+    toast.show();
+  }
+});
+
+//sweetalert2
+document.getElementById("cancelBookingForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+  
+  Swal.fire({
+    title: "Cancel Booking?",
+    text: "This action will set the booking to Cancelled.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#6c757d",
+    confirmButtonText: "Yes, cancel it!"
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Create a new FormData and submit directly
+      const formData = new FormData(this);
+      
+      // Make sure delete_booking is included
+      if (!formData.has('delete_booking')) {
+        formData.append('delete_booking', '1');
+      }
+      
+      // Submit via fetch to avoid form validation
+      fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+      }).then(() => {
+        window.location.href = 'receptionist-booking.php?success=cancelled';
+      });
+    }
+  });
+});
 
 // Store booked schedules for each room from BOOKINGS table
 const roomSchedules = <?php
@@ -1874,6 +1910,14 @@ if (ageInput) {
 
     // --- Cancel booking ---
     function cancelBooking(bookingId, guestName) {
+        // Prevent opening modal for cancelled bookings
+        const row = event.target.closest('tr');
+        const statusBadge = row.querySelector('.badge');
+        if (statusBadge && statusBadge.textContent.trim() === 'Cancelled') {
+            alert('This booking is already cancelled.');
+            return;
+        }
+        
         document.getElementById('bookingIdToCancel').value = bookingId;
         document.getElementById('guestNameToCancel').textContent = guestName;
         new bootstrap.Modal(document.getElementById('cancelBookingModal')).show();

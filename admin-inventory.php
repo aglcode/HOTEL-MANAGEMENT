@@ -95,6 +95,8 @@ try {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gitarra Apartelle - Inventory Management</title>
+      <!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -635,39 +637,42 @@ try {
           <?php if (count($supplies) > 0): ?>
             <?php foreach ($supplies as $s): ?>
             <tr>
-              <!-- Name + Avatar -->
-              <td class="ps-3">
-                <div class="d-flex align-items-center">
+            <!-- Name + Avatar/Image -->
+            <td class="ps-3">
+              <div class="d-flex align-items-center">
+                <?php if (!empty($s['image']) && file_exists($s['image'])): ?>
+                  <img src="<?= htmlspecialchars($s['image']) ?>" 
+                      alt="<?= htmlspecialchars($s['name']) ?>" 
+                      class="rounded me-2" 
+                      style="width: 40px; height: 40px; object-fit: cover;">
+                <?php else: ?>
                   <div class="avatar-sm 
-                    <?php if ($s['category'] == 'Cleaning'): ?>
-                      bg-yellow-100 text-yellow-800 border-yellow-200
-                    <?php elseif ($s['category'] == 'Maintenance'): ?>
-                      bg-amber-100 text-amber-800 border-amber-200
-                    <?php else: ?>
-                      bg-green-100 text-green-800 border-green-200
-                    <?php endif; ?>
-                    rounded-circle d-flex align-items-center justify-content-center me-2"
-                    style="width:32px; height:32px; border:1px solid;">
+                      <?php if ($s['category'] == 'Food'): ?>
+                        bg-green-100 text-green-800 border-green-200
+                      <?php else: ?>
+                        bg-info-100 text-info-800 border-info-200
+                      <?php endif; ?>
+                      rounded-circle d-flex align-items-center justify-content-center me-2" 
+                      style="width: 40px; height: 40px; border:1px solid;">
                     <span><?= strtoupper(substr($s['name'], 0, 1)) ?></span>
                   </div>
-                  <div><?= htmlspecialchars($s['name']) ?></div>
-                </div>
-              </td>
+                <?php endif; ?>
+                <div><?= htmlspecialchars($s['name']) ?></div>
+              </div>
+            </td>
 
-              <!-- Category -->
-              <td>
-                <span class="badge 
-                  <?php if ($s['category'] == 'Cleaning'): ?>
-                    bg-yellow-100 text-yellow-800 border-yellow-200
-                  <?php elseif ($s['category'] == 'Maintenance'): ?>
-                    bg-amber-100 text-amber-800 border-amber-200
-                  <?php else: ?>
-                    bg-green-100 text-green-800 border-green-200
-                  <?php endif; ?>
-                ">
-                  <?= htmlspecialchars($s['category']) ?>
-                </span>
-              </td>
+            <!-- Category -->
+            <td>
+              <span class="badge 
+                <?php if ($s['category'] == 'Food'): ?>
+                  bg-green-100 text-green-800 border-green-200
+                <?php else: ?>
+                  bg-blue-100 text-blue-800 border-blue-200
+                <?php endif; ?>
+              ">
+                <?= htmlspecialchars($s['category']) ?>
+              </span>
+            </td>
 
               <!-- Price -->
               <td>₱<?= number_format($s['price'], 2) ?></td>
