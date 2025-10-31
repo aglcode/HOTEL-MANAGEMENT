@@ -601,6 +601,42 @@ table td {
   line-height: 1.3;
 }
 
+.toast-container .toast {
+  min-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toast-body {
+  font-size: 15px;
+  font-weight: 500;
+  padding: 12px 16px;
+}
+
+.toast .btn-close {
+  padding: 0.5rem;
+}
+
+/* Success toast with animation */
+#successToast {
+  animation: slideInRight 0.4s ease-out;
+}
+
+/* Error toast with animation */
+#errorToast {
+  animation: slideInRight 0.4s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 
 /* Status Badge Styling */
 .badge-status {
@@ -750,22 +786,6 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
             </div>
         </div>
         
-        <!-- Success/Error Messages -->
-        <?php if (isset($_SESSION['success_msg'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            <i class="fas fa-check-circle me-2"></i>
-            <?= $_SESSION['success_msg'] ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        <?php unset($_SESSION['success_msg']); endif; ?>
-
-        <?php if (isset($_SESSION['error_msg'])): ?>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <i class="fas fa-exclamation-circle me-2"></i>
-            <?= $_SESSION['error_msg'] ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        <?php unset($_SESSION['error_msg']); endif; ?>
         
         <!-- STATISTICS CARDS (Admin Style) -->
         <div class="row mb-4">
@@ -1110,10 +1130,18 @@ if ($result->num_rows > 0) {
                                             <small class="text-muted">Must be 18 years or older</small>
                                             <div class="invalid-feedback">You must be at least 18 years old to book.</div>
                                         </div>
-                                            <div class="col-md-6">
-                                                <label for="numPeople" class="form-label fw-medium">Guests *</label>
-                                                <input type="number" name="num_people" id="numPeople" class="form-control" required>
-                                            </div>
+                                        <div class="col-md-6">
+                                            <label for="numPeople" class="form-label fw-medium">Guests *</label>
+                                            <input 
+                                                type="number" 
+                                                name="num_people" 
+                                                id="numPeople" 
+                                                class="form-control" 
+                                                min="1" 
+                                                required 
+                                                oninput="validateGuestCount(this);">
+                                            <div id="guestError" class="text-danger small mt-1 d-none">Number of guests must be at least 1.</div>
+                                        </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1233,9 +1261,23 @@ if ($result->num_rows > 0) {
                                             </ol>
                                             <div class="mt-3">
                                                 <label for="referenceNumber" class="form-label fw-medium">GCash Reference Number *</label>
-                                                <input type="text" name="reference_number" id="referenceNumber" class="form-control" placeholder="Enter 13-digit reference number" maxlength="13" pattern="\d{13}">
+                                                <input 
+                                                    type="text" 
+                                                    name="reference_number" 
+                                                    id="referenceNumber" 
+                                                    class="form-control" 
+                                                    placeholder="Enter 13-digit reference number" 
+                                                    maxlength="13"
+                                                    oninput="limitReferenceNumber(this); validateReferenceNumber();">
+                                                
                                                 <small class="text-muted">Found in your GCash transaction receipt</small>
+
+                                                <!-- Error messages -->
+                                                <div id="refErrorEmpty" class="text-danger small mt-1 d-none">Please enter the GCash reference number.</div>
+                                                <div id="refErrorDigit" class="text-danger small mt-1 d-none">Reference number must contain digits only.</div>
+                                                <div id="refErrorLength" class="text-danger small mt-1 d-none">Reference number must be exactly 13 digits.</div>
                                             </div>
+
                                         </div>
                                     </div>
                                     <div class="col-md-4 d-flex align-items-stretch">
@@ -1318,8 +1360,37 @@ if ($result->num_rows > 0) {
 
 <!-- End Cancel Booking Modal -->
 
-<!-- Toast container for Cancellation -->
+<!-- Toast container for All Notifications -->
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+  <!-- Success Toast -->
+  <?php if (isset($_SESSION['success_msg'])): ?>
+    <div id="successToast" class="toast align-items-center text-bg-success border-0 fade" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-check-circle me-2"></i>
+          <?= htmlspecialchars($_SESSION['success_msg']) ?>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+    <?php unset($_SESSION['success_msg']); ?>
+  <?php endif; ?>
+
+  <!-- Error Toast -->
+  <?php if (isset($_SESSION['error_msg'])): ?>
+    <div id="errorToast" class="toast align-items-center text-bg-danger border-0 fade" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-exclamation-circle me-2"></i>
+          <?= htmlspecialchars($_SESSION['error_msg']) ?>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+    <?php unset($_SESSION['error_msg']); ?>
+  <?php endif; ?>
+
+  <!-- Cancellation Toast -->
   <?php if (isset($_GET['success']) && $_GET['success'] === 'cancelled'): ?>
     <div id="cancelSuccessToast" class="toast align-items-center text-bg-success border-0 fade" role="alert">
       <div class="d-flex">
@@ -1368,14 +1439,27 @@ if ($result->num_rows > 0) {
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script>
 
-    // toast alert for cancellation
-    document.addEventListener("DOMContentLoaded", function () {
-  const toastEl = document.querySelector(".toast");
-  if (toastEl) {
-    const toast = new bootstrap.Toast(toastEl);
-    toast.show();
-  }
+// Initialize and show all toasts
+document.addEventListener("DOMContentLoaded", function () {
+  // Show all toasts with appropriate delays
+  const toasts = [
+    { id: 'successToast', delay: 5000 },
+    { id: 'errorToast', delay: 7000 },
+    { id: 'cancelSuccessToast', delay: 5000 }
+  ];
+
+  toasts.forEach(item => {
+    const toastEl = document.getElementById(item.id);
+    if (toastEl) {
+      const toast = new bootstrap.Toast(toastEl, {
+        autohide: true,
+        delay: item.delay
+      });
+      toast.show();
+    }
+  });
 });
+
 
 //sweetalert2
 document.getElementById("cancelBookingForm").addEventListener("submit", function(e) {
@@ -1423,17 +1507,37 @@ const roomSchedules = <?php
             $schedules[$room_num] = [];
         }
         $schedules[$room_num][] = [
-            'check_in' => $schedule['start_date'],
-            'check_out' => $schedule['end_date']
+            'start_date' => $schedule['start_date'],  // ✅ Changed from check_in
+            'end_date' => $schedule['end_date']        // ✅ Changed from check_out
         ];
     }
     echo json_encode($schedules);
 ?>;
 
+// Also include check-ins that are scheduled or currently checked in
+const checkinSchedules = <?php
+    $checkin_query = "SELECT room_number, check_in_date, check_out_date 
+                      FROM checkins 
+                      WHERE status IN ('scheduled', 'checked_in')";
+    $checkin_result = $conn->query($checkin_query);
+    $checkin_data = [];
+    while ($checkin = $checkin_result->fetch_assoc()) {
+        $room_num = $checkin['room_number'];
+        if (!isset($checkin_data[$room_num])) {
+            $checkin_data[$room_num] = [];
+        }
+        $checkin_data[$room_num][] = [
+            'start_date' => $checkin['check_in_date'],   // ✅ Using check_in_date
+            'end_date' => $checkin['check_out_date']     // ✅ Using check_out_date
+        ];
+    }
+    echo json_encode($checkin_data);
+?>;
+
 function checkRoomAvailability() {
     const roomSelect = document.getElementById('roomNumber');
-    const checkinInput = document.getElementById('startDate'); // ✅ Fixed ID
-    const durationSelect = document.getElementById('duration'); // ✅ Fixed ID
+    const checkinInput = document.getElementById('startDate');
+    const durationSelect = document.getElementById('duration');
     const messageDiv = document.getElementById('availability-message');
     
     const roomNumber = roomSelect?.value;
@@ -1453,15 +1557,18 @@ function checkRoomAvailability() {
     const selectedCheckin = new Date(checkinTime);
     const selectedCheckout = new Date(selectedCheckin.getTime() + duration * 60 * 60 * 1000);
     
-    const schedules = roomSchedules[roomNumber] || [];
+    // Combine both bookings and check-ins schedules
+    const bookingsList = roomSchedules[roomNumber] || [];
+    const checkinsList = checkinSchedules[roomNumber] || [];
+    const allSchedules = [...bookingsList, ...checkinsList];
     
     // Check for conflicts
     let isAvailable = true;
     let conflictSchedule = null;
     
-    for (let schedule of schedules) {
-        const bookedCheckin = new Date(schedule.check_in);
-        const bookedCheckout = new Date(schedule.check_out);
+    for (let schedule of allSchedules) {
+        const bookedCheckin = new Date(schedule.start_date);   // ✅ Changed from check_in
+        const bookedCheckout = new Date(schedule.end_date);    // ✅ Changed from check_out
         
         // Check for overlap: (start1 < end2) AND (end1 > start2)
         if (selectedCheckin < bookedCheckout && selectedCheckout > bookedCheckin) {
@@ -1482,8 +1589,8 @@ function checkRoomAvailability() {
         if (checkinInput) checkinInput.setCustomValidity('');
         return true;
     } else {
-        const bookedCheckin = new Date(conflictSchedule.check_in);
-        const bookedCheckout = new Date(conflictSchedule.check_out);
+        const bookedCheckin = new Date(conflictSchedule.start_date);   // ✅ Changed
+        const bookedCheckout = new Date(conflictSchedule.end_date);    // ✅ Changed
         
         const formatOptions = {
             month: 'short',
@@ -1515,8 +1622,8 @@ function checkRoomAvailability() {
 // Add event listeners when page loads
 document.addEventListener('DOMContentLoaded', function() {
     const roomSelect = document.getElementById('roomNumber');
-    const checkinInput = document.getElementById('startDate'); // ✅ Fixed ID
-    const durationSelect = document.getElementById('duration'); // ✅ Fixed ID
+    const checkinInput = document.getElementById('startDate');
+    const durationSelect = document.getElementById('duration');
     const bookingModal = document.getElementById('bookingModal');
     
     // Check availability when any field changes
@@ -1708,6 +1815,61 @@ if (ageInput) {
                 alert('You must be at least 18 years old to make a booking.');
             }
         });
+    }
+}
+        // GCASH REFERENCE VALIDATION
+        function limitReferenceNumber(input) {
+    input.value = input.value.replace(/\D/g, ''); // allow digits only
+    if (input.value.length > 13) input.value = input.value.slice(0, 13);
+}
+
+        function validateReferenceNumber() {
+            const input = document.getElementById("referenceNumber");
+            const value = input.value.trim();
+
+            const errorEmpty = document.getElementById("refErrorEmpty");
+            const errorDigit = document.getElementById("refErrorDigit");
+            const errorLength = document.getElementById("refErrorLength");
+
+            // Hide all error messages initially
+            errorEmpty.classList.add("d-none");
+            errorDigit.classList.add("d-none");
+            errorLength.classList.add("d-none");
+            input.classList.remove("is-invalid");
+
+            if (value === "") {
+                errorEmpty.classList.remove("d-none");
+                input.classList.add("is-invalid");
+                return false;
+            }
+
+            const onlyDigits = /^[0-9]+$/;
+            if (!onlyDigits.test(value)) {
+                errorDigit.classList.remove("d-none");
+                input.classList.add("is-invalid");
+                return false;
+            }
+
+            if (value.length !== 13) {
+                errorLength.classList.remove("d-none");
+                input.classList.add("is-invalid");
+                return false;
+            }
+
+            input.classList.remove("is-invalid");
+            return true;
+        }
+
+        function validateGuestCount(input) {
+    const error = document.getElementById("guestError");
+
+    if (input.value === "" || Number(input.value) < 1) {
+        input.classList.add("is-invalid");
+        error.classList.remove("d-none");
+        input.value = ""; // clear invalid input
+    } else {
+        input.classList.remove("is-invalid");
+        error.classList.add("d-none");
     }
 }
 

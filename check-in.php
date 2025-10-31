@@ -270,27 +270,35 @@ $conn->close();
     <div class="container mx-auto py-8 px-4">
         <div class="max-w-5xl mx-auto">
             <div class="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl mb-6">
-                <div class="bg-primary-600 text-white px-6 py-4 flex justify-between items-center">
+                <div class="text-white px-6 py-4 flex justify-between items-center" style="background-color: #8b1d2d;">
                     <h4 class="text-xl font-semibold flex items-center"><i class="fas fa-check-circle mr-2"></i>Guest Check-In</h4>
-                    <div id="currentTime" class="text-white text-sm"></div>
+                    <div id="currentTime" class="text-white text-sm" style="color: white;"></div>
                 </div>
                 
                 <div class="p-6">
                     <form method="post" id="checkInForm" onsubmit="return validateForm();">
                         <input type="hidden" name="room_number" value="<?php echo htmlspecialchars($room_number); ?>">
-                        
+
                         <div class="mb-8">
-                            <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 rounded-lg mb-6">
+                            <div class="border-l-4 p-4 rounded-lg mb-6"
+                                style="background-color: #f8e8ea; border-left-color: #8b1d2d; color: #8b1d2d;">
                                 <div class="flex items-center">
                                     <i class="fas fa-info-circle mr-2"></i>
-                                    <p>You are checking in a guest for <span class="font-semibold">Room <?php echo $room['room_number']; ?> (<?php echo ucfirst($room['room_type']); ?>)</span></p>
+                                    <p>
+                                        You are checking in a guest for
+                                        <span class="font-semibold text-[#8b1d2d]">
+                                            Room <?php echo $room['room_number']; ?> (<?php echo ucfirst($room['room_type']); ?>)
+                                        </span>
+                                    </p>
                                 </div>
                             </div>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="bg-white rounded-xl shadow-md overflow-hidden h-full transition-all duration-300 hover:shadow-lg">
                                     <div class="bg-gray-50 px-4 py-3 border-b border-gray-100">
-                                        <h5 class="font-medium text-gray-700 flex items-center"><i class="fas fa-user mr-2 text-primary-500"></i>Guest Information</h5>
+                                    <h5 class="font-medium flex items-center" style="color: #8b1d2d;">
+                                    <i class="fas fa-user mr-2" style="color: #8b1d2d;"></i>Guest Information
+                                    </h5>
                                     </div>
                                     <div class="p-5">
                                         <div class="mb-4">
@@ -336,7 +344,7 @@ $conn->close();
                                 
                                 <div class="bg-white rounded-xl shadow-md overflow-hidden h-full transition-all duration-300 hover:shadow-lg">
                                     <div class="bg-gray-50 px-4 py-3 border-b border-gray-100">
-                                        <h5 class="font-medium text-gray-700 flex items-center"><i class="fas fa-calendar-alt mr-2 text-primary-500"></i>Stay Information</h5>
+                                        <h5 class="font-medium flex items-center" style="color: #8b1d2d;"><i class="fas fa-calendar-alt mr-2" style="color: #8b1d2d;"></i>Stay Information</h5>
                                     </div>
                                     <div class="p-5">
                                         <div class="mb-4">
@@ -375,7 +383,7 @@ $conn->close();
                         <div class="mb-8">
                             <div class="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg">
                                 <div class="bg-gray-50 px-4 py-3 border-b border-gray-100">
-                                    <h5 class="font-medium text-gray-700 flex items-center"><i class="fas fa-credit-card mr-2 text-primary-500"></i>Payment Method</h5>
+                                    <h5 class="font-medium flex items-center" style="color: #8b1d2d;"><i class="fas fa-credit-card mr-2" style="color: #8b1d2d;"></i>Payment Method</h5>
                                 </div>
                                 <div class="p-5">
                                     <input type="hidden" name="payment_mode" id="payment_mode" value="select">
@@ -464,15 +472,19 @@ $conn->close();
                     <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">
                         <i class="fas fa-hashtag"></i>
                     </span>
-                    <input type="text" name="gcash_ref_id" id="gcash_ref_id"
+                    <input type="text" 
+                        name="gcash_ref_id" 
+                        id="gcash_ref_id"
                         class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
                         placeholder="Enter your GCash reference number"
-                        oninput="validateGCashRef();">
+                        maxlength="13"
+                        oninput="limitGCashRef(this); validateGCashRef();">
                 </div>
                 <p id="gcash_error" class="text-red-500 text-sm mt-1 hidden">Please enter the GCash reference number.</p>
                 <p id="gcash_digit_error" class="text-red-500 text-sm mt-1 hidden">Reference number must contain digits only.</p>
                 <p class="text-xs text-gray-500 mt-1">Enter the reference number from your GCash transaction</p>
             </div>
+
         </div>
     </div>
 </div>
@@ -483,7 +495,7 @@ $conn->close();
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg">
                                 <div class="bg-gray-50 px-4 py-3 border-b border-gray-100">
-                                    <h5 class="font-medium text-gray-700 flex items-center"><i class="fas fa-receipt mr-2 text-primary-500"></i>Booking Summary</h5>
+                                    <h5 class="font-medium flex items-center" style="color: #8b1d2d;"><i class="fas fa-receipt mr-2" style="color: #8b1d2d;"></i>Booking Summary</h5>
                                 </div>
                                 <div class="p-5">
                                     <div class="bg-gray-50 rounded-lg p-4">
@@ -513,16 +525,20 @@ $conn->close();
                                         </div>
                                         <div class="flex justify-between pt-4 mt-2 border-t border-gray-200">
                                             <span class="text-gray-800 font-medium">Total Amount:</span>
-                                            <span class="font-bold text-primary-600" id="summary_total">₱0.00</span>
+                                            <span class="font-bold" style="color: #8b1d2d;" id="summary_total">₱0.00</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             
                             <div class="flex flex-col justify-end">
-                                <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center mb-3">
-                                    <i class="fas fa-check-circle mr-2"></i>Confirm Check-In
-                                </button>
+                            <button type="submit"
+                                class="w-full text-white font-medium py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center mb-3"
+                                style="background-color: #8b1d2d;"
+                                onmouseover="this.style.backgroundColor='#6b1422';"
+                                onmouseout="this.style.backgroundColor='#8b1d2d';">
+                                <i class="fas fa-check-circle mr-2"></i>Confirm Check-In
+                            </button>
                                 <a href="receptionist-room.php" class="w-full bg-white hover:bg-gray-100 text-gray-700 font-medium py-3 px-4 rounded-lg border border-gray-300 transition-colors duration-300 flex items-center justify-center">
                                     <i class="fas fa-arrow-left mr-2"></i>Back to Rooms
                                 </a>
@@ -687,22 +703,62 @@ function selectPayment(mode) {
                     error.classList.remove("hidden");
                 }
             }
-
-        function validateGCashRef() {
-            const refNumber = document.getElementById("gcash_ref_id").value.trim();
-            const errorEmpty = document.getElementById("gcash_error");
-            const errorDigits = document.getElementById("gcash_digit_error");
-
-            // Reset all
-            errorEmpty.classList.add("hidden");
-            errorDigits.classList.add("hidden");
-
-            if (!refNumber) {
-                errorEmpty.classList.remove("hidden");
-            } else if (!/^\d+$/.test(refNumber)) {
-                errorDigits.classList.remove("hidden");
+            
+            // GCash reference number validation
+           // Restrict input to digits only and force 13-digit max
+            function limitGCashRef(input) {
+                // Remove non-digits
+                input.value = input.value.replace(/\D/g, '');
+                // Limit to 13 digits
+                if (input.value.length > 13) {
+                    input.value = input.value.slice(0, 13);
+                }
             }
-        }
+
+            // Validate input
+            function validateGCashRef() {
+                const refInput = document.getElementById("gcash_ref_id");
+                const errorEmpty = document.getElementById("gcash_error");
+                const errorDigit = document.getElementById("gcash_digit_error");
+
+                let errorLength = document.getElementById("gcash_length_error");
+                if (!errorLength) {
+                    errorLength = document.createElement("p");
+                    errorLength.id = "gcash_length_error";
+                    errorLength.className = "text-red-500 text-sm mt-1 hidden";
+                    errorLength.textContent = "Reference number must be exactly 13 digits.";
+                    refInput.parentNode.parentNode.appendChild(errorLength);
+                }
+
+                const value = refInput.value.trim();
+
+                // Reset all errors
+                errorEmpty.classList.add("hidden");
+                errorDigit.classList.add("hidden");
+                errorLength.classList.add("hidden");
+                refInput.classList.remove("border-red-500");
+
+                if (value === "") {
+                    errorEmpty.classList.remove("hidden");
+                    refInput.classList.add("border-red-500");
+                    return false;
+                }
+
+                const onlyDigits = /^[0-9]+$/;
+                if (!onlyDigits.test(value)) {
+                    errorDigit.classList.remove("hidden");
+                    refInput.classList.add("border-red-500");
+                    return false;
+                }
+
+                if (value.length !== 13) {
+                    errorLength.classList.remove("hidden");
+                    refInput.classList.add("border-red-500");
+                    return false;
+                }
+
+                return true;
+            }
 
         // Update clock
         function updateClock() {
