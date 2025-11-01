@@ -1917,6 +1917,21 @@ if (ageInput) {
     }
     document.getElementById("roomNumber").addEventListener("change", updateRoomAvailability);
 
+    document.addEventListener('DOMContentLoaded', function() {
+  const roomSelect = document.getElementById('roomNumber');
+  if (!roomSelect) return;
+
+  // Loop through each room option
+  for (let option of roomSelect.options) {
+    const isOccupied = option.dataset.occupied === '1' || option.dataset.status === 'booked';
+    if (isOccupied) {
+      // Optional: Add a visual indicator (different color/style)
+      option.style.color = '#dc3545'; // Red color for occupied rooms
+      option.style.fontWeight = '500';
+    }
+  }
+});
+
 
     // --- NEW: Auto update estimated checkout ---
     function updateCheckoutTime() {
