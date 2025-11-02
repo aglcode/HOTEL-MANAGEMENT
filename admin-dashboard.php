@@ -122,6 +122,107 @@ try {
 } catch (Exception $e) {
     // Handle error silently
 }
+
+// Get history logs - Combined bookings and check-ins with receptionist info
+$history_logs = [];
+try {
+    // Get bookings that are pending, upcoming, or cancelled
+    $bookings_query = "
+        SELECT 
+            b.id,
+            b.guest_name,
+            b.email,
+            b.room_number,
+            b.start_date as date,
+            b.end_date,
+            b.duration,
+            b.total_price,
+            b.status,
+            b.booking_token as reference,
+            u.name as receptionist_name,
+            'Booking' as type,
+            b.created_at
+        FROM bookings b
+        LEFT JOIN users u ON b.cancelled_by = u.user_id
+        WHERE b.status IN ('pending', 'upcoming', 'cancelled')
+        ORDER BY b.created_at DESC
+        LIMIT 10
+    ";
+    
+    $result = $conn->query($bookings_query);
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            $history_logs[] = $row;
+        }
+    }
+    
+    // Get check-ins with receptionist info
+    $checkins_query = "
+        SELECT 
+            c.id,
+            c.guest_name,
+            '' as email,
+            c.room_number,
+            c.check_in_date as date,
+            c.check_out_date as end_date,
+            c.stay_duration as duration,
+            c.total_price,
+            c.status,
+            CASE 
+                WHEN c.gcash_reference IS NOT NULL AND c.gcash_reference != '' THEN c.gcash_reference
+                ELSE c.payment_mode
+            END as reference,
+            u.name as receptionist_name,
+            'Check-in' as type,
+            c.check_in_date as created_at
+        FROM checkins c
+        LEFT JOIN users u ON c.receptionist_id = u.user_id
+        ORDER BY c.check_in_date DESC
+        LIMIT 10
+    ";
+    
+    $result = $conn->query($checkins_query);
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            $history_logs[] = $row;
+        }
+    }
+    
+    // Remove duplicates: if both booking and check-in exist for same guest/room/date, keep only check-in
+    $filtered_logs = [];
+    $checkin_keys = [];
+    
+    // First pass: collect all check-in keys
+    foreach ($history_logs as $log) {
+        if ($log['type'] == 'Check-in') {
+            $key = strtolower(trim($log['guest_name'])) . '_' . $log['room_number'] . '_' . date('Y-m-d', strtotime($log['date']));
+            $checkin_keys[$key] = true;
+            $filtered_logs[] = $log;
+        }
+    }
+    
+    // Second pass: add bookings that don't have a matching check-in
+    foreach ($history_logs as $log) {
+        if ($log['type'] == 'Booking') {
+            $key = strtolower(trim($log['guest_name'])) . '_' . $log['room_number'] . '_' . date('Y-m-d', strtotime($log['date']));
+            if (!isset($checkin_keys[$key])) {
+                $filtered_logs[] = $log;
+            }
+        }
+    }
+    
+    // Sort combined logs by created_at descending
+    usort($filtered_logs, function($a, $b) {
+        return strtotime($b['created_at']) - strtotime($a['created_at']);
+    });
+    
+    // Keep only top 15 records
+    $history_logs = array_slice($filtered_logs, 0, 15);
+    
+} catch (Exception $e) {
+    // Handle error silently
+    error_log("History logs error: " . $e->getMessage());
+}
 ?>
 
 <!DOCTYPE html>
@@ -130,12 +231,47 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gitarra Apartelle - Admin Dashboard</title>
+        <!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link href="style.css" rel="stylesheet">
     
     <style>
+        /* History Logs Styles */
+.history-item {
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
+}
+
+.history-item:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+    transform: translateX(5px);
+}
+
+.history-item.booking {
+    border-left-color: #0d6efd;
+}
+
+.history-item.checkin {
+    border-left-color: #198754;
+}
+
+.type-badge {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.status-badge {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 12px;
+}
         
         .stat-card {
             border-radius: 12px;
@@ -354,6 +490,7 @@ try {
       <a href="admin-report.php"><i class="fa-solid fa-file-lines"></i> Reports</a>
       <a href="admin-supplies.php"><i class="fa-solid fa-cube"></i> Supplies</a>
       <a href="admin-inventory.php"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
+      <a href="admin-archive.php"><i class="fa-solid fa-archive"></i> Archived</a>
     </div>
 
     <div class="signout">
@@ -573,7 +710,153 @@ style="background-color: #871D2B;"
         </div>
     </div>
 
+  <!-- History Logs Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>History Logs</h5>
+                <small>Recent Bookings & Check-ins</small>
+            </div>
+            <div class="card-body p-0">
+                <?php if (count($history_logs) > 0): ?>
+                    <div class="table-responsive p-3">
+                        <table id="historyLogsTable" class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Guest Name</th>
+                                    <th>Room</th>
+                                    <th>Date</th>
+                                    <th>Duration</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Receptionist</th>
+                                    <th>Reference</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($history_logs as $log): ?>
+                                    <tr class="history-item <?= strtolower($log['type']) ?>">
+                                        <td>
+                                            <span class="type-badge <?= $log['type'] == 'Booking' ? 'bg-primary text-white' : 'bg-success text-white' ?>">
+                                                <i class="fas fa-<?= $log['type'] == 'Booking' ? 'calendar-check' : 'door-open' ?> me-1"></i>
+                                                <?= $log['type'] ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <strong><?= htmlspecialchars($log['guest_name']) ?></strong>
+                                            <?php if (!empty($log['email'])): ?>
+                                                <br><small class="text-muted"><?= htmlspecialchars($log['email']) ?></small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info"><?= $log['room_number'] ?></span>
+                                        </td>
+                                        <td>
+                                            <small><?= date('M d, Y', strtotime($log['date'])) ?></small>
+                                            <br><small class="text-muted"><?= date('h:i A', strtotime($log['date'])) ?></small>
+                                        </td>
+                                        <td>
+                                            <?= $log['duration'] ?> hrs
+                                        </td>
+                                        <td>
+                                            <strong>₱<?= number_format($log['total_price'], 2) ?></strong>
+                                        </td>
+                                        <td>
+                                            <?php
+                                            $statusClass = '';
+                                            $statusText = ucfirst($log['status']);
+                                            
+                                            switch($log['status']) {
+                                                case 'completed':
+                                                    $statusClass = 'bg-success';
+                                                    break;
+                                                case 'checked_out':
+                                                    $statusClass = 'bg-secondary';
+                                                    $statusText = 'Checked Out';
+                                                    break;
+                                                case 'active':
+                                                    $statusClass = 'bg-info';
+                                                    break;
+                                                case 'checked_in':
+                                                    $statusClass = 'bg-success';
+                                                    $statusText = 'Checked In';
+                                                    break;
+                                                case 'upcoming':
+                                                case 'scheduled':
+                                                    $statusClass = 'bg-warning';
+                                                    break;
+                                                case 'cancelled':
+                                                    $statusClass = 'bg-danger';
+                                                    break;
+                                                default:
+                                                    $statusClass = 'bg-secondary';
+                                            }
+                                            ?>
+                                            <span class="status-badge <?= $statusClass ?> text-white">
+                                                <?= $statusText ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <?php if (!empty($log['receptionist_name'])): ?>
+                                                <i class="fas fa-user me-1"></i>
+                                                <small><?= htmlspecialchars($log['receptionist_name']) ?></small>
+                                            <?php else: ?>
+                                                <small class="text-muted">N/A</small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if (!empty($log['reference'])): ?>
+                                                <small class="text-muted"><?= htmlspecialchars($log['reference']) ?></small>
+                                            <?php else: ?>
+                                                <small class="text-muted">—</small>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <div class="p-4 text-center">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <p>No history logs available yet.</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- DataTables JS -->
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
     <script>
+            // Initialize DataTables for History Logs
+    $(document).ready(function() {
+        $('#historyLogsTable').DataTable({
+            "order": [[3, "desc"]], // Sort by date column (index 3) descending
+            "pageLength": 10,
+            "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+            "language": {
+                "search": "Search logs:",
+                "lengthMenu": "Show _MENU_ entries",
+                "info": "Showing _START_ to _END_ of _TOTAL_ logs",
+                "infoEmpty": "No logs available",
+                "infoFiltered": "(filtered from _MAX_ total logs)",
+                "zeroRecords": "No matching logs found",
+                "paginate": {
+                    "first": "<<",
+                    "last": ">>",
+                    "next": ">",
+                    "previous": "<"
+                }
+            }
+        });
+    });
+
         // Update clock
         function updateClock() {
             const now = new Date();

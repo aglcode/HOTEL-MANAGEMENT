@@ -221,18 +221,18 @@ if (isset($_POST['edit_user'])) {
     exit();
 }
 
-// Handle deleting a user
-if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['user_id'])) {
+// Handle archive users
+if (isset($_GET['action']) && $_GET['action'] == 'archive' && isset($_GET['user_id'])) {
     $user_id = $_GET['user_id'];
-
-    // Delete the user from the database
-    $query = "DELETE FROM users WHERE user_id = ?";
+    
+    // Archive the user instead of deleting
+    $query = "UPDATE users SET is_archived = 1, archived_at = NOW() WHERE user_id = ?";
     $stmt = $conn->prepare($query);
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $stmt->close();
 
-    header("Location: admin-user.php?success=deleted");
+    header("Location: admin-user.php?success=archived");
     exit();
 }
 
@@ -253,17 +253,17 @@ if (isset($_GET['action']) && $_GET['action'] == 'update_status' && isset($_GET[
 }
 
 // Count total users
-$total_users_query = "SELECT COUNT(*) as total FROM users";
+$total_users_query = "SELECT COUNT(*) as total FROM users WHERE is_archived = 0";
 $total_users_result = $conn->query($total_users_query);
 $total_users = $total_users_result->fetch_assoc()['total'];
 
 // Count pending accounts
-$pending_users_query = "SELECT COUNT(*) as pending FROM users WHERE status = 'pending'";
+$pending_users_query = "SELECT COUNT(*) as pending FROM users WHERE status = 'pending' AND is_archived = 0";
 $pending_users_result = $conn->query($pending_users_query);
 $pending_users = $pending_users_result->fetch_assoc()['pending'];
 
 // Fetch all users
-$query = "SELECT * FROM users ORDER BY user_id DESC";
+$query = "SELECT * FROM users WHERE is_archived = 0 ORDER BY user_id DESC";
 $result = $conn->query($query);
 ?>
 
@@ -273,6 +273,8 @@ $result = $conn->query($query);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gitarra Apartelle - User Management</title>
+        <!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -283,6 +285,9 @@ $result = $conn->query($query);
 
 
 <style>
+  .user-actions .action-btn.archive:hover {
+  color: #f59e0b; /* amber/orange color */
+}
 .stat-card {
     border-radius: 12px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.05);
@@ -607,6 +612,7 @@ $result = $conn->query($query);
       <a href="admin-report.php"><i class="fa-solid fa-file-lines"></i> Reports</a>
       <a href="admin-supplies.php"><i class="fa-solid fa-cube"></i> Supplies</a>
       <a href="admin-inventory.php"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
+      <a href="admin-archive.php"><i class="fa-solid fa-archive"></i> Archived</a>
     </div>
 
     <div class="signout">
@@ -723,9 +729,9 @@ style="background-color: #871D2B;">
               <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
               <select name="role" id="role" class="form-select" required>
                 <option value="" selected disabled>Select a role</option>
-                <option value="Admin">Admin</option>
+                <!-- <option value="Admin">Admin</option> -->
                 <option value="Receptionist">Receptionist</option>
-                <option value="Guest">Guest</option>
+                <!-- <option value="Guest">Guest</option> -->
               </select>
             </div>
           </div>
@@ -763,7 +769,8 @@ style="background-color: #871D2B;">
           <?php
             if ($_GET['success'] == 'added') echo "User added successfully!";
             if ($_GET['success'] == 'edited') echo "User edited successfully!";
-            if ($_GET['success'] == 'deleted') echo "User deleted successfully!";
+            // if ($_GET['success'] == 'deleted') echo "User deleted successfully!";
+            if ($_GET['success'] == 'archived') echo "User archived successfully!";
             if ($_GET['success'] == 'status_updated') echo "User status updated successfully!";
           ?>
         </div>
@@ -1102,11 +1109,11 @@ sendCodeBtn.addEventListener("click", () => {
                             <i class="fas fa-edit"></i>
                             </a>
 
-                            <a href="javascript:void(0)"
-                            onclick="confirmDelete(<?= $user['user_id'] ?>)"
-                            class="p-1 action-btn delete" title="Delete">
-                            <i class="fas fa-trash"></i>
-                            </a>
+<a href="javascript:void(0)"
+   onclick="confirmArchive(<?= $user['user_id'] ?>)"
+   class="p-1 action-btn archive" title="Archive">
+   <i class="fas fa-archive"></i>
+</a>
                         </div>
                         </td>
 
@@ -1135,36 +1142,36 @@ sendCodeBtn.addEventListener("click", () => {
     <div class="modal-content border-0 shadow-lg">
       
       <!-- Header -->
-      <div class="modal-header border-0 pb-2">
-        <h5 class="modal-title fw-bold text-danger" id="deleteModalLabel">
-          <i class="fas fa-exclamation-triangle me-2"></i>Confirm Deletion
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
+<div class="modal-header border-0 pb-2">
+    <h5 class="modal-title fw-bold text-warning" id="deleteModalLabel">
+        <i class="fas fa-archive me-2"></i>Archive User
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
       <hr class="my-0"> <!-- Line after header -->
       
       <!-- Body -->
-      <div class="modal-body text-center">
-        <div class="mb-3">
-          <div class="rounded-circle bg-danger bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
-            <i class="fas fa-user-times text-danger fa-2x"></i> <!-- Changed icon for user -->
-          </div>
+<div class="modal-body text-center">
+    <div class="mb-3">
+        <div class="rounded-circle bg-warning bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
+            <i class="fas fa-archive text-warning fa-2x"></i>
         </div>
-        <h5 class="fw-bold mb-2">Delete user?</h5>
-        <p class="text-muted mb-0">
-          Are you sure you want to delete this user?<br>
-          This action cannot be undone and all associated data will be permanently removed.
-        </p>
-      </div>
+    </div>
+    <h5 class="fw-bold mb-2">Archive this user?</h5>
+    <p class="text-muted mb-0">
+        This user will be moved to the archive.<br>
+        You can restore or permanently delete them from the archive page.
+    </p>
+</div>
       <hr class="my-0"> <!-- Line before buttons -->
       
       <!-- Footer -->
-      <div class="modal-footer border-0 justify-content-center">
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-        <a href="#" id="deleteUserLink" class="btn btn-danger">
-          <i class="fas fa-user-times me-1"></i> Delete User
-        </a>
-      </div>
+<div class="modal-footer border-0 justify-content-center">
+    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+    <a href="#" id="archiveUserLink" class="btn btn-warning">
+        <i class="fas fa-archive me-1"></i> Archive User
+    </a>
+</div>
     </div>
   </div>
 </div>
@@ -1252,12 +1259,12 @@ sendCodeBtn.addEventListener("click", () => {
         setInterval(updateClock, 1000);
         updateClock();
         
-        // Delete confirmation
-        function confirmDelete(userId) {
-            document.getElementById('deleteUserLink').href = 'admin-user.php?action=delete&user_id=' + userId;
-            var deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-            deleteModal.show();
-        }
+        // Archive confirmation
+function confirmArchive(userId) {
+    document.getElementById('archiveUserLink').href = 'admin-user.php?action=archive&user_id=' + userId;
+    var archiveModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    archiveModal.show();
+}
         
         // Edit user function
         function editUser(userId, name, username, email, role) {

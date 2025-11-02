@@ -68,12 +68,13 @@ $conn->query("
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_booking'])) {
     $booking_id = intval($_POST['booking_id']);
     $cancellation_reason = trim($_POST['cancellation_reason']);
+    $cancelled_by = $_SESSION['user_id'] ?? null; // Get the logged-in user's ID
     
     if (empty($cancellation_reason)) {
         $_SESSION['error_msg'] = 'Cancellation reason is required.';
     } else {
-        $stmt = $conn->prepare("UPDATE bookings SET status = 'cancelled', cancellation_reason = ?, cancelled_at = NOW() WHERE id = ?");
-        $stmt->bind_param("si", $cancellation_reason, $booking_id);
+        $stmt = $conn->prepare("UPDATE bookings SET status = 'cancelled', cancellation_reason = ?, cancelled_by = ?, cancelled_at = NOW() WHERE id = ?");
+        $stmt->bind_param("sii", $cancellation_reason, $cancelled_by, $booking_id);
         
         if ($stmt->execute()) {
             $_SESSION['success_msg'] = 'Booking has been cancelled successfully.';
@@ -82,24 +83,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_booking'])) {
         }
         $stmt->close();
     }
-    header('Location: receptionist-booking.php');
+    header('Location: receptionist-booking.php?success=cancelled');
     exit();
 }
 
 // Handle booking submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_booking'])) {
-    $guest_name   = $_POST['guest_name'];
+    $guest_name   = $_POST['guest_name'] ?? '';
     $email        = $_POST['email'] ?? '';
-    $address      = $_POST['address'];
-    $telephone    = $_POST['telephone'];
-    $age          = (int)$_POST['age'];
-    $num_people   = isset($_POST['num_people']) ? (int)$_POST['num_people'] : 1; // Default to 1 if not provided
-    $room_number  = $_POST['room_number'];
-    $duration     = $_POST['duration'];
-    $payment_mode = $_POST['payment_mode'];
+    $address      = $_POST['address'] ?? '';
+    $telephone    = $_POST['telephone'] ?? '';
+    $age          = isset($_POST['age']) ? (int)$_POST['age'] : 0;
+    $num_people   = isset($_POST['num_people']) ? (int)$_POST['num_people'] : 1;
+    $room_number  = $_POST['room_number'] ?? '';
+    $duration     = $_POST['duration'] ?? '';
+    $payment_mode = $_POST['payment_mode'] ?? '';
     $reference    = $_POST['reference_number'] ?? '';
-    $amount_paid  = floatval($_POST['amount_paid']);
-    $start_date   = $_POST['start_date'];
+    $amount_paid  = isset($_POST['amount_paid']) ? floatval($_POST['amount_paid']) : 0;
+    $start_date   = $_POST['start_date'] ?? '';
     
     // Generate booking token
     $booking_token = generateBookingToken();
@@ -317,6 +318,8 @@ $total_pages = ceil($total_records / $limit);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gitarra Apartelle - Booking Management</title>
+        <!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -598,6 +601,42 @@ table td {
   line-height: 1.3;
 }
 
+.toast-container .toast {
+  min-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toast-body {
+  font-size: 15px;
+  font-weight: 500;
+  padding: 12px 16px;
+}
+
+.toast .btn-close {
+  padding: 0.5rem;
+}
+
+/* Success toast with animation */
+#successToast {
+  animation: slideInRight 0.4s ease-out;
+}
+
+/* Error toast with animation */
+#errorToast {
+  animation: slideInRight 0.4s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 
 /* Status Badge Styling */
 .badge-status {
@@ -652,6 +691,21 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 .row {
   margin-left: 0;
   margin-right: 0;
+}
+
+#availability-message .alert {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Responsive Adjustments */
@@ -732,22 +786,6 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
             </div>
         </div>
         
-        <!-- Success/Error Messages -->
-        <?php if (isset($_SESSION['success_msg'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            <i class="fas fa-check-circle me-2"></i>
-            <?= $_SESSION['success_msg'] ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        <?php unset($_SESSION['success_msg']); endif; ?>
-
-        <?php if (isset($_SESSION['error_msg'])): ?>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <i class="fas fa-exclamation-circle me-2"></i>
-            <?= $_SESSION['error_msg'] ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        <?php unset($_SESSION['error_msg']); endif; ?>
         
         <!-- STATISTICS CARDS (Admin Style) -->
         <div class="row mb-4">
@@ -917,96 +955,74 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
           </tr>
         </thead>
         <tbody>
-                            <?php
-                            if ($result->num_rows > 0) {
-                                $index = $offset + 1;
-                                while ($row = $result->fetch_assoc()):
-                                    $now = new DateTime();
-                                    $start = new DateTime($row['start_date']);
-                                    $end = new DateTime($row['end_date']);
+                          <?php
+if ($result->num_rows > 0) {
+    $index = $offset + 1;
+    while ($row = $result->fetch_assoc()):
+        $now = new DateTime();
+        $start = new DateTime($row['start_date']);
+        $end = new DateTime($row['end_date']);
 
-                                    // Get latest checkin (if any) for this guest + room
-                                    $latestCheckin = null;
-                                    $lcStmt = $conn->prepare("
-                                        SELECT check_in_date, check_out_date 
-                                        FROM checkins 
-                                        WHERE guest_name = ? AND room_number = ? 
-                                        ORDER BY check_in_date DESC 
-                                        LIMIT 1
-                                    ");
-                                    $lcStmt->bind_param("ss", $row['guest_name'], $row['room_number']);
-                                    $lcStmt->execute();
-                                    $lcRes = $lcStmt->get_result();
-                                    if ($lcRes && $lcRow = $lcRes->fetch_assoc()) {
-                                        $latestCheckin = $lcRow;
-                                    }
-                                    $lcStmt->close();
+        // Get latest checkin (if any) for this guest + room
+        $latestCheckin = null;
+        $lcStmt = $conn->prepare("
+            SELECT check_in_date, check_out_date, status 
+            FROM checkins 
+            WHERE guest_name = ? AND room_number = ? 
+            ORDER BY check_in_date DESC 
+            LIMIT 1
+        ");
+        $lcStmt->bind_param("ss", $row['guest_name'], $row['room_number']);
+        $lcStmt->execute();
+        $lcRes = $lcStmt->get_result();
+        if ($lcRes && $lcRow = $lcRes->fetch_assoc()) {
+            $latestCheckin = $lcRow;
+        }
+        $lcStmt->close();
 
-                                    // Also detect any current occupant for the room (any guest)
-                                    $currentOccupant = null;
-                                    $occStmt = $conn->prepare("
-                                        SELECT guest_name 
-                                        FROM checkins 
-                                        WHERE room_number = ? 
-                                          AND check_in_date <= NOW() 
-                                          AND check_out_date > NOW() 
-                                        ORDER BY check_in_date DESC 
-                                        LIMIT 1
-                                    ");
-                                    $occStmt->bind_param("s", $row['room_number']);
-                                    $occStmt->execute();
-                                    $occRes = $occStmt->get_result();
-                                    if ($occRes && $occRow = $occRes->fetch_assoc()) {
-                                        $currentOccupant = $occRow['guest_name'];
-                                    }
-                                    $occStmt->close();
-
-                                  // Decide status: prefer latest checkin status if present (override booking.status)
-                                  if ($row['status'] === 'completed') {
-                                      // ✅ Show as Completed directly
-                                      $status_class = "bg-secondary";
-                                      $status_text = "Completed";
-                                  } else {
-                                      if ($latestCheckin) {
-                                          $ci_out = new DateTime($latestCheckin['check_out_date']);
-                                          $ci_in = new DateTime($latestCheckin['check_in_date']);
-                                          if ($ci_in <= $now && $ci_out > $now) {
-                                              $status_class = "bg-warning text-dark";
-                                              $status_text = "In Use";
-                                          } elseif ($ci_out <= $now) {
-                                              $status_class = "bg-secondary";
-                                              $status_text = "Completed";
-                                              $updateStatus = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
-                                              $updateStatus->bind_param('i', $row['id']);
-                                              $updateStatus->execute();
-                                              $updateStatus->close();
-                                          } else {
-                                              $status_class = "bg-info";
-                                              $status_text = "Upcoming";
-                                          }
-                                      } else {
-                                          if ($row['status'] === 'cancelled') {
-                                              $status_class = "bg-danger";
-                                              $status_text = "Cancelled";
-                                          } elseif ($currentOccupant) {
-                                              $status_class = "bg-warning text-dark";
-                                              $status_text = "In Use";
-                                          } elseif ($now < $start) {
-                                              $status_class = "bg-info";
-                                              $status_text = "Upcoming";
-                                          } elseif ($now >= $start && $now <= $end) {
-                                              $status_class = "bg-success";
-                                              $status_text = "Active";
-                                          } elseif ($now > $end) {
-                                              $status_class = "bg-secondary";
-                                              $status_text = "Completed";
-                                          } else {
-                                              $status_class = "bg-secondary";
-                                              $status_text = ucfirst($row['status']);
-                                          }
-                                      }
-                                  }
-                            ?>
+        // Decide status based on booking and checkin records
+        if ($row['status'] === 'completed') {
+            $status_class = "bg-success";
+            $status_text = "Completed";
+        } elseif ($row['status'] === 'cancelled') {
+            $status_class = "bg-danger";
+            $status_text = "Cancelled";
+        } elseif ($latestCheckin) {
+            // This guest has a checkin record for this room
+            if ($latestCheckin['status'] === 'checked_in') {
+                $status_class = "bg-warning text-dark";
+                $status_text = "In Use";
+            } elseif ($latestCheckin['status'] === 'checked_out') {
+                $status_class = "bg-success";
+                $status_text = "Completed";
+                // Update booking status to completed
+                $updateStatus = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
+                $updateStatus->bind_param('i', $row['id']);
+                $updateStatus->execute();
+                $updateStatus->close();
+            } else {
+                // Status is 'scheduled' - show as upcoming
+                $status_class = "bg-info";
+                $status_text = "Upcoming";
+            }
+        } else {
+            // No checkin record exists for this specific guest+room combo
+            // Use booking dates to determine status
+            if ($now < $start) {
+                $status_class = "bg-info";
+                $status_text = "Upcoming";
+            } elseif ($now >= $start && $now <= $end) {
+                $status_class = "bg-success";
+                $status_text = "Active";
+            } elseif ($now > $end) {
+                $status_class = "bg-success";
+                $status_text = "Completed";
+            } else {
+                $status_class = "bg-secondary";
+                $status_text = ucfirst($row['status']);
+            }
+        }
+?>
                             <tr>
                                  <td><?= $index++ ?></td>
             <td class="text-center align-middle">
@@ -1041,14 +1057,12 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
             <td><?= !empty($row['booking_token']) ? htmlspecialchars($row['booking_token']) : '<span class="text-muted">No token</span>' ?></td>
             <td><span class="badge <?= $status_class ?>"><?= $status_text ?></span></td>
             <td class="text-center">
-              <?php if ($status_text !== 'Completed'): ?>
-              <div class="d-flex justify-content-center gap-2">
+            <div class="d-flex justify-content-center gap-2">
                 <button class="btn btn-sm btn-outline-primary" onclick="viewGuestDetails(<?= $row['id'] ?>)" title="View"><i class="fas fa-user"></i></button>
+                <?php if ($status_text === 'Upcoming'): ?>
                 <button class="btn btn-sm btn-outline-danger" onclick="cancelBooking(<?= $row['id'] ?>, '<?= htmlspecialchars($row['guest_name']) ?>')" title="Cancel"><i class="fas fa-times"></i></button>
-              </div>
-              <?php else: ?>
-                <span class="text-muted small">No actions</span>
-              <?php endif; ?>
+                <?php endif; ?>
+            </div>
             </td>
           </tr>
           <?php endwhile; } else { ?>
@@ -1085,7 +1099,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                             <!-- Guest Information -->
                             <div class="col-md-6">
                                 <div class="card border-0 shadow-sm h-100 rounded-3">
-                                    <div class="card-header bg-primary text-white rounded-top-3">
+                                    <div class="card-header text-white rounded-top-3" style="background-color: #8b1d2d;">
                                         <h6 class="mb-0 fw-semibold"><i class="fas fa-user me-2"></i>Guest Information</h6>
                                     </div>
                                     <div class="card-body">
@@ -1094,29 +1108,40 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                                             <input type="text" name="guest_name" id="guestName" class="form-control" required>
                                         </div>
                                         <div class="mb-3">
-                                            <label for="email" class="form-label fw-medium">Email Address *</label>
-                                            <input type="email" name="email" id="email" class="form-control" required>
-                                            <small class="text-muted">We'll send your booking confirmation here</small>
+                                            <label class="form-label">Email Address *</label>
+                                            <input type="email" name="email" id="email_input" class="form-control" required placeholder="your.email@example.com">
+                                            <div class="form-text">We'll send your booking confirmation to this email</div>
+                                            <div class="invalid-feedback">Please enter a valid email address (e.g., name@example.com).</div>
                                         </div>
                                         <div class="mb-3">
                                             <label for="telephone" class="form-label fw-medium">Phone Number *</label>
-                                            <input type="text" name="telephone" id="telephone" class="form-control" required pattern="\d{10,11}">
-                                            <small class="text-muted">Enter a valid 10-11 digit phone number</small>
+                                            <input type="text" name="telephone" id="telephone" class="form-control" required placeholder="09XX-XXX-XXXX" maxlength="13">
+                                            <small class="text-muted">Enter a valid 11-digit phone number (format: 09XX-XXX-XXXX)</small>
+                                            <div class="invalid-feedback">Please enter exactly 11 digits starting with 09.</div>
                                         </div>
                                         <div class="mb-3">
                                             <label for="address" class="form-label fw-medium">Complete Address *</label>
                                             <input type="text" name="address" id="address" class="form-control" required>
                                         </div>
                                         <div class="row g-3">
-                                            <div class="col-md-6">
-                                                <label for="age" class="form-label fw-medium">Age *</label>
-                                                <input type="number" name="age" id="age" class="form-control" required>
-                                                <small class="text-muted">Must be 18+</small>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label for="numPeople" class="form-label fw-medium">Guests *</label>
-                                                <input type="number" name="num_people" id="numPeople" class="form-control" required>
-                                            </div>
+                                        <div class="col-md-6">
+                                            <label for="age" class="form-label fw-medium">Age *</label>
+                                            <input type="number" name="age" id="age" class="form-control" required min="18" max="120" placeholder="18">
+                                            <small class="text-muted">Must be 18 years or older</small>
+                                            <div class="invalid-feedback">You must be at least 18 years old to book.</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="numPeople" class="form-label fw-medium">Guests *</label>
+                                            <input 
+                                                type="number" 
+                                                name="num_people" 
+                                                id="numPeople" 
+                                                class="form-control" 
+                                                min="1" 
+                                                required 
+                                                oninput="validateGuestCount(this);">
+                                            <div id="guestError" class="text-danger small mt-1 d-none">Number of guests must be at least 1.</div>
+                                        </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1125,43 +1150,52 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                             <!-- Booking Details -->
                             <div class="col-md-6">
                                 <div class="card border-0 shadow-sm h-100 rounded-3">
-                                    <div class="card-header bg-primary text-white rounded-top-3">
+                                    <div class="card-header text-white rounded-top-3" style="background-color: #8b1d2d;">
                                         <h6 class="mb-0 fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Booking Details</h6>
                                     </div>
                                     <div class="card-body">
                                         <div class="mb-3">
-                                            <label for="roomNumber" class="form-label fw-medium">Select Room *</label>
-                                            <select name="room_number" id="roomNumber" class="form-select" required onchange="updatePrice()">
-                                                <option value="">Choose your preferred room</option>
-                                                <?php
-                                               // ✅ Show all rooms, even if currently booked, so future booking is allowed
-                                            $room_query = "
-                                                SELECT room_number, room_type, price_3hrs, price_6hrs, price_12hrs, price_24hrs, price_ot, status
-                                                FROM rooms
-                                                ORDER BY room_number ASC
-                                            ";
-                                            $room_result = $conn->query($room_query);
+    <label for="roomNumber" class="form-label fw-medium">Select Room *</label>
+    <select name="room_number" id="roomNumber" class="form-select" required onchange="updatePrice(); checkRoomAvailability();">
+        <option value="">Choose your preferred room</option>
+        <?php
+        // Show all rooms, even if currently booked, so future booking is allowed
+        $room_query = "
+            SELECT room_number, room_type, price_3hrs, price_6hrs, price_12hrs, price_24hrs, price_ot, status
+            FROM rooms
+            ORDER BY room_number ASC
+        ";
+        $room_result = $conn->query($room_query);
 
-                                            while ($room = $room_result->fetch_assoc()) {
-                                                // Label booked rooms visually but still selectable
-                                                $disabled = ($room['status'] === 'maintenance') ? 'disabled' : ''; // disable only maintenance rooms
-                                                $label = ucfirst($room['status']);
-                                                $display_text = "Room {$room['room_number']} ({$room['room_type']}) - {$label}";
-                                                
-                                                echo "<option value='{$room['room_number']}' 
-                                                        data-price3='{$room['price_3hrs']}'
-                                                        data-price6='{$room['price_6hrs']}'
-                                                        data-price12='{$room['price_12hrs']}'
-                                                        data-price24='{$room['price_24hrs']}'
-                                                        data-priceOt='{$room['price_ot']}'
-                                                        $disabled>
-                                                        $display_text
-                                                      </option>";
-                                            }
+        while ($room = $room_result->fetch_assoc()) {
+            // Disable only maintenance rooms
+            $disabled = ($room['status'] === 'maintenance') ? 'disabled' : '';
+            $label = ucfirst($room['status']);
+            $display_text = "Room {$room['room_number']} - {$room['room_type']}";
+            
+            // Add status indicator for currently booked rooms
+            if ($room['status'] === 'booked') {
+                $display_text .= " (Currently Booked)";
+            }
+            
+            echo "<option value='{$room['room_number']}' 
+                    data-price3='{$room['price_3hrs']}'
+                    data-price6='{$room['price_6hrs']}'
+                    data-price12='{$room['price_12hrs']}'
+                    data-price24='{$room['price_24hrs']}'
+                    data-priceOt='{$room['price_ot']}'
+                    data-status='{$room['status']}'
+                    $disabled>
+                    $display_text
+                  </option>";
+        }
+        ?>
+    </select>
+</div>
 
-                                                ?>
-                                            </select>
-                                        </div>
+<!-- Availability message display area -->
+<div id="availability-message" class="mb-3"></div>
+
                                         <div class="mb-3">
                                             <label for="duration" class="form-label fw-medium">Stay Duration *</label>
                                             <select name="duration" id="duration" class="form-select" required>
@@ -1191,7 +1225,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 
                         <!-- Payment Information -->
                         <div class="card shadow-sm border-0 mt-4 rounded-3">
-                            <div class="card-header text-white rounded-top-3" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);">
+                        <div class="card-header text-white rounded-top-3" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%);">
                                 <h6 class="mb-0 fw-semibold">
                                     <i class="fas fa-credit-card me-2"></i>Payment Information
                                 </h6>
@@ -1209,7 +1243,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                                     <div class="col-md-6">
                                         <label for="amountPaid" class="form-label fw-medium">Amount to Pay *</label>
                                         <div class="input-group">
-                                            <span class="input-group-text" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
+                                            <span class="input-group-text" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%); color: #fff;">₱</span>
                                             <input type="number" name="amount_paid" id="amountPaid" class="form-control" min="0" step="0.01" required oninput="calculateChange();">
                                         </div>
                                     </div>
@@ -1227,9 +1261,23 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                                             </ol>
                                             <div class="mt-3">
                                                 <label for="referenceNumber" class="form-label fw-medium">GCash Reference Number *</label>
-                                                <input type="text" name="reference_number" id="referenceNumber" class="form-control" placeholder="Enter 13-digit reference number" maxlength="13" pattern="\d{13}">
+                                                <input 
+                                                    type="text" 
+                                                    name="reference_number" 
+                                                    id="referenceNumber" 
+                                                    class="form-control" 
+                                                    placeholder="Enter 13-digit reference number" 
+                                                    maxlength="13"
+                                                    oninput="limitReferenceNumber(this); validateReferenceNumber();">
+                                                
                                                 <small class="text-muted">Found in your GCash transaction receipt</small>
+
+                                                <!-- Error messages -->
+                                                <div id="refErrorEmpty" class="text-danger small mt-1 d-none">Please enter the GCash reference number.</div>
+                                                <div id="refErrorDigit" class="text-danger small mt-1 d-none">Reference number must contain digits only.</div>
+                                                <div id="refErrorLength" class="text-danger small mt-1 d-none">Reference number must be exactly 13 digits.</div>
                                             </div>
+
                                         </div>
                                     </div>
                                     <div class="col-md-4 d-flex align-items-stretch">
@@ -1250,7 +1298,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                                     <div class="col-md-6">
                                         <label for="changeAmount" class="form-label fw-medium">Change</label>
                                         <div class="input-group">
-                                            <span class="input-group-text" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color: #fff;">₱</span>
+                                            <span class="input-group-text" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%); color: #fff;">₱</span>
                                             <input type="text" id="changeAmount" class="form-control" readonly value="0.00">
                                         </div>
                                     </div>
@@ -1264,7 +1312,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
                 <!-- Footer -->
                 <div class="modal-footer bg-light p-3">
                     <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary rounded-pill px-4" style="background: linear-gradient(135deg, #6a11cb 0%, #fbc2eb 100%); border: none; font-weight:600;">
+                  <button type="submit" class="btn btn-primary rounded-pill px-4" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%); border: none; font-weight:600;">
                         <i class="fas fa-calendar-check me-2"></i>Confirm & Reserve
                     </button>
                 </div>
@@ -1278,7 +1326,7 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 <div class="modal fade" id="cancelBookingModal" tabindex="-1" aria-labelledby="cancelBookingModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form method="POST" id="cancelBookingForm" onsubmit="return confirm('Are you sure you want to cancel this booking?');">
+<form method="POST" id="cancelBookingForm">
         <div class="modal-header bg-danger text-white">
           <h5 class="modal-title" id="cancelBookingModalLabel"><i class="fas fa-times-circle me-2"></i>Cancel Booking</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -1312,6 +1360,50 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 
 <!-- End Cancel Booking Modal -->
 
+<!-- Toast container for All Notifications -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+  <!-- Success Toast -->
+  <?php if (isset($_SESSION['success_msg'])): ?>
+    <div id="successToast" class="toast align-items-center text-bg-success border-0 fade" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-check-circle me-2"></i>
+          <?= htmlspecialchars($_SESSION['success_msg']) ?>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+    <?php unset($_SESSION['success_msg']); ?>
+  <?php endif; ?>
+
+  <!-- Error Toast -->
+  <?php if (isset($_SESSION['error_msg'])): ?>
+    <div id="errorToast" class="toast align-items-center text-bg-danger border-0 fade" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-exclamation-circle me-2"></i>
+          <?= htmlspecialchars($_SESSION['error_msg']) ?>
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+    <?php unset($_SESSION['error_msg']); ?>
+  <?php endif; ?>
+
+  <!-- Cancellation Toast -->
+  <?php if (isset($_GET['success']) && $_GET['success'] === 'cancelled'): ?>
+    <div id="cancelSuccessToast" class="toast align-items-center text-bg-success border-0 fade" role="alert">
+      <div class="d-flex">
+        <div class="toast-body">
+          <i class="fas fa-check-circle me-2"></i>
+          Booking cancelled successfully!
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+</div>
+
 
     <!-- Guest Details Modal -->
     <div class="modal fade" id="guestDetailsModal" tabindex="-1" aria-labelledby="guestDetailsModalLabel" aria-hidden="true">
@@ -1339,12 +1431,448 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <!-- DataTables JS -->
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script>
+
+// Initialize and show all toasts
+document.addEventListener("DOMContentLoaded", function () {
+  // Show all toasts with appropriate delays
+  const toasts = [
+    { id: 'successToast', delay: 5000 },
+    { id: 'errorToast', delay: 7000 },
+    { id: 'cancelSuccessToast', delay: 5000 }
+  ];
+
+  toasts.forEach(item => {
+    const toastEl = document.getElementById(item.id);
+    if (toastEl) {
+      const toast = new bootstrap.Toast(toastEl, {
+        autohide: true,
+        delay: item.delay
+      });
+      toast.show();
+    }
+  });
+});
+
+
+//sweetalert2
+document.getElementById("cancelBookingForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+  
+  Swal.fire({
+    title: "Cancel Booking?",
+    text: "This action will set the booking to Cancelled.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#6c757d",
+    confirmButtonText: "Yes, cancel it!"
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Create a new FormData and submit directly
+      const formData = new FormData(this);
+      
+      // Make sure delete_booking is included
+      if (!formData.has('delete_booking')) {
+        formData.append('delete_booking', '1');
+      }
+      
+      // Submit via fetch to avoid form validation
+      fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+      }).then(() => {
+        window.location.href = 'receptionist-booking.php?success=cancelled';
+      });
+    }
+  });
+});
+
+// Store booked schedules for each room from BOOKINGS table
+const roomSchedules = <?php
+    $schedule_query = "SELECT room_number, start_date, end_date 
+                       FROM bookings 
+                       WHERE status NOT IN ('cancelled', 'completed')";
+    $schedule_result = $conn->query($schedule_query);
+    $schedules = [];
+    while ($schedule = $schedule_result->fetch_assoc()) {
+        $room_num = $schedule['room_number'];
+        if (!isset($schedules[$room_num])) {
+            $schedules[$room_num] = [];
+        }
+        $schedules[$room_num][] = [
+            'start_date' => $schedule['start_date'],  // ✅ Changed from check_in
+            'end_date' => $schedule['end_date']        // ✅ Changed from check_out
+        ];
+    }
+    echo json_encode($schedules);
+?>;
+
+// Also include check-ins that are scheduled or currently checked in
+const checkinSchedules = <?php
+    $checkin_query = "SELECT room_number, check_in_date, check_out_date 
+                      FROM checkins 
+                      WHERE status IN ('scheduled', 'checked_in')";
+    $checkin_result = $conn->query($checkin_query);
+    $checkin_data = [];
+    while ($checkin = $checkin_result->fetch_assoc()) {
+        $room_num = $checkin['room_number'];
+        if (!isset($checkin_data[$room_num])) {
+            $checkin_data[$room_num] = [];
+        }
+        $checkin_data[$room_num][] = [
+            'start_date' => $checkin['check_in_date'],   // ✅ Using check_in_date
+            'end_date' => $checkin['check_out_date']     // ✅ Using check_out_date
+        ];
+    }
+    echo json_encode($checkin_data);
+?>;
+
+function checkRoomAvailability() {
+    const roomSelect = document.getElementById('roomNumber');
+    const checkinInput = document.getElementById('startDate');
+    const durationSelect = document.getElementById('duration');
+    const messageDiv = document.getElementById('availability-message');
+    
+    const roomNumber = roomSelect?.value;
+    const checkinTime = checkinInput?.value;
+    const durationValue = durationSelect?.value;
+    
+    if (!roomNumber || !checkinTime || !durationValue) {
+        messageDiv.innerHTML = '';
+        if (checkinInput) checkinInput.setCustomValidity('');
+        return true;
+    }
+    
+    // Parse duration
+    const duration = parseInt(durationValue);
+    
+    // Calculate checkout time
+    const selectedCheckin = new Date(checkinTime);
+    const selectedCheckout = new Date(selectedCheckin.getTime() + duration * 60 * 60 * 1000);
+    
+    // Combine both bookings and check-ins schedules
+    const bookingsList = roomSchedules[roomNumber] || [];
+    const checkinsList = checkinSchedules[roomNumber] || [];
+    const allSchedules = [...bookingsList, ...checkinsList];
+    
+    // Check for conflicts
+    let isAvailable = true;
+    let conflictSchedule = null;
+    
+    for (let schedule of allSchedules) {
+        const bookedCheckin = new Date(schedule.start_date);   // ✅ Changed from check_in
+        const bookedCheckout = new Date(schedule.end_date);    // ✅ Changed from check_out
+        
+        // Check for overlap: (start1 < end2) AND (end1 > start2)
+        if (selectedCheckin < bookedCheckout && selectedCheckout > bookedCheckin) {
+            isAvailable = false;
+            conflictSchedule = schedule;
+            break;
+        }
+    }
+    
+    if (isAvailable) {
+        messageDiv.innerHTML = `
+            <div class="alert alert-success border-0 shadow-sm" style="background-color: #d4edda; border-radius: 12px;">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill text-success me-2" style="font-size: 1.2rem;"></i>
+                    <span class="text-success fw-medium">Room is available for selected time period</span>
+                </div>
+            </div>`;
+        if (checkinInput) checkinInput.setCustomValidity('');
+        return true;
+    } else {
+        const bookedCheckin = new Date(conflictSchedule.start_date);   // ✅ Changed
+        const bookedCheckout = new Date(conflictSchedule.end_date);    // ✅ Changed
+        
+        const formatOptions = {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        };
+        
+        const formattedCheckin = bookedCheckin.toLocaleString('en-US', formatOptions);
+        const formattedCheckout = bookedCheckout.toLocaleString('en-US', formatOptions);
+        
+        messageDiv.innerHTML = `
+            <div class="alert alert-danger border-0 shadow-sm" style="background-color: #f8d7da; border-radius: 12px;">
+                <div class="mb-2">
+                    <strong class="text-danger" style="font-size: 1.1rem;">Room Not Available</strong>
+                </div>
+                <p class="mb-0 text-danger">
+                    This room is booked from <strong>${formattedCheckin}</strong> to <strong>${formattedCheckout}</strong>.<br>
+                    Please select a different time or room.
+                </p>
+            </div>`;
+        
+        if (checkinInput) checkinInput.setCustomValidity('This time slot conflicts with an existing booking');
+        return false;
+    }
+}
+
+// Add event listeners when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const roomSelect = document.getElementById('roomNumber');
+    const checkinInput = document.getElementById('startDate');
+    const durationSelect = document.getElementById('duration');
+    const bookingModal = document.getElementById('bookingModal');
+    
+    // Check availability when any field changes
+    if (roomSelect) roomSelect.addEventListener('change', checkRoomAvailability);
+    if (checkinInput) checkinInput.addEventListener('change', checkRoomAvailability);
+    if (durationSelect) durationSelect.addEventListener('change', checkRoomAvailability);
+    
+    // Prevent form submission if there's a conflict
+    if (bookingModal) {
+        const bookingForm = bookingModal.querySelector('form');
+        if (bookingForm) {
+            bookingForm.addEventListener('submit', function(e) {
+                const isAvailable = checkRoomAvailability();
+                
+                if (!isAvailable) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Scroll to the error message
+                    const messageDiv = document.getElementById('availability-message');
+                    if (messageDiv) {
+                        messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    
+                    // Show additional alert
+                    setTimeout(() => {
+                        alert('⚠️ Cannot proceed with booking!\n\nThis room is not available for the selected time period. Please choose a different time or room.');
+                    }, 300);
+                    
+                    return false;
+                }
+            });
+        }
+    }
+});
+
+// Real-time email validation
+const emailInput = document.querySelector('input[name="email"]');
+if (emailInput) {
+    // Email validation regex pattern
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    emailInput.addEventListener('input', function() {
+        const email = this.value.trim();
+        
+        if (email.length > 0 && !emailPattern.test(email)) {
+            this.classList.add('is-invalid');
+        } else {
+            this.classList.remove('is-invalid');
+        }
+    });
+    
+    emailInput.addEventListener('blur', function() {
+        const email = this.value.trim();
+        
+        if (email.length > 0 && !emailPattern.test(email)) {
+            this.classList.add('is-invalid');
+        }
+    });
+    
+    // Add form submission validation
+    const form = emailInput.closest('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const email = emailInput.value.trim();
+            
+            if (!emailPattern.test(email)) {
+                e.preventDefault();
+                emailInput.classList.add('is-invalid');
+                emailInput.focus();
+            }
+        });
+    }
+}
+
+// Phone number validation and auto-formatting
+const phoneInput = document.querySelector('input[name="telephone"]');
+if (phoneInput) {
+    phoneInput.addEventListener('input', function(e) {
+        // Remove all non-digit characters
+        let value = this.value.replace(/\D/g, '');
+        
+        // Limit to 11 digits
+        if (value.length > 11) {
+            value = value.slice(0, 11);
+        }
+        
+        // Auto-format to 09XX-XXX-XXXX
+        if (value.length >= 4) {
+            value = value.slice(0, 4) + '-' + value.slice(4);
+        }
+        if (value.length >= 8) {
+            value = value.slice(0, 8) + '-' + value.slice(8);
+        }
+        
+        this.value = value;
+        
+        // Validation: must be exactly 11 digits and start with 09
+        const digitsOnly = value.replace(/\D/g, '');
+        if (digitsOnly.length === 11 && digitsOnly.startsWith('09')) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else if (digitsOnly.length > 0) {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        } else {
+            this.classList.remove('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    });
+    
+    phoneInput.addEventListener('blur', function() {
+        const digitsOnly = this.value.replace(/\D/g, '');
+        
+        if (digitsOnly.length > 0 && (digitsOnly.length !== 11 || !digitsOnly.startsWith('09'))) {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    });
+    
+    // Form submission validation
+    const form = phoneInput.closest('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const digitsOnly = phoneInput.value.replace(/\D/g, '');
+            
+            if (digitsOnly.length !== 11 || !digitsOnly.startsWith('09')) {
+                e.preventDefault();
+                phoneInput.classList.add('is-invalid');
+                phoneInput.classList.remove('is-valid');
+                phoneInput.focus();
+            }
+        });
+    }
+}
+// Age validation (18+)
+const ageInput = document.querySelector('input[name="age"]');
+if (ageInput) {
+    ageInput.addEventListener('input', function() {
+        const age = parseInt(this.value);
+        
+        // Remove invalid class when empty
+        if (this.value === '') {
+            this.classList.remove('is-invalid');
+            this.classList.remove('is-valid');
+            return;
+        }
+        
+        // Validate age
+        if (age < 18 || age > 120 || isNaN(age)) {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        } else {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        }
+    });
+    
+    ageInput.addEventListener('blur', function() {
+        const age = parseInt(this.value);
+        
+        if (this.value !== '' && (age < 18 || age > 120 || isNaN(age))) {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        }
+    });
+    
+    // Prevent typing negative numbers and decimals
+    ageInput.addEventListener('keydown', function(e) {
+        // Prevent minus sign, plus sign, decimal point, and 'e'
+        if (e.key === '-' || e.key === '+' || e.key === '.' || e.key === 'e' || e.key === 'E') {
+            e.preventDefault();
+        }
+    });
+    
+    // Form submission validation
+    const form = ageInput.closest('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const age = parseInt(ageInput.value);
+            
+            if (age < 18 || age > 120 || isNaN(age) || ageInput.value === '') {
+                e.preventDefault();
+                ageInput.classList.add('is-invalid');
+                ageInput.classList.remove('is-valid');
+                ageInput.focus();
+                
+                // Show alert for better UX
+                alert('You must be at least 18 years old to make a booking.');
+            }
+        });
+    }
+}
+        // GCASH REFERENCE VALIDATION
+        function limitReferenceNumber(input) {
+    input.value = input.value.replace(/\D/g, ''); // allow digits only
+    if (input.value.length > 13) input.value = input.value.slice(0, 13);
+}
+
+        function validateReferenceNumber() {
+            const input = document.getElementById("referenceNumber");
+            const value = input.value.trim();
+
+            const errorEmpty = document.getElementById("refErrorEmpty");
+            const errorDigit = document.getElementById("refErrorDigit");
+            const errorLength = document.getElementById("refErrorLength");
+
+            // Hide all error messages initially
+            errorEmpty.classList.add("d-none");
+            errorDigit.classList.add("d-none");
+            errorLength.classList.add("d-none");
+            input.classList.remove("is-invalid");
+
+            if (value === "") {
+                errorEmpty.classList.remove("d-none");
+                input.classList.add("is-invalid");
+                return false;
+            }
+
+            const onlyDigits = /^[0-9]+$/;
+            if (!onlyDigits.test(value)) {
+                errorDigit.classList.remove("d-none");
+                input.classList.add("is-invalid");
+                return false;
+            }
+
+            if (value.length !== 13) {
+                errorLength.classList.remove("d-none");
+                input.classList.add("is-invalid");
+                return false;
+            }
+
+            input.classList.remove("is-invalid");
+            return true;
+        }
+
+        function validateGuestCount(input) {
+    const error = document.getElementById("guestError");
+
+    if (input.value === "" || Number(input.value) < 1) {
+        input.classList.add("is-invalid");
+        error.classList.remove("d-none");
+        input.value = ""; // clear invalid input
+    } else {
+        input.classList.remove("is-invalid");
+        error.classList.add("d-none");
+    }
+}
+
     // Update clock
     function updateClock() {
         const now = new Date();
@@ -1544,6 +2072,14 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
 
     // --- Cancel booking ---
     function cancelBooking(bookingId, guestName) {
+        // Prevent opening modal for cancelled bookings
+        const row = event.target.closest('tr');
+        const statusBadge = row.querySelector('.badge');
+        if (statusBadge && statusBadge.textContent.trim() === 'Cancelled') {
+            alert('This booking is already cancelled.');
+            return;
+        }
+        
         document.getElementById('bookingIdToCancel').value = bookingId;
         document.getElementById('guestNameToCancel').textContent = guestName;
         new bootstrap.Modal(document.getElementById('cancelBookingModal')).show();

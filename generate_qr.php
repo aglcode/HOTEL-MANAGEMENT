@@ -73,6 +73,8 @@ $logoPath = "Image/logo.jpg";
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QR Code for Room <?php echo $room; ?></title>
+    <!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
 <style>
     body {
         font-family: 'Inter', sans-serif;

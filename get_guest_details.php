@@ -26,7 +26,7 @@ if (isset($_GET['booking_id'])) {
         echo '<tr><td><strong>Email:</strong></td><td>' . (empty($booking['email']) ? 'Not provided' : htmlspecialchars($booking['email'])) . '</td></tr>';
         echo '<tr><td><strong>Phone:</strong></td><td>' . htmlspecialchars($booking['telephone']) . '</td></tr>';
         echo '<tr><td><strong>Address:</strong></td><td>' . htmlspecialchars($booking['address']) . '</td></tr>';
-        echo '<tr><td><strong>Number of Guests:</strong></td><td>' . $booking['num_people'] . ' person(s)</td></tr>';
+        // echo '<tr><td><strong>Number of Guests:</strong></td><td>' . $booking['num_people'] . ' person(s)</td></tr>';
         echo '</table>';
         echo '</div>';
         
@@ -74,7 +74,7 @@ if (isset($_GET['booking_id'])) {
         echo '</div>';
         echo '<div class="col-md-6">';
         echo '<table class="table table-borderless">';
-        echo '<tr><td><strong>Payment Mode:</strong></td><td>' . htmlspecialchars($booking['payment_mode']) . '</td></tr>';
+        // echo '<tr><td><strong>Payment Mode:</strong></td><td>' . htmlspecialchars($booking['payment_mode']) . '</td></tr>';
         if ($booking['payment_mode'] === 'GCash' && !empty($booking['reference_number'])) {
             echo '<tr><td><strong>GCash Reference:</strong></td><td>' . htmlspecialchars($booking['reference_number']) . '</td></tr>';
         }

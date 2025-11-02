@@ -6,11 +6,6 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-$incomeMonths = [];
-$monthlyIncomes = [];
-$checkinMonths = [];
-$monthlyCheckins = [];
-
 function fetchData($conn, $query) {
     $result = $conn->query($query);
     if (!$result) {
@@ -20,81 +15,61 @@ function fetchData($conn, $query) {
 }
 
 /* ==========================
-   MONTHLY INCOME
+   DAILY, WEEKLY & MONTHLY DATA
    ========================== */
-$payment_query = "
+
+// Get current year data grouped by day
+$report_query = "
     SELECT 
-        MONTH(check_in_date) AS month_num,
-        MONTHNAME(MIN(check_in_date)) AS month_name,
-        YEAR(check_in_date) AS year,
-        SUM(amount_paid) AS monthly_income
+        DATE(check_in_date) AS date,
+        COUNT(*) AS daily_checkins,
+        SUM(amount_paid) AS daily_income
     FROM checkins
     WHERE YEAR(check_in_date) = YEAR(CURDATE())
-    GROUP BY YEAR(check_in_date), MONTH(check_in_date)
-    ORDER BY YEAR(check_in_date), MONTH(check_in_date)
+    GROUP BY DATE(check_in_date)
+    ORDER BY DATE(check_in_date)
 ";
-$payment_result = fetchData($conn, $payment_query);
 
-while ($row = $payment_result->fetch_assoc()) {
-    $incomeMonths[] = $row['month_name'];
-    $monthlyIncomes[] = (float)$row['monthly_income'];
+$report_result = fetchData($conn, $report_query);
+
+$dailyData = [];
+$weeklyData = [];
+$monthlyData = [];
+
+// Process the results
+while ($row = $report_result->fetch_assoc()) {
+    $date = $row['date'];
+    $dateObj = new DateTime($date);
+    
+    // Store daily data
+    $dailyData[] = [
+        'date' => $date,
+        'month_name' => $dateObj->format('F'),
+        'week_num' => $dateObj->format('W'),
+        'month_num' => $dateObj->format('n'),
+        'checkins' => (int)$row['daily_checkins'],
+        'income' => (float)$row['daily_income']
+    ];
 }
 
-/* fallback if no data this year */
-if (empty($incomeMonths)) {
-    $fallback_payment_query = "
-        SELECT 
-            MONTH(check_in_date) AS month_num,
-            MONTHNAME(MIN(check_in_date)) AS month_name,
-            SUM(amount_paid) AS monthly_income
-        FROM checkins
-        GROUP BY MONTH(check_in_date)
-        ORDER BY MONTH(check_in_date)
-    ";
-    $payment_result = fetchData($conn, $fallback_payment_query);
-    while ($row = $payment_result->fetch_assoc()) {
-        $incomeMonths[] = $row['month_name'];
-        $monthlyIncomes[] = (float)$row['monthly_income'];
+// Aggregate weekly data
+foreach ($dailyData as $day) {
+    $weekKey = $day['month_name'] . ' W' . $day['week_num'];
+    if (!isset($weeklyData[$weekKey])) {
+        $weeklyData[$weekKey] = ['checkins' => 0, 'income' => 0];
     }
+    $weeklyData[$weekKey]['checkins'] += $day['checkins'];
+    $weeklyData[$weekKey]['income'] += $day['income'];
 }
 
-/* ==========================
-   MONTHLY CHECK-INS
-   ========================== */
-$checkin_query = "
-    SELECT 
-        MONTH(check_in_date) AS month_num,
-        MONTHNAME(MIN(check_in_date)) AS month_name,
-        YEAR(check_in_date) AS year,
-        COUNT(*) AS monthly_checkins
-    FROM checkins
-    WHERE YEAR(check_in_date) = YEAR(CURDATE())
-    GROUP BY YEAR(check_in_date), MONTH(check_in_date)
-    ORDER BY YEAR(check_in_date), MONTH(check_in_date)
-";
-$checkin_result = fetchData($conn, $checkin_query);
-
-while ($row = $checkin_result->fetch_assoc()) {
-    $checkinMonths[] = $row['month_name'];
-    $monthlyCheckins[] = (int)$row['monthly_checkins'];
-}
-
-/* fallback if no data this year */
-if (empty($checkinMonths)) {
-    $fallback_checkin_query = "
-        SELECT 
-            MONTH(check_in_date) AS month_num,
-            MONTHNAME(MIN(check_in_date)) AS month_name,
-            COUNT(*) AS monthly_checkins
-        FROM checkins
-        GROUP BY MONTH(check_in_date)
-        ORDER BY MONTH(check_in_date)
-    ";
-    $checkin_result = fetchData($conn, $fallback_checkin_query);
-    while ($row = $checkin_result->fetch_assoc()) {
-        $checkinMonths[] = $row['month_name'];
-        $monthlyCheckins[] = (int)$row['monthly_checkins'];
+// Aggregate monthly data
+foreach ($dailyData as $day) {
+    $monthKey = $day['month_name'];
+    if (!isset($monthlyData[$monthKey])) {
+        $monthlyData[$monthKey] = ['checkins' => 0, 'income' => 0];
     }
+    $monthlyData[$monthKey]['checkins'] += $day['checkins'];
+    $monthlyData[$monthKey]['income'] += $day['income'];
 }
 
 $conn->close();
@@ -107,6 +82,8 @@ $conn->close();
 <head>
     <meta charset="UTF-8">
     <title>Admin Report - Weekly Income & Check-ins</title>
+        <!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     
     <!-- Libraries -->
@@ -388,6 +365,7 @@ $conn->close();
       <a href="admin-report.php" class="active"><i class="fa-solid fa-file-lines"></i> Reports</a>
       <a href="admin-supplies.php"><i class="fa-solid fa-cube"></i> Supplies</a>
       <a href="admin-inventory.php"><i class="fa-solid fa-clipboard-list"></i> Inventory</a>
+      <a href="admin-archive.php"><i class="fa-solid fa-archive"></i> Archived</a>
     </div>
 
     <div class="signout">
@@ -406,49 +384,59 @@ $conn->close();
     </div>
 
 <div class="dashboard-grid">
-  <!-- Monthly Check-ins -->
-  <div class="card">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <h5><i class="fas fa-chart-bar text-primary"></i> Monthly Check-ins</h5>
-      <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-outline-danger" onclick="exportCheckinsPDF()">
-          <i class="fas fa-file-pdf"></i> Export PDF
-        </button>
-        <button class="btn btn-sm btn-outline-success" onclick="exportCheckinsCSV()">
-          <i class="fas fa-file-csv"></i> Export CSV
-        </button>
-      </div>
-    </div>
-    <div id="checkinsCard">
-      <p class="description">
-        This graph shows the total check-ins for each month of the current year. It helps track occupancy trends over time.
-      </p>
-      <canvas id="checkinsChart" height="100"></canvas>
-      <div class="summary-grid" id="checkinsSummary"></div>
+  <!-- Check-ins Card -->
+<div class="card">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h5><i class="fas fa-chart-bar text-primary"></i> Check-ins Report</h5>
+    <div class="d-flex gap-2">
+      <select id="checkinsPeriod" class="form-select form-select-sm" style="width: 150px;" onchange="updateCheckinsChart()">
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly" selected>Monthly</option>
+      </select>
+      <button class="btn btn-sm btn-outline-danger" onclick="exportCheckinsPDF()">
+        <i class="fas fa-file-pdf"></i> Export PDF
+      </button>
+      <button class="btn btn-sm btn-outline-success" onclick="exportCheckinsCSV()">
+        <i class="fas fa-file-csv"></i> Export CSV
+      </button>
     </div>
   </div>
+  <div id="checkinsCard">
+    <p class="description" id="checkinsDescription">
+      This graph shows the total check-ins for each month of the current year.
+    </p>
+    <canvas id="checkinsChart" height="100"></canvas>
+    <div class="summary-grid" id="checkinsSummary"></div>
+  </div>
+</div>
 
   <!-- Monthly Income -->
   <div class="card">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <h5><i class="fas fa-dollar-sign text-success"></i> Monthly Income</h5>
-      <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-outline-danger" onclick="exportIncomePDF()">
-          <i class="fas fa-file-pdf"></i> Export PDF
-        </button>
-        <button class="btn btn-sm btn-outline-success" onclick="exportIncomeCSV()">
-          <i class="fas fa-file-csv"></i> Export CSV
-        </button>
-      </div>
-    </div>
-    <div id="incomeCard">
-      <p class="description">
-        This graph displays the total income generated per month for the current year. It provides insights into the overall revenue performance.
-      </p>
-      <canvas id="incomeChart" height="100"></canvas>
-      <div class="summary-grid" id="incomeSummary"></div>
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h5><i class="fas fa-dollar-sign text-success"></i> Income Report</h5>
+    <div class="d-flex gap-2">
+      <select id="incomePeriod" class="form-select form-select-sm" style="width: 150px;" onchange="updateIncomeChart()">
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly" selected>Monthly</option>
+      </select>
+      <button class="btn btn-sm btn-outline-danger" onclick="exportIncomePDF()">
+        <i class="fas fa-file-pdf"></i> Export PDF
+      </button>
+      <button class="btn btn-sm btn-outline-success" onclick="exportIncomeCSV()">
+        <i class="fas fa-file-csv"></i> Export CSV
+      </button>
     </div>
   </div>
+  <div id="incomeCard">
+    <p class="description" id="incomeDescription">
+      This graph displays the total income generated per month for the current year.
+    </p>
+    <canvas id="incomeChart" height="100"></canvas>
+    <div class="summary-grid" id="incomeSummary"></div>
+  </div>
+</div>
 
   <div class="footer">
     Dashboard updates in real-time • Last updated: Just now
@@ -461,132 +449,193 @@ $conn->close();
   <script src="https://kit.fontawesome.com/2d3e32b10b.js" crossorigin="anonymous"></script>
 
   <script>
- const checkinLabels = <?php echo json_encode($checkinMonths); ?>; // e.g. ["January", "February", "March"]
-const checkinData   = <?php echo json_encode($monthlyCheckins); ?>; // aggregated per month
+// PHP data
+const dailyData = <?php echo json_encode(array_values($dailyData)); ?>;
+const weeklyData = <?php echo json_encode($weeklyData); ?>;
+const monthlyData = <?php echo json_encode($monthlyData); ?>;
 
-const incomeLabels  = <?php echo json_encode($incomeMonths); ?>; // same month labels
-const incomeData    = <?php echo json_encode($monthlyIncomes); ?>; // aggregated per month
+// Prepare data structures
+const reportData = {
+  daily: {
+    labels: dailyData.map(d => d.date),
+    checkins: dailyData.map(d => d.checkins),
+    income: dailyData.map(d => d.income)
+  },
+  weekly: {
+    labels: Object.keys(weeklyData),
+    checkins: Object.values(weeklyData).map(d => d.checkins),
+    income: Object.values(weeklyData).map(d => d.income)
+  },
+  monthly: {
+    labels: Object.keys(monthlyData),
+    checkins: Object.values(monthlyData).map(d => d.checkins),
+    income: Object.values(monthlyData).map(d => d.income)
+  }
+};
 
-function generateSummaryBoxes(data, type, isCurrency = false, color = "blue") {
+// Chart instances
+let checkinsChartInstance = null;
+let incomeChartInstance = null;
+
+// Initialize charts
+function initCheckinsChart(period = 'monthly') {
+  const ctx = document.getElementById('checkinsChart').getContext('2d');
+  const data = reportData[period];
+  
+  if (checkinsChartInstance) {
+    checkinsChartInstance.destroy();
+  }
+  
+  checkinsChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.labels,
+      datasets: [{
+        label: `${period.charAt(0).toUpperCase() + period.slice(1)} Check-ins`,
+        data: data.checkins,
+        backgroundColor: 'rgba(13, 110, 253, 0.6)',
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: (val) => `${val} check-ins`
+          }
+        }
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: `${period.charAt(0).toUpperCase() + period.slice(1)} Check-ins Overview`
+        }
+      }
+    }
+  });
+  
+  updateSummary('checkins', data.checkins, false);
+  updateDescription('checkins', period);
+}
+
+function initIncomeChart(period = 'monthly') {
+  const ctx = document.getElementById('incomeChart').getContext('2d');
+  const data = reportData[period];
+  
+  if (incomeChartInstance) {
+    incomeChartInstance.destroy();
+  }
+  
+  incomeChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.labels,
+      datasets: [{
+        label: `${period.charAt(0).toUpperCase() + period.slice(1)} Income (₱)`,
+        data: data.income,
+        backgroundColor: 'rgba(40, 167, 69, 0.6)',
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: (val) => `₱${val.toLocaleString()}`
+          }
+        }
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: `${period.charAt(0).toUpperCase() + period.slice(1)} Income Overview`
+        }
+      }
+    }
+  });
+  
+  updateSummary('income', data.income, true);
+  updateDescription('income', period);
+}
+
+function updateCheckinsChart() {
+  const period = document.getElementById('checkinsPeriod').value;
+  initCheckinsChart(period);
+}
+
+function updateIncomeChart() {
+  const period = document.getElementById('incomePeriod').value;
+  initIncomeChart(period);
+}
+
+function updateDescription(type, period) {
+  const descriptions = {
+    daily: type === 'checkins' 
+      ? 'This graph shows the total check-ins for each day of the current year.'
+      : 'This graph displays the total income generated per day for the current year.',
+    weekly: type === 'checkins'
+      ? 'This graph shows the total check-ins for each week of the current year.'
+      : 'This graph displays the total income generated per week for the current year.',
+    monthly: type === 'checkins'
+      ? 'This graph shows the total check-ins for each month of the current year.'
+      : 'This graph displays the total income generated per month for the current year.'
+  };
+  
+  document.getElementById(`${type}Description`).textContent = descriptions[period];
+}
+
+function updateSummary(type, data, isCurrency) {
   const total = data.reduce((sum, val) => sum + val, 0);
   const avg = data.length ? total / data.length : 0;
   const max = Math.max(...data);
   const min = Math.min(...data);
-
+  
   const format = isCurrency
     ? (val) => `₱${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
     : (val) => val;
-
-  const icons = {
-    total: "fa-chart-line",
-    average: "fa-chart-bar",
-    highest: "fa-arrow-up",
-    lowest: "fa-arrow-down"
-  };
-
-  return `
+  
+  const color = type === 'checkins' ? 'blue' : 'green';
+  const period = document.getElementById(`${type}Period`).value;
+  
+  document.getElementById(`${type}Summary`).innerHTML = `
     <div class="summary-box">
-      <div class="summary-icon ${color}"><i class="fas ${icons.total}"></i></div>
+      <div class="summary-icon ${color}"><i class="fas fa-chart-line"></i></div>
       <div class="summary-text">
         <span>Total</span><strong>${format(total)}</strong>
       </div>
     </div>
     <div class="summary-box">
-      <div class="summary-icon ${color}"><i class="fas ${icons.average}"></i></div>
+      <div class="summary-icon ${color}"><i class="fas fa-chart-bar"></i></div>
       <div class="summary-text">
-        <span>Average per month</span><strong>${format(avg.toFixed(2))}</strong>
+        <span>Average per ${period.slice(0, -2)}</span><strong>${format(avg.toFixed(2))}</strong>
       </div>
     </div>
     <div class="summary-box">
-      <div class="summary-icon ${color}"><i class="fas ${icons.highest}"></i></div>
+      <div class="summary-icon ${color}"><i class="fas fa-arrow-up"></i></div>
       <div class="summary-text">
-        <span>Highest month</span><strong>${format(max)}</strong>
+        <span>Highest ${period.slice(0, -2)}</span><strong>${format(max)}</strong>
       </div>
     </div>
     <div class="summary-box">
-      <div class="summary-icon ${color}"><i class="fas ${icons.lowest}"></i></div>
+      <div class="summary-icon ${color}"><i class="fas fa-arrow-down"></i></div>
       <div class="summary-text">
-        <span>Lowest month</span><strong>${format(min)}</strong>
+        <span>Lowest ${period.slice(0, -2)}</span><strong>${format(min)}</strong>
       </div>
     </div>
   `;
 }
 
-// === Monthly Check-ins Chart ===
-const checkinsCtx = document.getElementById('checkinsChart').getContext('2d');
-new Chart(checkinsCtx, {
-  type: 'bar',
-  data: {
-    labels: checkinLabels,
-    datasets: [{
-      label: 'Monthly Check-ins',
-      data: checkinData,
-      backgroundColor: 'rgba(13, 110, 253, 0.6)',
-      borderRadius: 5
-    }]
-  },
-  options: {
-    responsive: true,
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          callback: (val) => `${val} check-ins`
-        }
-      }
-    },
-    plugins: {
-      title: {
-        display: true,
-        text: 'Monthly Check-ins Overview (Current Year)'
-      }
-    }
-  }
-});
-
-// === Monthly Income Chart ===
-const incomeCtx = document.getElementById('incomeChart').getContext('2d');
-new Chart(incomeCtx, {
-  type: 'bar',
-  data: {
-    labels: incomeLabels,
-    datasets: [{
-      label: 'Monthly Income (₱)',
-      data: incomeData,
-      backgroundColor: 'rgba(40, 167, 69, 0.6)',
-      borderRadius: 5
-    }]
-  },
-  options: {
-    responsive: true,
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          callback: (val) => `₱${val.toLocaleString()}`
-        }
-      }
-    },
-    plugins: {
-      title: {
-        display: true,
-        text: 'Monthly Income Overview (Current Year)'
-      }
-    }
-  }
-});
-
-// === Summary Boxes ===
-document.getElementById('checkinsSummary').innerHTML = generateSummaryBoxes(checkinData, 'check-ins', false, 'blue');
-document.getElementById('incomeSummary').innerHTML   = generateSummaryBoxes(incomeData, 'income', true, 'green');
-
-
-// export pdf (Monthly Check-ins)
+// Export functions (update these to use current period)
 function exportCheckinsPDF() {
+  const period = document.getElementById('checkinsPeriod').value;
+  const data = reportData[period];
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
 
-  // Header
   const exportDate = new Date().toLocaleDateString("en-PH", {
     year: "numeric",
     month: "long",
@@ -595,27 +644,23 @@ function exportCheckinsPDF() {
   doc.setFontSize(10);
   doc.text(`Date exported: ${exportDate}`, 14, 12);
 
-  // Report Title
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.text("Gitarra Apartelle - Reports", 105, 32, { align: "center" });
   doc.setFontSize(13);
   doc.setFont("helvetica", "normal");
-  doc.text("Monthly Check-ins Report", 105, 42, { align: "center" });
+  doc.text(`${period.charAt(0).toUpperCase() + period.slice(1)} Check-ins Report`, 105, 42, { align: "center" });
 
-  // Line under title
   doc.setDrawColor(150);
   doc.line(14, 46, 196, 46);
 
-  // Prepare Monthly Data (label already month names like “January”)
-  const body = checkinLabels.map((month, i) => [
-    month,
-    checkinData[i].toString(),
+  const body = data.labels.map((label, i) => [
+    label,
+    data.checkins[i].toString(),
   ]);
 
-  // Build Table
   doc.autoTable({
-    head: [["Month", "Total Check-ins"]],
+    head: [[period.charAt(0).toUpperCase() + period.slice(1), "Total Check-ins"]],
     body: body,
     startY: 54,
     theme: "grid",
@@ -624,11 +669,10 @@ function exportCheckinsPDF() {
     alternateRowStyles: { fillColor: [245, 245, 245] },
   });
 
-  // Summary
-  const total = checkinData.reduce((a, b) => a + b, 0);
-  const avg = (total / checkinData.length).toFixed(2);
-  const highest = Math.max(...checkinData);
-  const lowest = Math.min(...checkinData);
+  const total = data.checkins.reduce((a, b) => a + b, 0);
+  const avg = (total / data.checkins.length).toFixed(2);
+  const highest = Math.max(...data.checkins);
+  const lowest = Math.min(...data.checkins);
   let startY = doc.lastAutoTable.finalY + 10;
 
   doc.setFillColor(240, 240, 240);
@@ -641,19 +685,18 @@ function exportCheckinsPDF() {
   doc.text(`Highest: ${highest}`, 18, startY + 12);
   doc.text(`Lowest: ${lowest}`, 110, startY + 12);
 
-  // Save File
-  doc.save("Monthly_Checkins_Report.pdf");
+  doc.save(`${period}_Checkins_Report.pdf`);
 }
 
-// export pdf (Monthly Income)
 function exportIncomePDF() {
+  const period = document.getElementById('incomePeriod').value;
+  const data = reportData[period];
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
 
   const formatPeso = (value) =>
     "PHP " + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
-  // Header
   const exportDate = new Date().toLocaleDateString("en-PH", {
     year: "numeric",
     month: "long",
@@ -662,27 +705,23 @@ function exportIncomePDF() {
   doc.setFontSize(10);
   doc.text(`Date exported: ${exportDate}`, 14, 12);
 
-  // Report Title
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.text("Gitarra Apartelle - Reports", 105, 32, { align: "center" });
   doc.setFontSize(13);
   doc.setFont("helvetica", "normal");
-  doc.text("Monthly Income Report", 105, 42, { align: "center" });
+  doc.text(`${period.charAt(0).toUpperCase() + period.slice(1)} Income Report`, 105, 42, { align: "center" });
 
-  // Line under title
   doc.setDrawColor(150);
   doc.line(14, 46, 196, 46);
 
-  // Prepare Monthly Data (label already month names)
-  const body = incomeLabels.map((month, i) => [
-    month,
-    formatPeso(incomeData[i]),
+  const body = data.labels.map((label, i) => [
+    label,
+    formatPeso(data.income[i]),
   ]);
 
-  // Build Table
   doc.autoTable({
-    head: [["Month", "Total Income"]],
+    head: [[period.charAt(0).toUpperCase() + period.slice(1), "Total Income"]],
     body: body,
     startY: 54,
     theme: "grid",
@@ -691,11 +730,10 @@ function exportIncomePDF() {
     alternateRowStyles: { fillColor: [245, 245, 245] },
   });
 
-  // Summary
-  const total = incomeData.reduce((a, b) => a + b, 0);
-  const avg = total / incomeData.length;
-  const highest = Math.max(...incomeData);
-  const lowest = Math.min(...incomeData);
+  const total = data.income.reduce((a, b) => a + b, 0);
+  const avg = total / data.income.length;
+  const highest = Math.max(...data.income);
+  const lowest = Math.min(...data.income);
   let startY = doc.lastAutoTable.finalY + 10;
 
   doc.setFillColor(240, 240, 240);
@@ -708,90 +746,79 @@ function exportIncomePDF() {
   doc.text(`Highest: ${formatPeso(highest)}`, 18, startY + 12);
   doc.text(`Lowest: ${formatPeso(lowest)}`, 110, startY + 12);
 
-  // Save File
-  doc.save("Monthly_Income_Report.pdf");
+  doc.save(`${period}_Income_Report.pdf`);
 }
 
-// export csv (Monthly Check-ins)
 function exportCheckinsCSV() {
+  const period = document.getElementById('checkinsPeriod').value;
+  const data = reportData[period];
   let csvContent = "data:text/csv;charset=utf-8,";
 
-  // Header row
-  csvContent += "Month,Total Check-ins,Average,Highest,Lowest\n";
+  csvContent += `${period.charAt(0).toUpperCase() + period.slice(1)},Total Check-ins\n`;
 
-  // Since checkinLabels and checkinData are already monthly
-  for (let i = 0; i < checkinLabels.length; i++) {
-    const month = checkinLabels[i];
-    const total = checkinData[i];
-
-    // For monthly, only one value per month (so all same)
-    csvContent += `${month},${total},${total},${total},${total}\n`;
+  for (let i = 0; i < data.labels.length; i++) {
+    csvContent += `${data.labels[i]},${data.checkins[i]}\n`;
   }
 
-  // Grand summary
-  const totalAll = checkinData.reduce((a, b) => a + b, 0);
-  const avgAll = (totalAll / checkinData.length).toFixed(2);
-  const highest = Math.max(...checkinData);
-  const lowest = Math.min(...checkinData);
+  const totalAll = data.checkins.reduce((a, b) => a + b, 0);
+  const avgAll = (totalAll / data.checkins.length).toFixed(2);
+  const highest = Math.max(...data.checkins);
+  const lowest = Math.min(...data.checkins);
 
-  csvContent += `\nOverall Summary,Total: ${totalAll},Average: ${avgAll},Highest: ${highest},Lowest: ${lowest}\n`;
+  csvContent += `\nSummary,Total: ${totalAll},Average: ${avgAll},Highest: ${highest},Lowest: ${lowest}\n`;
 
-  // Trigger download
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement("a");
   link.setAttribute("href", encodedUri);
-  link.setAttribute("download", "Monthly_Checkins_Report.csv");
+  link.setAttribute("download", `${period}_Checkins_Report.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 }
 
-// export csv (Monthly Income)
 function exportIncomeCSV() {
+  const period = document.getElementById('incomePeriod').value;
+  const data = reportData[period];
   let csvContent = "data:text/csv;charset=utf-8,";
 
-  // Header row
-  csvContent += "Month,Total Income (PHP),Average,Highest,Lowest\n";
-
-  // Peso format
   const formatPeso = (value) =>
     "PHP " + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
-  // Monthly rows
-  for (let i = 0; i < incomeLabels.length; i++) {
-    const month = incomeLabels[i];
-    const total = incomeData[i];
-    csvContent += `${month},"${formatPeso(total)}","${formatPeso(total)}","${formatPeso(total)}","${formatPeso(total)}"\n`;
+  csvContent += `${period.charAt(0).toUpperCase() + period.slice(1)},Total Income (PHP)\n`;
+
+  for (let i = 0; i < data.labels.length; i++) {
+    csvContent += `${data.labels[i]},"${formatPeso(data.income[i])}"\n`;
   }
 
-  // Overall summary
-  const totalAll = incomeData.reduce((a, b) => a + b, 0);
-  const avgAll = totalAll / incomeData.length;
-  const highest = Math.max(...incomeData);
-  const lowest = Math.min(...incomeData);
+  const totalAll = data.income.reduce((a, b) => a + b, 0);
+  const avgAll = totalAll / data.income.length;
+  const highest = Math.max(...data.income);
+  const lowest = Math.min(...data.income);
 
-  csvContent += `\nOverall Summary,"${formatPeso(totalAll)}","${formatPeso(avgAll)}","${formatPeso(highest)}","${formatPeso(lowest)}"\n`;
+  csvContent += `\nSummary,"${formatPeso(totalAll)}","${formatPeso(avgAll)}","${formatPeso(highest)}","${formatPeso(lowest)}"\n`;
 
-  // Trigger download
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement("a");
   link.setAttribute("href", encodedUri);
-  link.setAttribute("download", "Monthly_Income_Report.csv");
+  link.setAttribute("download", `${period}_Income_Report.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 }
 
+// Initialize with monthly view
+initCheckinsChart('monthly');
+initIncomeChart('monthly');
 
-
-    function updateClock() {
-      const now = new Date();
-      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      document.getElementById('currentDate').innerText = now.toLocaleDateString('en-PH', options);
-      document.getElementById('currentTime').innerText = now.toLocaleTimeString('en-PH');
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
+// Clock functions (keep your existing clock code)
+function updateClock() {
+  const now = new Date();
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  document.getElementById('currentDate').innerText = now.toLocaleDateString('en-PH', options);
+  document.getElementById('currentTime').innerText = now.toLocaleTimeString('en-PH');
+}
+setInterval(updateClock, 1000);
+updateClock();
     
   </script>
 </body>

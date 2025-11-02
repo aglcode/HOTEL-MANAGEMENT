@@ -465,6 +465,8 @@ $scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_check
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gitarra Apartelle - Guest Management</title>
+        <!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -474,7 +476,6 @@ $scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_check
     <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
   <style>
-
     .payment-modal-popup {
     overflow-x: hidden !important;
 }
@@ -1714,42 +1715,248 @@ function printReceipt(guestId) {
             }
 
             const guest = data.guest;
-            const change = parseFloat(guest.change_amount || 0);
-            const total = parseFloat(guest.total_price || 0);
+            const roomCharge = parseFloat(guest.total_price || 0);
+            const ordersTotal = parseFloat(guest.orders_total || 0);
+            const grandTotal = parseFloat(guest.grand_total || 0);
             const paid = parseFloat(guest.amount_paid || 0);
+            
+            const change = paid > grandTotal ? paid - grandTotal : 0;
+            const due = grandTotal > paid ? grandTotal - paid : 0;
 
-            // ✅ Fix: don't double-subtract change
-            const due = Math.max(0, total - paid);
+            // Format current date and time
+            const now = new Date();
+            const dateOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+            const timeOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
+            const currentDate = now.toLocaleDateString('en-US', dateOptions);
+            const currentTime = now.toLocaleTimeString('en-US', timeOptions);
+
+            // Build orders table rows
+            let ordersRows = '';
+            if (guest.orders && guest.orders.length > 0) {
+                guest.orders.forEach(order => {
+                    const unitPrice = parseFloat(order.price);
+                    const quantity = parseInt(order.quantity);
+                    ordersRows += `
+                        <tr>
+                            <td>${order.item_name}</td>
+                            <td class="text-center">${quantity}</td>
+                            <td class="text-end">₱${unitPrice.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+            }
 
             const receiptContent = `
-                <div style="font-family: monospace; font-size:13px; text-align:center; border-bottom:1px dashed #000; padding-bottom:5px; margin-bottom:5px;">
-                    <h4 style="margin:0;">Gitarra Apartelle</h4>
-                    <p style="margin:0;">123 Main Street, Anytown</p>
-                    <p style="margin:0;">Tel: (123) 456-7890</p>
-                </div>
-
-                <p>Receipt #: <span style="float:right;">GIT-${guest.id}-${new Date().getFullYear()}</span></p>
-                <p>Guest: <span style="float:right;">${guest.guest_name}</span></p>
-                <p>Room: <span style="float:right;">#${guest.room_number} (${guest.room_type ?? 'N/A'})</span></p>
-                <p>Check-in: <span style="float:right;">${guest.check_in_date}</span></p>
-                <p>Check-out: <span style="float:right;">${guest.check_out_date}</span></p>
-
-                <div style="border-top:1px dashed #000; border-bottom:1px dashed #000; padding:5px 0; margin:8px 0;">
-                    <p><strong>Total Room Charge (${guest.stay_duration} hrs)<span style="float:right;">₱${total.toFixed(2)}</span></strong></p>
-                    <p>Amount Paid<span style="float:right;">₱${paid.toFixed(2)}</span></p>
-                    ${
-                        change > 0
-                            ? `<p style="color:blue;">Change<span style="float:right;">₱${change.toFixed(2)}</span></p>`
-                            : due > 0
-                                ? `<p style="color:red;">Due<span style="float:right;">₱${due.toFixed(2)}</span></p>`
-                                : ''
+                <style>
+                    body {
+                        background-color: #f8f9fa;
+                        font-family: "Poppins", Arial, sans-serif;
+                        padding: 40px 0;
+                        margin: 0;
                     }
-                    <p>Payment<span style="float:right;">${guest.payment_mode?.toUpperCase() ?? 'CASH'}</span></p>
-                </div>
+                    .receipt-card {
+                        background: #fff;
+                        max-width: 500px;
+                        margin: auto;
+                        border-radius: 10px;
+                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+                        padding: 30px;
+                    }
+                    .receipt-header {
+                        text-align: center;
+                        margin-bottom: 20px;
+                    }
+                    .receipt-header h2 {
+                        font-weight: 700;
+                        margin: 0;
+                        color: #333;
+                    }
+                    .receipt-header small {
+                        color: #6c757d;
+                        font-size: 0.9rem;
+                    }
+                    .room-title {
+                        text-align: center;
+                        font-weight: 600;
+                        margin-top: 20px;
+                        margin-bottom: 5px;
+                        font-size: 1.2rem;
+                    }
+                    .guest-info {
+                        color: #555;
+                        display: block;
+                        text-align: center;
+                        width: 100%;
+                    }
+                    .timestamp {
+                        text-align: center;
+                        font-size: 0.9rem;
+                        color: #6c757d;
+                        margin-bottom: 15px;
+                    }
+                    hr {
+                        border: 0;
+                        border-top: 1px solid #dee2e6;
+                        margin: 15px 0;
+                    }
+                    table {
+                        width: 100%;
+                        font-size: 0.95rem;
+                        border-collapse: collapse;
+                    }
+                    th {
+                        text-transform: uppercase;
+                        font-size: 0.8rem;
+                        color: #6c757d;
+                        border-bottom: 1px solid #dee2e6;
+                        padding: 8px 0;
+                        font-weight: 600;
+                    }
+                    td {
+                        padding: 8px 0;
+                        border: none;
+                    }
+                    .text-center { text-align: center; }
+                    .text-end { text-align: right; }
+                    .summary-section {
+                        margin-top: 20px;
+                    }
+                    .summary-row {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 8px 0;
+                        font-size: 0.95rem;
+                    }
+                    .summary-row.room-charge {
+                        border-top: 1px solid #dee2e6;
+                        padding-top: 12px;
+                    }
+                    .summary-row.total-row {
+                        border-top: 2px solid #333;
+                        padding-top: 12px;
+                        margin-top: 8px;
+                        font-weight: 700;
+                        font-size: 1.1rem;
+                    }
+                    .summary-row.total-row .amount {
+                        font-size: 1.4rem;
+                    }
+                    .payment-info {
+                        margin-top: 15px;
+                        padding-top: 15px;
+                        border-top: 1px solid #dee2e6;
+                    }
+                    .payment-row {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 5px 0;
+                        font-size: 0.95rem;
+                    }
+                    .payment-row.highlight {
+                        color: #871D2B;
+                        font-weight: 600;
+                    }
+                    .footer-text {
+                        text-align: center;
+                        margin-top: 25px;
+                        font-size: 0.9rem;
+                        color: #6c757d;
+                    }
+                    .footer-text strong {
+                        display: block;
+                        margin-bottom: 5px;
+                        color: #333;
+                    }
+                    @media print {
+                        body {
+                            background: white;
+                            padding: 0;
+                        }
+                        .receipt-card {
+                            box-shadow: none;
+                            border: none;
+                        }
+                    }
+                </style>
 
-                <div style="text-align:center; font-size:12px; margin-top:10px;">
-                    <p>Thank you for choosing Gitarra Apartelle!</p>
-                    <p style="font-style:italic;">This receipt is computer-generated.</p>
+                <div class="receipt-card">
+                    <div class="receipt-header">
+                        <h2>Gitarra Apartelle</h2>
+                        <small>Premium Hospitality Services</small>
+                    </div>
+
+                    <hr>
+                    <h5 class="room-title">Room ${guest.room_number} ${guest.room_type ? '(' + guest.room_type + ')' : ''}</h5>
+                    <div class="guest-info">Guest: ${guest.guest_name}</div>
+                    <div class="timestamp">
+                        ${currentDate} • ${currentTime}
+                    </div>
+                    <div class="timestamp" style="margin-top: -8px;">
+                        Check-in: ${guest.check_in_date} | Check-out: ${guest.check_out_date}
+                    </div>
+                    <hr>
+
+                    ${ordersRows ? `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th class="text-center">Qty</th>
+                                <th class="text-end">Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${ordersRows}
+                        </tbody>
+                    </table>
+                    ` : ''}
+
+                    <div class="summary-section">
+                        ${ordersRows ? `
+                        <div class="summary-row">
+                            <span>Orders Subtotal</span>
+                            <span>₱${ordersTotal.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="summary-row room-charge">
+                            <span>Room Charge (${guest.stay_duration} hrs)</span>
+                            <span>₱${roomCharge.toFixed(2)}</span>
+                        </div>
+
+                        <div class="summary-row total-row">
+                            <span>TOTAL</span>
+                            <span class="amount">₱${grandTotal.toFixed(2)}</span>
+                        </div>
+                    </div>
+
+                    <div class="payment-info">
+                        <div class="payment-row">
+                            <span>Amount Paid</span>
+                            <span>₱${paid.toFixed(2)}</span>
+                        </div>
+                        ${change > 0 ? `
+                        <div class="payment-row highlight">
+                            <span>Change</span>
+                            <span>₱${change.toFixed(2)}</span>
+                        </div>
+                        ` : due > 0 ? `
+                        <div class="payment-row highlight">
+                            <span>Balance Due</span>
+                            <span>₱${due.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                        <div class="payment-row">
+                            <span>Payment Method</span>
+                            <span>${guest.payment_mode?.toUpperCase() ?? 'CASH'}</span>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <div class="footer-text">
+                        <strong>Thank you for your patronage!</strong>
+                        <span>Receipt #: GIT-${guest.id}-${new Date().getFullYear()}</span>
+                    </div>
                 </div>
             `;
 
@@ -1761,9 +1968,6 @@ function printReceipt(guestId) {
             alert('Failed to load receipt data');
         });
 }
-
-
-
 
 function closeReceipt() {
     document.getElementById('receiptModal').style.display = 'none';

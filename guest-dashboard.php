@@ -60,19 +60,18 @@ if ($info['room_status'] !== 'available' && $info['key_status'] !== 'active') {
 }
 
 // =========================
-// Validate QR token in DB (fetch guest info)
+// Validate QR token in DB (fetch guest info from checkins)
 // =========================
 $stmt = $conn->prepare("
     SELECT 
         k.*, 
-        g.name AS guest_name, 
-        b.start_date, 
-        b.end_date, 
-        r.room_type, 
-        b.status AS booking_status
+        c.guest_name, 
+        c.check_in_date, 
+        c.check_out_date, 
+        r.room_type,
+        c.status AS checkin_status
     FROM keycards k
-    LEFT JOIN guests g ON k.guest_id = g.id
-    LEFT JOIN bookings b ON k.room_number = b.room_number
+    LEFT JOIN checkins c ON k.room_number = c.room_number AND c.status = 'checked_in'
     LEFT JOIN rooms r ON k.room_number = r.room_number
     WHERE k.room_number = ? 
       AND k.qr_code = ?
@@ -97,9 +96,9 @@ $_SESSION['qr_token'] = $guestInfo['qr_code'];
 // Extract guest info
 $guest_name = $guestInfo['guest_name'] ?? 'Guest';
 $room_type  = $guestInfo['room_type'] ?? 'Standard Room';
-$check_in   = !empty($guestInfo['start_date']) ? date('F j, Y g:i A', strtotime($guestInfo['start_date'])) : 'N/A';
-$check_out  = !empty($guestInfo['end_date'])   ? date('F j, Y g:i A', strtotime($guestInfo['end_date']))   : 'N/A';
-$status     = ucfirst($guestInfo['booking_status'] ?? 'Pending');
+$check_in   = !empty($guestInfo['check_in_date']) ? date('F j, Y g:i A', strtotime($guestInfo['check_in_date'])) : 'N/A';
+$check_out  = !empty($guestInfo['check_out_date']) ? date('F j, Y g:i A', strtotime($guestInfo['check_out_date'])) : 'N/A';
+$status     = ucfirst($guestInfo['checkin_status'] ?? 'Pending');
 
 // =========================
 // Auto-cancel overdue bookings (simplified)
@@ -132,6 +131,8 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Guest Dashboard - Room <?= htmlspecialchars($room) ?></title>
+        <!-- Favicon -->
+<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
