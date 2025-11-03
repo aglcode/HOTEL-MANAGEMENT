@@ -1381,60 +1381,62 @@ error_log("=============================");
             </tr>
           </thead>
 <tbody>
-  <?php while ($row = $history_guests->fetch_assoc()): 
+<?php while ($row = $history_guests->fetch_assoc()): 
     $checkout_date = new DateTime($row['check_out_date'] ?? 'now');
     $checkin_date = new DateTime($row['check_in_date'] ?? 'now');
     $now_dt = new DateTime();
 
     $status = strtolower(trim($row['status'] ?? ''));
-    $guest_id = $row['id'] ?? 0;
-    $guest_name = $row['guest_name'] ?? '';
-    $room_number = (int)($row['room_number'] ?? 0);
-
-    // ✅ FIXED: Simplified and accurate status determination
+    
+    // ✅ FIXED: More accurate status determination
     $is_checked_out = false;
     $is_active = false;
     $is_upcoming = false;
-
-    // Primary: Trust the database status first
+    $is_gap = false; // New: between bookings
+    
+    // Check if checkout has passed
+    $has_checkout_passed = ($checkout_date <= $now_dt);
+    
+    // Check if checkin has passed
+    $has_checkin_passed = ($checkin_date <= $now_dt);
+    
     if ($status === 'checked_out') {
         $is_checked_out = true;
     } 
     elseif ($status === 'checked_in') {
-        // Double-check: Is checkout time actually in the future?
-        if ($checkout_date > $now_dt) {
-            $is_active = true;
-        } else {
-            // Checkout has passed but DB not updated yet
+        if ($has_checkout_passed) {
+            // Should be checked out, but DB not updated yet
             $is_checked_out = true;
+        } else {
+            // Currently active
+            $is_active = true;
         }
     }
     elseif ($status === 'scheduled') {
-        // Check if check-in time has already passed
-        if ($checkin_date <= $now_dt && $checkout_date > $now_dt) {
-            // Should be checked_in, not scheduled
-            $is_active = true;
-        } elseif ($checkout_date <= $now_dt) {
+        if ($has_checkout_passed) {
             // Both times have passed
             $is_checked_out = true;
+        } elseif ($has_checkin_passed) {
+            // Check-in has passed but not checkout → should be checked_in
+            $is_active = true;
         } else {
-            // Truly upcoming
+            // Future booking
             $is_upcoming = true;
         }
     }
     else {
         // Unknown status - determine by time
-        if ($checkout_date <= $now_dt) {
+        if ($has_checkout_passed) {
             $is_checked_out = true;
-        } elseif ($checkin_date <= $now_dt && $checkout_date > $now_dt) {
+        } elseif ($has_checkin_passed) {
             $is_active = true;
-        } elseif ($checkin_date > $now_dt) {
+        } else {
             $is_upcoming = true;
         }
     }
     
-    // ✅ Debug logging (remove after fixing)
-    error_log("Guest: $guest_name | DB Status: $status | Badge: " . 
+    // ✅ Debug logging
+    error_log("Guest: {$row['guest_name']} | Status: $status | Badge: " . 
               ($is_active ? 'In Use' : ($is_checked_out ? 'Checked Out' : ($is_upcoming ? 'Upcoming' : 'Unknown'))));
 ?>
             <tr class="<?= $is_active ? 'table-success' : ($is_checked_out ? 'table-light' : ($is_upcoming ? 'table-info' : '')) ?>">
@@ -1525,9 +1527,8 @@ error_log("=============================");
                       <span class="badge bg-warning"><i class="fas fa-hourglass-half me-1"></i>Unknown</span>
                   <?php endif; ?>
               </td>
-          </tr>
-            <?php endwhile; ?>
-          </tbody>
+            </tr>
+  <?php endwhile; ?>
         </table>
       </div>
       
@@ -1940,10 +1941,10 @@ function openRebookModal(guestId) {
         document.getElementById('rebook_telephone').value = guest.telephone;
         document.getElementById('rebook_address').value = guest.address;
         
-        // ✅ Set minimum check-in time to current checkout
+        // Store current checkout for validation
         const currentCheckout = new Date(guest.check_out_date);
         
-        // Format for datetime-local input (YYYY-MM-DDTHH:MM)
+        // Format for datetime-local input
         const year = currentCheckout.getFullYear();
         const month = String(currentCheckout.getMonth() + 1).padStart(2, '0');
         const day = String(currentCheckout.getDate()).padStart(2, '0');
@@ -1952,32 +1953,28 @@ function openRebookModal(guestId) {
         
         const minDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
         
-        console.log('✅ Current checkout:', guest.check_out_date);
-        console.log('✅ Minimum rebook time:', minDateTime);
-        
-        // Set the minimum attribute and default value
         const checkinInput = document.getElementById('rebook_checkin_date');
-        // Don't set min attribute - we'll validate manually for same-day only
         checkinInput.value = minDateTime; // Default to checkout time
-        
-        // Store original checkout for validation
         checkinInput.dataset.originalCheckout = guest.check_out_date;
         
-        // Add validation message
+        // ✅ NEW: Add helpful message about rebook types
         const checkinLabel = document.querySelector('label[for="rebook_checkin_date"]');
         if (checkinLabel) {
-          // Remove any existing validation message
           const existingMsg = checkinLabel.querySelector('.validation-msg');
           if (existingMsg) existingMsg.remove();
           
-          // Add new validation message
           const validationMsg = document.createElement('small');
           validationMsg.className = 'validation-msg d-block text-info mt-1';
-          validationMsg.innerHTML = `<i class="fas fa-info-circle me-1"></i>For same-day rebooking, must be ${currentCheckout.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })} or later`;
+          validationMsg.innerHTML = `
+            <i class="fas fa-info-circle me-1"></i>
+            <strong>Same time:</strong> Extends current stay<br>
+            <i class="fas fa-info-circle me-1"></i>
+            <strong>Later time (30+ min gap):</strong> New booking after checkout
+          `;
           checkinLabel.appendChild(validationMsg);
         }
         
-        // Reset other fields
+        // Reset fields
         document.getElementById('rebook_duration').value = 3;
         document.getElementById('rebook_payment_mode').value = 'cash';
         document.getElementById('rebook_amount_paid').value = '';
@@ -1986,8 +1983,6 @@ function openRebookModal(guestId) {
         document.getElementById('rebook_checkout_date').value = '';
         document.getElementById('rebook_total_price').value = '';
         document.getElementById('rebook_change_amount').value = '';
-        
-        // Clear any previous messages
         document.getElementById('rebook_availability_message').innerHTML = '';
         
         fetchAvailableRooms();
@@ -2003,6 +1998,49 @@ function openRebookModal(guestId) {
       Swal.fire('Error', 'An error occurred while fetching guest data', 'error');
     });
 }
+
+// ✅ NEW: Detect rebook type on checkin time change
+document.getElementById('rebook_checkin_date')?.addEventListener('change', function() {
+    const selectedTime = this.value;
+    const originalCheckout = this.dataset.originalCheckout;
+    
+    if (!selectedTime || !originalCheckout) return;
+    
+    const selectedTimestamp = new Date(selectedTime).getTime();
+    const checkoutTimestamp = new Date(originalCheckout).getTime();
+    
+    // Calculate time gap in minutes
+    const timeGapMinutes = (selectedTimestamp - checkoutTimestamp) / (1000 * 60);
+    
+    const messageDiv = document.getElementById('rebook_availability_message');
+    
+    if (timeGapMinutes > 30) {
+        // Gap rebook - new booking
+        messageDiv.innerHTML = `
+            <div class="alert alert-info border-0 shadow-sm" style="background-color: #e3f2fd; border-radius: 12px;">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-calendar-plus text-info me-2"></i>
+                    <span class="text-info fw-medium">
+                        This will create a <strong>NEW booking</strong> starting at ${new Date(selectedTime).toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: true})}.
+                        The current stay will be checked out automatically.
+                    </span>
+                </div>
+            </div>`;
+    } else if (timeGapMinutes >= -5) {
+        // Continuous extension
+        messageDiv.innerHTML = `
+            <div class="alert alert-success border-0 shadow-sm" style="background-color: #d4edda; border-radius: 12px;">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-clock text-success me-2"></i>
+                    <span class="text-success fw-medium">
+                        This will <strong>EXTEND</strong> the current stay continuously.
+                    </span>
+                </div>
+            </div>`;
+    }
+    
+    calculateRebookDetails();
+});
 
 // Calculate price based on duration using tiered pricing
 function calculateTieredPrice(duration, roomData) {

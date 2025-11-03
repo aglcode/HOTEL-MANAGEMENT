@@ -77,6 +77,7 @@ try {
     $rebook_info = null;
 
     // Get rebooking info if rebooked
+    // Get rebooking info if rebooked
     if ($is_rebooked && $previous_charges > 0) {
         $rebooked_from_id = intval($guest['rebooked_from'] ?? 0);
         
@@ -100,11 +101,31 @@ try {
             
             if ($rebook_result->num_rows > 0) {
                 $rebook_info = $rebook_result->fetch_assoc();
+                
+                // ✅ Detect time gap between bookings
+                $old_checkout = new DateTime($rebook_info['old_checkout']);
+                $current_checkin = new DateTime($guest['check_in_date']);
+                
+                $has_gap = ($current_checkin > $old_checkout);
+                
+                if ($has_gap) {
+                    $gap_duration = $old_checkout->diff($current_checkin);
+                    $gap_hours = ($gap_duration->days * 24) + $gap_duration->h;
+                    $gap_minutes = $gap_duration->i;
+                    
+                    $rebook_info['has_gap'] = true;
+                    $rebook_info['gap_hours'] = $gap_hours;
+                    $rebook_info['gap_minutes'] = $gap_minutes;
+                    
+                    error_log("Time gap detected: {$gap_hours}h {$gap_minutes}m between bookings");
+                } else {
+                    $rebook_info['has_gap'] = false;
+                }
             }
             $rebook_stmt->close();
         }
     }
-
+    
     // ✅ Calculate totals correctly
     $orders_total = floatval($guest['orders_total']);
     
