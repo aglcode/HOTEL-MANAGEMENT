@@ -2,24 +2,34 @@
 session_start();
 require_once 'database.php';
 
-// ✅ AUTO-UPDATE STATUS BASED ON TIME (runs on every page load)
-// Update scheduled → checked_in when check-in time passes
+// ✅ Update scheduled → checked_in when check-in time arrives
 $conn->query("
     UPDATE checkins 
-    SET status = 'checked_in' 
+    SET status = 'checked_in',
+        last_modified = NOW()
     WHERE status = 'scheduled' 
     AND check_in_date <= NOW()
 ");
 
-// Update checked_in → checked_out when check-out time passes
+// ✅ Update checked_in → checked_out when checkout time passes
+// 30-second grace period prevents immediate checkout after rebook/extend
 $conn->query("
     UPDATE checkins 
-    SET status = 'checked_out' 
-    WHERE status = 'checked_in' 
+    SET status = 'checked_out',
+        last_modified = NOW()
+    WHERE status IN ('checked_in', 'scheduled')
     AND check_out_date <= NOW()
+    AND last_modified < DATE_SUB(NOW(), INTERVAL 30 SECOND)
+    AND NOT EXISTS (
+        SELECT 1 FROM bookings 
+        WHERE bookings.guest_name = checkins.guest_name COLLATE utf8mb4_unicode_ci
+        AND bookings.room_number = checkins.room_number
+        AND bookings.status IN ('upcoming', 'confirmed')
+        AND bookings.end_date > NOW()
+    )
 ");
 
-// Also make rooms available when guests are auto-checked-out
+// ✅ Make rooms available when guests are checked out
 $conn->query("
     UPDATE rooms r
     INNER JOIN checkins c ON r.room_number = c.room_number
@@ -29,7 +39,7 @@ $conn->query("
     AND r.status = 'occupied'
 ");
 
-// Expire keycards for checked-out guests
+// ✅ Expire keycards for checked-out guests
 $conn->query("
     UPDATE keycards k
     INNER JOIN checkins c ON k.room_number = c.room_number
@@ -346,7 +356,11 @@ $current_guests = $conn->query("SELECT
     change_amount,
     payment_mode,
     gcash_reference,
-    status
+    status,
+    last_modified,
+    previous_charges,
+    is_rebooked,
+    rebooked_from
 FROM checkins
 WHERE status IN ('checked_in', 'scheduled')
 ORDER BY check_in_date DESC");
@@ -371,7 +385,8 @@ $history_sql = "SELECT
     check_out_date,
     gcash_reference,
     receptionist_id,
-    status
+    status,
+    last_modified
 FROM checkins WHERE 1=1";
 
 
@@ -409,9 +424,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     fputcsv($output, [
         'Guest ID', 'Guest Name', 'Address', 'Telephone', 'Room Number', 
         'Room Type', 'Stay Duration (hrs)', 'Check-In Date', 'Check-Out Date', 
-        'Payment Mode', 'Amount Paid', 'Change', 'Total Price', 'GCash Reference', 'Status'
+        'Payment Mode', 'Amount Paid', 'Change', 'Total Price', 'GCash Reference', 'Status', 'Last Modified'
     ]);
-    
+
     // Add data rows
     while ($row = $history_guests->fetch_assoc()) {
         fputcsv($output, [
@@ -429,7 +444,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $row['change_amount'] ?? 0,
             $row['total_price'] ?? 0,
             $row['gcash_reference'] ?? 'N/A',
-            $row['status'] ?? 'N/A'
+            $row['status'] ?? 'N/A',
+            date('F j, Y; g:iA', strtotime($row['last_modified'] ?? 'now'))
         ]);
     }
     
@@ -455,8 +471,67 @@ $scheduled_checkins_result = $conn->query("SELECT COUNT(*) AS scheduled_checkins
 $scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_checkins'];
 
 
+// Generate room schedules for conflict detection (for rebooking)
+$rebook_schedule_query = "SELECT 
+    room_number, 
+    start_date, 
+    end_date, 
+    guest_name,
+    status
+FROM bookings 
+WHERE status NOT IN ('cancelled', 'completed')
+ORDER BY start_date ASC";
 
+$rebook_schedule_result = $conn->query($rebook_schedule_query);
+$rebook_schedules = [];
 
+while ($schedule = $rebook_schedule_result->fetch_assoc()) {
+    $room_num = $schedule['room_number'];
+    if (!isset($rebook_schedules[$room_num])) {
+        $rebook_schedules[$room_num] = [];
+    }
+    $rebook_schedules[$room_num][] = [
+        'start_date' => $schedule['start_date'],
+        'end_date' => $schedule['end_date'],
+        'guest_name' => $schedule['guest_name'] ?? '',
+        'status' => $schedule['status'] ?? ''
+    ];
+}
+
+// Also include check-ins that are scheduled or currently checked in
+$rebook_checkin_query = "SELECT 
+    id, 
+    room_number, 
+    check_in_date, 
+    check_out_date, 
+    guest_name,
+    status
+FROM checkins 
+WHERE status IN ('scheduled', 'checked_in')
+ORDER BY check_in_date ASC";
+
+$rebook_checkin_result = $conn->query($rebook_checkin_query);
+$rebook_checkin_data = [];
+
+while ($checkin = $rebook_checkin_result->fetch_assoc()) {
+    $room_num = $checkin['room_number'];
+    if (!isset($rebook_checkin_data[$room_num])) {
+        $rebook_checkin_data[$room_num] = [];
+    }
+    $rebook_checkin_data[$room_num][] = [
+        'checkin_id' => $checkin['id'],
+        'start_date' => $checkin['check_in_date'],
+        'end_date' => $checkin['check_out_date'],
+        'guest_name' => $checkin['guest_name'] ?? '',
+        'status' => $checkin['status'] ?? ''
+    ];
+}
+
+// 🔍 Debug output (remove after testing)
+error_log("=== REBOOK SCHEDULES DEBUG ===");
+error_log("Bookings: " . json_encode($rebook_schedules));
+error_log("Checkins: " . json_encode($rebook_checkin_data));
+error_log("=============================");
 ?>
 
 <!DOCTYPE html>
@@ -985,20 +1060,41 @@ $scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_check
                     </span>
 
                     <?php 
-                    // Ensure accurate numeric handling
-                    $total = floatval($guest['total_price'] ?? 0);
+                    // ✅ FIXED: Calculate correct totals for rebooked vs regular guests
+                    $current_total = floatval($guest['total_price'] ?? 0);
+                    $previous_charges = floatval($guest['previous_charges'] ?? 0);
+                    $is_rebooked = ($guest['is_rebooked'] == 1);
                     $paid = floatval($guest['amount_paid'] ?? 0);
-                    $change_amount = round($paid - $total, 2);
-
-                    // Always show Total and Paid
+                    
+                    // If rebooked, overall total = previous charges + current charges
+                    // If not rebooked, overall total = current charges only
+                    $overall_total = $is_rebooked && $previous_charges > 0 
+                        ? $previous_charges + $current_total 
+                        : $current_total;
+                    
+                    // Calculate change/due based on overall total
+                    $change_amount = round($paid - $overall_total, 2);
+                    
+                    // Debug logging (remove after fixing)
+                    error_log("Guest ID {$guest['id']}: is_rebooked={$is_rebooked}, previous={$previous_charges}, current={$current_total}, overall={$overall_total}, paid={$paid}, change={$change_amount}");
                     ?>
-                    <small class="text-muted">Total: ₱<?= number_format($total, 2) ?></small>
+                    
+                    <?php if ($is_rebooked && $previous_charges > 0): ?>
+                        <!-- Show breakdown for rebooked guests -->
+                        <small class="text-muted">Previous: ₱<?= number_format($previous_charges, 2) ?></small>
+                        <small class="text-muted">Additional: ₱<?= number_format($current_total, 2) ?></small>
+                        <small class="text-muted fw-bold">Total: ₱<?= number_format($overall_total, 2) ?></small>
+                    <?php else: ?>
+                        <!-- Show simple total for regular guests -->
+                        <small class="text-muted">Total: ₱<?= number_format($overall_total, 2) ?></small>
+                    <?php endif; ?>
+                    
                     <small class="text-muted">Paid: ₱<?= number_format($paid, 2) ?></small>
 
                     <?php if ($change_amount > 0.00): ?>
                         <small class="text-info">Change: ₱<?= number_format($change_amount, 2) ?></small>
                     <?php elseif ($change_amount < 0.00): ?>
-                        <small class="text-danger">Due: ₱<?= number_format(abs($change_amount), 2) ?></small>
+                        <small class="text-danger fw-bold">Due: ₱<?= number_format(abs($change_amount), 2) ?></small>
                     <?php endif; ?>
                   </div>
                 </td>
@@ -1015,6 +1111,11 @@ $scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_check
                         <button class="btn btn-sm btn-outline-info" onclick="printReceipt(<?= $guest['id'] ?? 0 ?>)">
                           <i class="fas fa-receipt"></i> Receipt
                         </button>
+
+                        <button class="btn btn-sm btn-outline-primary" onclick="openRebookModal(<?= $guest['id'] ?? 0 ?>)">
+                      <i class="fas fa-redo"></i> Rebook
+                    </button>
+
                   </div>
                 </td>
               </tr>
@@ -1047,6 +1148,180 @@ $scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_check
             <button onclick="closeReceipt()" style="padding:5px 10px; background:#999; color:#fff; border:none; border-radius:4px;">Close</button>
         </div>
     </div>
+</div>
+
+<!-- Rebook Modal -->
+<div class="modal fade" id="rebookModal" tabindex="-1" aria-labelledby="rebookModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content shadow-lg rounded-4 overflow-hidden">
+
+      <!-- Header -->
+      <div class="modal-header bg-gradient text-white" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);">
+        <h5 class="modal-title fw-bold" id="rebookModalLabel">
+          <i class="fas fa-redo me-2"></i>Rebook Guest
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <!-- Form -->
+      <form id="rebookForm" onsubmit="submitRebook(); return false;">
+        <div class="modal-body p-4" style="background: #f9faff;">
+          <div class="container-fluid">
+            <div class="row g-4">
+
+              <!-- Guest Information -->
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100 rounded-3">
+                  <div class="card-header text-white rounded-top-3" style="background-color: #8b1d2d;">
+                    <h6 class="mb-0 fw-semibold"><i class="fas fa-user me-2"></i>Guest Information</h6>
+                  </div>
+                  <div class="card-body">
+                    <input type="hidden" id="rebook_guest_id" name="guest_id">
+
+                    <div class="mb-3">
+                      <label class="form-label fw-medium">Guest Name</label>
+                      <input type="text" class="form-control bg-light" id="rebook_guest_name" name="guest_name" readonly>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-medium">Telephone</label>
+                      <input type="text" class="form-control bg-light" id="rebook_telephone" name="telephone" readonly>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-medium">Address</label>
+                      <input type="text" class="form-control bg-light" id="rebook_address" name="address" readonly>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Booking Details -->
+              <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100 rounded-3">
+                  <div class="card-header text-white rounded-top-3" style="background-color: #8b1d2d;">
+                    <h6 class="mb-0 fw-semibold"><i class="fas fa-calendar-alt me-2"></i>Booking Details</h6>
+                  </div>
+                  <div class="card-body">
+                    <div class="mb-3">
+                      <label class="form-label fw-medium">Select Room *</label>
+                      <select class="form-select" id="rebook_room_number" name="room_number" required>
+                        <option value="">Choose a room...</option>
+                      </select>
+                      <small class="text-muted">Room type and price will update automatically</small>
+                    </div>
+                    <div id="rebook_availability_message" class="mb-3"></div>
+                    <div class="mb-3">
+                      <label class="form-label fw-medium">Room Type</label>
+                      <input type="text" class="form-control bg-light" id="rebook_room_type" name="room_type" readonly>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-medium">Check-in Date & Time *</label>
+                      <input type="datetime-local" class="form-control" id="rebook_checkin_date" name="check_in_date" required>
+                    </div>
+                    <div class="mb-3">
+                      <label for="rebook_duration" class="form-label fw-medium">Stay Duration *</label>
+                      <select name="stay_duration" id="rebook_duration" class="form-select" required onchange="calculateRebookDetails();">
+                        <option value="3">3 Hours</option>
+                        <option value="6">6 Hours</option>
+                        <option value="12">12 Hours</option>
+                        <option value="24">24 Hours</option>
+                        <option value="48">48 Hours</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-medium">Check-out Date & Time</label>
+                      <input type="text" class="form-control bg-light" id="rebook_checkout_date" readonly>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-medium">Total Price</label>
+                      <input type="text" class="form-control bg-light fw-semibold text-success" id="rebook_total_price" readonly>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment Information -->
+            <div class="card shadow-sm border-0 mt-4 rounded-3">
+              <div class="card-header text-white rounded-top-3" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%);">
+                <h6 class="mb-0 fw-semibold"><i class="fas fa-credit-card me-2"></i>Payment Information</h6>
+              </div>
+              <div class="card-body bg-white rounded-bottom">
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-6">
+                    <label class="form-label fw-medium">Payment Mode *</label>
+                    <select class="form-select" id="rebook_payment_mode" name="payment_mode" required onchange="toggleRebookGcash();">
+                      <option value="">Select payment method</option>
+                      <option value="cash">💵 Cash Payment</option>
+                      <option value="gcash">📱 GCash</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-medium">Amount Paid *</label>
+                    <div class="input-group">
+                      <span class="input-group-text" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%); color: #fff;">₱</span>
+                      <input type="number" class="form-control" id="rebook_amount_paid" name="amount_paid" min="0" step="0.01" required oninput="calculateRebookChange();">
+                    </div>
+                    <small id="rebook_amount_error" class="text-danger d-none">Amount paid cannot be less than total price.</small>
+                  </div>
+                </div>
+
+                <!-- GCash Section -->
+                <div id="rebook_gcash_ref_wrapper" class="row mt-4" style="display:none;">
+                  <div class="col-md-8">
+                    <div class="p-3 rounded-3" style="background: #f0f4ff;">
+                      <strong class="d-block mb-2"><i class="fas fa-info-circle me-2"></i>GCash Payment Instructions:</strong>
+                      <ol class="mb-0 ps-3 text-dark">
+                        <li>Send your payment to the GCash number provided</li>
+                        <li>Take a screenshot of the transaction</li>
+                        <li>Enter the 13-digit reference number below</li>
+                      </ol>
+                      <div class="mt-3">
+                        <label class="form-label fw-medium">GCash Reference (13 digits)</label>
+                        <input type="text" class="form-control" id="rebook_gcash_reference" name="gcash_reference" maxlength="13" pattern="\d{13}">
+                        <small id="rebook_gcash_error" class="text-danger d-none">Please enter a valid 13-digit GCash reference number.</small>
+                        <small class="text-muted">Found in your GCash transaction receipt</small>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-4 d-flex align-items-stretch">
+                    <div class="text-center p-3 rounded-3 shadow-sm" style="background: linear-gradient(135deg, #e0e7ff 0%, #fbc2eb 100%);">
+                      <div class="fw-bold mb-2" style="color: #0063F7; font-size: 1.2rem;">
+                        <i class="fab fa-google-pay"></i> G<span style="color:#0063F7;">Pay</span>
+                      </div>
+                      <p class="mb-1 text-dark">GCash Number:</p>
+                      <h5 class="fw-bold text-primary mb-2">09123456789</h5>
+                      <p class="mb-1 text-dark">Account Name:</p>
+                      <p class="fw-semibold text-primary mb-0">Gitarra Apartelle</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cash Section -->
+                <div class="row mt-3" id="rebook_cash_section">
+                  <div class="col-md-6">
+                    <label class="form-label fw-medium">Change</label>
+                    <div class="input-group">
+                      <span class="input-group-text" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%); color: #fff;">₱</span>
+                      <input type="text" class="form-control" id="rebook_change_amount" readonly value="0.00">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="modal-footer bg-light p-3">
+          <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary rounded-pill px-4" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%); border: none; font-weight:600;">
+            <i class="fas fa-check me-2"></i>Confirm Rebook
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 <!-- Guest Check-In History -->
@@ -1105,48 +1380,66 @@ $scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_check
               <th class="no-print">Status</th>
             </tr>
           </thead>
-          <tbody>
-            <?php while ($row = $history_guests->fetch_assoc()): 
-              $checkout_date = new DateTime($row['check_out_date'] ?? 'now');
-              $checkin_date = new DateTime($row['check_in_date'] ?? 'now');
-              $now_dt = new DateTime();
+<tbody>
+<?php while ($row = $history_guests->fetch_assoc()): 
+    $checkout_date = new DateTime($row['check_out_date'] ?? 'now');
+    $checkin_date = new DateTime($row['check_in_date'] ?? 'now');
+    $now_dt = new DateTime();
 
-              $status = strtolower($row['status'] ?? '');
-
-              if ($status === 'checked_out') {
-                  $is_checked_out = true;
-                  $is_active = false;
-              } elseif ($status === 'checked_in') {
-                  $is_checked_out = false;
-                  $is_active = true;
-              } elseif ($status === 'scheduled' && $checkout_date <= $now_dt) {
-                  // If scheduled but already past checkout date → mark as checked out
-                  $is_checked_out = true;
-                  $is_active = false;
-                  // Optionally auto-correct status in DB
-                  $conn->query("UPDATE checkins SET status='checked_out' WHERE id=" . (int)$row['id']);
-              } else {
-                  $is_checked_out = false;
-                  $is_active = false;
-              }
-
-
-              // If not active and not checked out by dates, check bookings table for a completed booking
-              if (! $is_checked_out && ! $is_active) {
-                  $bk_guest = $row['guest_name'];
-                  $bk_room = (int)($row['room_number'] ?? 0);
-                  $bkStmt = $conn->prepare("SELECT id FROM bookings WHERE guest_name = ? AND room_number = ? AND status = 'completed' LIMIT 1");
-                  $bkStmt->bind_param("si", $bk_guest, $bk_room);
-                  $bkStmt->execute();
-                  $bkStmt->store_result();
-                  if ($bkStmt->num_rows > 0) {
-                      $is_checked_out = true;
-                      $is_active = false;
-                  }
-                  $bkStmt->close();
-              }
-            ?>
-            <tr class="<?= $is_active ? 'table-success' : ($is_checked_out ? 'table-light' : '') ?>">
+    $status = strtolower(trim($row['status'] ?? ''));
+    
+    // ✅ FIXED: More accurate status determination
+    $is_checked_out = false;
+    $is_active = false;
+    $is_upcoming = false;
+    $is_gap = false; // New: between bookings
+    
+    // Check if checkout has passed
+    $has_checkout_passed = ($checkout_date <= $now_dt);
+    
+    // Check if checkin has passed
+    $has_checkin_passed = ($checkin_date <= $now_dt);
+    
+    if ($status === 'checked_out') {
+        $is_checked_out = true;
+    } 
+    elseif ($status === 'checked_in') {
+        if ($has_checkout_passed) {
+            // Should be checked out, but DB not updated yet
+            $is_checked_out = true;
+        } else {
+            // Currently active
+            $is_active = true;
+        }
+    }
+    elseif ($status === 'scheduled') {
+        if ($has_checkout_passed) {
+            // Both times have passed
+            $is_checked_out = true;
+        } elseif ($has_checkin_passed) {
+            // Check-in has passed but not checkout → should be checked_in
+            $is_active = true;
+        } else {
+            // Future booking
+            $is_upcoming = true;
+        }
+    }
+    else {
+        // Unknown status - determine by time
+        if ($has_checkout_passed) {
+            $is_checked_out = true;
+        } elseif ($has_checkin_passed) {
+            $is_active = true;
+        } else {
+            $is_upcoming = true;
+        }
+    }
+    
+    // ✅ Debug logging
+    error_log("Guest: {$row['guest_name']} | Status: $status | Badge: " . 
+              ($is_active ? 'In Use' : ($is_checked_out ? 'Checked Out' : ($is_upcoming ? 'Upcoming' : 'Unknown'))));
+?>
+            <tr class="<?= $is_active ? 'table-success' : ($is_checked_out ? 'table-light' : ($is_upcoming ? 'table-info' : '')) ?>">
               <td>
                 <div class="d-flex align-items-center">
                   <div class="avatar-sm bg-<?= $is_active ? 'success' : 'secondary' ?> bg-opacity-10 text-<?= $is_active ? 'success' : 'secondary' ?> rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
@@ -1224,17 +1517,18 @@ $scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_check
 
               <td class="fw-bold text-success">₱<?= number_format($row['total_price'] ?? 0, 2) ?></td>
               <td class="no-print">
-                <?php if ($is_active): ?>
-                  <span class="badge bg-success"><i class="fas fa-clock me-1"></i>In Use</span>
-                <?php elseif ($is_checked_out): ?>
-                  <span class="badge bg-secondary"><i class="fas fa-check-circle me-1"></i>Checked Out</span>
-                <?php else: ?>
-                  <span class="badge bg-warning"><i class="fas fa-hourglass-half me-1"></i>Scheduled</span>
-                <?php endif; ?>
+                  <?php if ($is_active): ?>
+                      <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>In Use</span>
+                  <?php elseif ($is_checked_out): ?>
+                      <span class="badge bg-secondary"><i class="fas fa-times-circle me-1"></i>Checked Out</span>
+                  <?php elseif ($is_upcoming): ?>
+                      <span class="badge bg-info"><i class="fas fa-calendar-plus me-1"></i>Upcoming</span>
+                  <?php else: ?>
+                      <span class="badge bg-warning"><i class="fas fa-hourglass-half me-1"></i>Unknown</span>
+                  <?php endif; ?>
               </td>
             </tr>
-            <?php endwhile; ?>
-          </tbody>
+  <?php endwhile; ?>
         </table>
       </div>
       
@@ -1372,6 +1666,972 @@ $scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_check
     }
   });
 
+  // Store booked schedules for rebooking
+const rebookRoomSchedules = <?php echo json_encode($rebook_schedules ?? []); ?>;
+const rebookCheckinSchedules = <?php echo json_encode($rebook_checkin_data ?? []); ?>;
+
+// Exclude current guest from conflict detection
+function checkRebookRoomAvailability() {
+    const roomSelect = document.getElementById('rebook_room_number');
+    const checkinInput = document.getElementById('rebook_checkin_date');
+    const durationSelect = document.getElementById('rebook_duration');
+    const messageDiv = document.getElementById('rebook_availability_message');
+    
+    // Get current guest info
+    const currentGuestId = parseInt(document.getElementById('rebook_guest_id')?.value) || 0;
+    const currentGuestName = document.getElementById('rebook_guest_name')?.value?.trim() || '';
+    
+    const roomNumber = roomSelect?.value;
+    const checkinTime = checkinInput?.value;
+    const durationValue = durationSelect?.value;
+    
+    // Clear previous messages
+    if (messageDiv) {
+        messageDiv.innerHTML = '';
+    }
+    
+    // If fields are not filled, don't validate yet
+    if (!roomNumber || !checkinTime || !durationValue) {
+        if (checkinInput) checkinInput.setCustomValidity('');
+        return true;
+    }
+    
+    const duration = parseInt(durationValue);
+    const selectedCheckin = new Date(checkinTime);
+    const selectedCheckout = new Date(selectedCheckin.getTime() + duration * 60 * 60 * 1000);
+    
+    // Get schedules with fallback
+    const bookingsList = Array.isArray(rebookRoomSchedules[roomNumber]) 
+        ? rebookRoomSchedules[roomNumber] 
+        : [];
+    
+    const checkinsList = Array.isArray(rebookCheckinSchedules[roomNumber]) 
+        ? rebookCheckinSchedules[roomNumber] 
+        : [];
+    
+    console.log('🔍 === REBOOK CONFLICT CHECK ===');
+    console.log('Guest ID:', currentGuestId, '| Name:', currentGuestName);
+    console.log('Room:', roomNumber);
+    console.log('New Period:', selectedCheckin.toLocaleString(), '->', selectedCheckout.toLocaleString());
+    console.log('Bookings to check:', bookingsList.length);
+    console.log('Checkins to check:', checkinsList.length);
+    
+    const now = new Date();
+    
+    // ============================================
+    // 🔧 FILTER OUT: Same guest's schedules
+    // ============================================
+    
+    const filteredBookings = bookingsList.filter(schedule => {
+        const bookedStart = new Date(schedule.start_date);
+        const bookedEnd = new Date(schedule.end_date);
+        const guestName = (schedule.guest_name || '').trim().toLowerCase();
+        
+        // 1. Exclude if same guest (case-insensitive match)
+        if (guestName === currentGuestName.toLowerCase()) {
+            console.log('❌ Excluded Booking (same guest):', schedule.guest_name, bookedStart.toLocaleString());
+            return false;
+        }
+        
+        // 2. Exclude if booking is completely in the past
+        if (bookedEnd < now) {
+            console.log('❌ Excluded Booking (past):', schedule.guest_name, bookedEnd.toLocaleString());
+            return false;
+        }
+        
+        // 3. Exclude cancelled/completed
+        if (schedule.status && ['cancelled', 'completed'].includes(schedule.status.toLowerCase())) {
+            console.log('❌ Excluded Booking (cancelled/completed):', schedule.guest_name);
+            return false;
+        }
+        
+        console.log('✅ Include Booking:', schedule.guest_name, bookedStart.toLocaleString(), '->', bookedEnd.toLocaleString());
+        return true;
+    });
+    
+    const filteredCheckins = checkinsList.filter(schedule => {
+        const bookedStart = new Date(schedule.start_date);
+        const bookedEnd = new Date(schedule.end_date);
+        const guestName = (schedule.guest_name || '').trim().toLowerCase();
+        const checkinId = parseInt(schedule.checkin_id) || 0;
+        
+        // 1. Exclude if same checkin ID (this is the guest being rebooked)
+        if (checkinId === currentGuestId) {
+            console.log('❌ Excluded Checkin (same ID):', checkinId, schedule.guest_name);
+            return false;
+        }
+        
+        // 2. Exclude if same guest name
+        if (guestName === currentGuestName.toLowerCase()) {
+            console.log('❌ Excluded Checkin (same guest):', schedule.guest_name, bookedStart.toLocaleString());
+            return false;
+        }
+        
+        // 3. Exclude if checkin is completely in the past
+        if (bookedEnd < now) {
+            console.log('❌ Excluded Checkin (past):', schedule.guest_name, bookedEnd.toLocaleString());
+            return false;
+        }
+        
+        // 4. Exclude checked_out status
+        if (schedule.status && schedule.status.toLowerCase() === 'checked_out') {
+            console.log('❌ Excluded Checkin (checked out):', schedule.guest_name);
+            return false;
+        }
+        
+        console.log('✅ Include Checkin:', schedule.guest_name, bookedStart.toLocaleString(), '->', bookedEnd.toLocaleString());
+        return true;
+    });
+    
+    const allSchedules = [...filteredBookings, ...filteredCheckins];
+    console.log('📊 Total schedules after filtering:', allSchedules.length);
+    
+    // ============================================
+    // 🔧 CHECK FOR OVERLAPS with OTHER guests
+    // ============================================
+    
+    let isAvailable = true;
+    let conflictSchedule = null;
+    
+    for (let schedule of allSchedules) {
+        const bookedStart = new Date(schedule.start_date);
+        const bookedEnd = new Date(schedule.end_date);
+        
+        console.log('⚙️ Checking:', schedule.guest_name);
+        console.log('   Booked:', bookedStart.toLocaleString(), '->', bookedEnd.toLocaleString());
+        
+        // Overlap check: (start1 < end2) AND (end1 > start2)
+        const hasOverlap = selectedCheckin < bookedEnd && selectedCheckout > bookedStart;
+        
+        console.log('   Overlap?', hasOverlap);
+        
+        if (hasOverlap) {
+            isAvailable = false;
+            conflictSchedule = schedule;
+            console.log('❌ CONFLICT DETECTED with', schedule.guest_name);
+            break;
+        }
+    }
+    
+    console.log('🎯 Result: Available =', isAvailable);
+    console.log('================================');
+    
+    // ============================================
+    // 🎨 DISPLAY RESULT
+    // ============================================
+    
+    if (isAvailable) {
+        if (messageDiv) {
+            const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+            const isOccupied = selectedOption.dataset.isOccupied === '1';
+            
+            let successMessage = `
+                <div class="alert alert-success border-0 shadow-sm" style="background-color: #d4edda; border-radius: 12px;">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-check-circle text-success me-2" style="font-size: 1.2rem;"></i>
+                        <span class="text-success fw-medium">✓ Room is available for selected time period</span>
+                    </div>`;
+            
+            if (isOccupied) {
+                successMessage += `
+                    <div class="mt-2 ps-4">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Note: This room is currently occupied but will be available during your selected booking time.
+                        </small>
+                    </div>`;
+            }
+            
+            successMessage += `</div>`;
+            messageDiv.innerHTML = successMessage;
+        }
+        if (checkinInput) checkinInput.setCustomValidity('');
+        return true;
+    } else {
+        const bookedStart = new Date(conflictSchedule.start_date);
+        const bookedEnd = new Date(conflictSchedule.end_date);
+        
+        const formatOptions = {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        };
+        
+        const formattedStart = bookedStart.toLocaleString('en-US', formatOptions);
+        const formattedEnd = bookedEnd.toLocaleString('en-US', formatOptions);
+        
+        if (messageDiv) {
+            messageDiv.innerHTML = `
+                <div class="alert alert-danger border-0 shadow-sm" style="background-color: #f8d7da; border-radius: 12px;">
+                    <div class="mb-2">
+                        <strong class="text-danger" style="font-size: 1.1rem;">⚠️ Time Conflict Detected</strong>
+                    </div>
+                    <p class="mb-0 text-danger">
+                        This room is already booked by <strong>${conflictSchedule.guest_name}</strong> from <strong>${formattedStart}</strong> to <strong>${formattedEnd}</strong>.<br>
+                        Please select a different time or room.
+                    </p>
+                </div>`;
+        }
+        
+        if (checkinInput) {
+            checkinInput.setCustomValidity('This time slot conflicts with an existing booking');
+        }
+        return false;
+    }
+}
+
+// Add debug logging (remove after testing)
+console.log('Rebook Schedules:', rebookRoomSchedules);
+console.log('Checkin Schedules:', rebookCheckinSchedules);
+
+// Fetch available rooms for rebooking
+function fetchAvailableRooms() {
+  fetch('get-available-rooms.php')
+    .then(response => response.json())
+    .then(data => {
+      const select = document.getElementById('rebook_room_number');
+      select.innerHTML = '<option value="">Choose a room...</option>';
+      
+      data.rooms.forEach(room => {
+        const option = document.createElement('option');
+        option.value = room.room_number;
+        option.dataset.type = room.room_type;
+        option.dataset.isOccupied = room.is_occupied ? '1' : '0';
+        
+        // Store all pricing tiers as data attributes
+        option.dataset.price3hrs = room.price_3hrs;
+        option.dataset.price6hrs = room.price_6hrs;
+        option.dataset.price12hrs = room.price_12hrs;
+        option.dataset.price24hrs = room.price_24hrs;
+        option.dataset.priceOt = room.price_ot;
+        
+        // Add "(CURRENTLY BOOKED)" indicator for occupied rooms
+        const occupiedLabel = room.is_occupied ? ' (Currently Booked)' : '';
+        option.textContent = `Room ${room.room_number} - ${room.room_type}${occupiedLabel}`;
+        
+        // Optional: Add a visual indicator (different color/style)
+        if (room.is_occupied) {
+          option.style.color = '#dc3545'; // Red color for occupied rooms
+          option.style.fontWeight = '500';
+        }
+        
+        select.appendChild(option);
+      });
+    })
+    .catch(error => console.error('Error fetching rooms:', error));
+}
+
+function openRebookModal(guestId) {
+  if (!guestId) {
+    Swal.fire('Error', 'Invalid guest ID', 'error');
+    return;
+  }
+
+  fetch(`get-guest-data.php?guest_id=${guestId}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        const guest = data.guest;
+        
+        // Fill guest information
+        document.getElementById('rebook_guest_id').value = guest.id;
+        document.getElementById('rebook_guest_name').value = guest.guest_name;
+        document.getElementById('rebook_telephone').value = guest.telephone;
+        document.getElementById('rebook_address').value = guest.address;
+        
+        // Store current checkout for validation
+        const currentCheckout = new Date(guest.check_out_date);
+        
+        // Format for datetime-local input
+        const year = currentCheckout.getFullYear();
+        const month = String(currentCheckout.getMonth() + 1).padStart(2, '0');
+        const day = String(currentCheckout.getDate()).padStart(2, '0');
+        const hours = String(currentCheckout.getHours()).padStart(2, '0');
+        const minutes = String(currentCheckout.getMinutes()).padStart(2, '0');
+        
+        const minDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        
+        const checkinInput = document.getElementById('rebook_checkin_date');
+        checkinInput.value = minDateTime; // Default to checkout time
+        checkinInput.dataset.originalCheckout = guest.check_out_date;
+        
+        // ✅ NEW: Add helpful message about rebook types
+        const checkinLabel = document.querySelector('label[for="rebook_checkin_date"]');
+        if (checkinLabel) {
+          const existingMsg = checkinLabel.querySelector('.validation-msg');
+          if (existingMsg) existingMsg.remove();
+          
+          const validationMsg = document.createElement('small');
+          validationMsg.className = 'validation-msg d-block text-info mt-1';
+          validationMsg.innerHTML = `
+            <i class="fas fa-info-circle me-1"></i>
+            <strong>Same time:</strong> Extends current stay<br>
+            <i class="fas fa-info-circle me-1"></i>
+            <strong>Later time (30+ min gap):</strong> New booking after checkout
+          `;
+          checkinLabel.appendChild(validationMsg);
+        }
+        
+        // Reset fields
+        document.getElementById('rebook_duration').value = 3;
+        document.getElementById('rebook_payment_mode').value = 'cash';
+        document.getElementById('rebook_amount_paid').value = '';
+        document.getElementById('rebook_gcash_reference').value = '';
+        document.getElementById('rebook_room_type').value = '';
+        document.getElementById('rebook_checkout_date').value = '';
+        document.getElementById('rebook_total_price').value = '';
+        document.getElementById('rebook_change_amount').value = '';
+        document.getElementById('rebook_availability_message').innerHTML = '';
+        
+        fetchAvailableRooms();
+        
+        const modal = new bootstrap.Modal(document.getElementById('rebookModal'));
+        modal.show();
+      } else {
+        Swal.fire('Error', data.message || 'Failed to fetch guest data', 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      Swal.fire('Error', 'An error occurred while fetching guest data', 'error');
+    });
+}
+
+// ✅ NEW: Detect rebook type on checkin time change
+document.getElementById('rebook_checkin_date')?.addEventListener('change', function() {
+    const selectedTime = this.value;
+    const originalCheckout = this.dataset.originalCheckout;
+    
+    if (!selectedTime || !originalCheckout) return;
+    
+    const selectedTimestamp = new Date(selectedTime).getTime();
+    const checkoutTimestamp = new Date(originalCheckout).getTime();
+    
+    // Calculate time gap in minutes
+    const timeGapMinutes = (selectedTimestamp - checkoutTimestamp) / (1000 * 60);
+    
+    const messageDiv = document.getElementById('rebook_availability_message');
+    
+    if (timeGapMinutes > 30) {
+        // Gap rebook - new booking
+        messageDiv.innerHTML = `
+            <div class="alert alert-info border-0 shadow-sm" style="background-color: #e3f2fd; border-radius: 12px;">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-calendar-plus text-info me-2"></i>
+                    <span class="text-info fw-medium">
+                        This will create a <strong>NEW booking</strong> starting at ${new Date(selectedTime).toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: true})}.
+                        The current stay will be checked out automatically.
+                    </span>
+                </div>
+            </div>`;
+    } else if (timeGapMinutes >= -5) {
+        // Continuous extension
+        messageDiv.innerHTML = `
+            <div class="alert alert-success border-0 shadow-sm" style="background-color: #d4edda; border-radius: 12px;">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-clock text-success me-2"></i>
+                    <span class="text-success fw-medium">
+                        This will <strong>EXTEND</strong> the current stay continuously.
+                    </span>
+                </div>
+            </div>`;
+    }
+    
+    calculateRebookDetails();
+});
+
+// Calculate price based on duration using tiered pricing
+function calculateTieredPrice(duration, roomData) {
+  const dur = parseInt(duration);
+  
+  console.log('🔢 Calculating price for duration:', dur, 'hours');
+  console.log('📊 Room pricing data:', roomData);
+  
+  let price = 0;
+  
+  if (dur <= 3) {
+    price = parseFloat(roomData.price3hrs) || 0;
+    console.log('✅ Using 3-hour rate: ₱' + price);
+  } else if (dur <= 6) {
+    price = parseFloat(roomData.price6hrs) || 0;
+    console.log('✅ Using 6-hour rate: ₱' + price);
+  } else if (dur <= 12) {
+    price = parseFloat(roomData.price12hrs) || 0;
+    console.log('✅ Using 12-hour rate: ₱' + price);
+  } else if (dur <= 24) {
+    price = parseFloat(roomData.price24hrs) || 0;
+    console.log('✅ Using 24-hour rate: ₱' + price);
+  } else {
+    const basePrice = parseFloat(roomData.price24hrs) || 0;
+    const extraHours = dur - 24;
+    const overtimeRate = parseFloat(roomData.priceOt) || 0;
+    price = basePrice + (extraHours * overtimeRate);
+    console.log('✅ Using 24hrs+ rate: ₱' + basePrice + ' + (' + extraHours + ' × ₱' + overtimeRate + ') = ₱' + price);
+  }
+  
+  console.log('💵 Final calculated price: ₱' + price);
+  return price;
+}
+
+function calculateRebookDetails() {
+    console.log('🔄 calculateRebookDetails() called');
+    
+    const durationSelect = document.getElementById('rebook_duration');
+    const checkinInput = document.getElementById('rebook_checkin_date');
+    const roomSelect = document.getElementById('rebook_room_number');
+    const checkoutDisplay = document.getElementById('rebook_checkout_date');
+    const totalPriceInput = document.getElementById('rebook_total_price');
+    
+    if (!durationSelect || !checkinInput || !roomSelect || !checkoutDisplay || !totalPriceInput) {
+        console.error('❌ Required elements not found!');
+        return;
+    }
+    
+    // ✅ Get the SELECTED duration (not calculated)
+    const selectedHours = parseInt(durationSelect.value) || 0;
+    const checkinDate = checkinInput.value;
+    const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+    
+    console.log('📋 Input values:');
+    console.log('  Selected duration:', selectedHours, 'hours');
+    console.log('  Check-in date:', checkinDate);
+    console.log('  Room selected:', selectedOption.value);
+    
+    if (!checkinDate || !selectedOption.value || selectedHours <= 0) {
+        return;
+    }
+    
+    // ✅ Parse check-in date
+    const checkin = new Date(checkinDate);
+    
+    // ✅ Calculate checkout = check-in + selected hours (NOT from original checkout!)
+    const checkout = new Date(checkin.getTime() + selectedHours * 60 * 60 * 1000);
+    
+    console.log('✅ CALCULATION:');
+    console.log('  Check-in:', checkin.toLocaleString());
+    console.log('  + Duration:', selectedHours, 'hours');
+    console.log('  = Checkout:', checkout.toLocaleString());
+    
+    // Format checkout display
+    const formattedCheckout = checkout.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    checkoutDisplay.value = formattedCheckout;
+    
+    // ✅ Get room pricing from dropdown data attributes
+    const roomData = {
+        price3hrs: selectedOption.dataset.price3hrs || '0',
+        price6hrs: selectedOption.dataset.price6hrs || '0',
+        price12hrs: selectedOption.dataset.price12hrs || '0',
+        price24hrs: selectedOption.dataset.price24hrs || '0',
+        priceOt: selectedOption.dataset.priceOt || '0'
+    };
+    
+    console.log('💰 Room pricing data:', roomData);
+    
+    // ✅ Calculate price based ONLY on selected duration
+    const totalPrice = calculateTieredPrice(selectedHours, roomData);
+    
+    if (totalPrice <= 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Calculation Error',
+            text: 'Unable to calculate room price.',
+            confirmButtonColor: '#8b1d2d'
+        });
+        return;
+    }
+    
+    totalPriceInput.value = totalPrice.toFixed(2);
+    console.log('💵 Final price for', selectedHours, 'hours: ₱' + totalPrice.toFixed(2));
+    
+    // ✅ Store the selected duration (not calculated!)
+    durationSelect.dataset.calculatedDuration = selectedHours;
+    
+    calculateRebookChange();
+    checkRebookRoomAvailability();
+}
+
+// Toggle GCash reference field visibility
+function toggleRebookGcash() {
+    const mode = document.getElementById("rebook_payment_mode").value;
+    const gcashWrapper = document.getElementById("rebook_gcash_ref_wrapper");
+    
+    if (gcashWrapper) {
+        gcashWrapper.style.display = mode === "gcash" ? "flex" : "none";
+        console.log('💳 Payment mode changed to:', mode);
+    }
+}
+
+// Calculate change amount
+function calculateRebookChange() {
+    const totalPriceInput = document.getElementById("rebook_total_price");
+    const amountPaidInput = document.getElementById("rebook_amount_paid");
+    const changeAmountInput = document.getElementById("rebook_change_amount");
+    
+    if (!totalPriceInput || !amountPaidInput || !changeAmountInput) {
+        console.error('❌ Change calculation elements not found');
+        return;
+    }
+    
+    const total = parseFloat(totalPriceInput.value) || 0;
+    const paid = parseFloat(amountPaidInput.value) || 0;
+    const change = paid - total;
+    
+    changeAmountInput.value = change > 0 ? change.toFixed(2) : "0.00";
+    
+    console.log('💵 Change calculation:');
+    console.log('  Total: ₱' + total.toFixed(2));
+    console.log('  Paid: ₱' + paid.toFixed(2));
+    console.log('  Change: ₱' + (change > 0 ? change.toFixed(2) : '0.00'));
+}
+
+// Enhanced fetchAvailableRooms with pricing validation
+function fetchAvailableRooms() {
+    console.log('🏠 Fetching available rooms...');
+    
+    fetch('get-available-rooms.php')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('📋 Available rooms data received:', data);
+            
+            if (!data.success || !data.rooms) {
+                throw new Error('Invalid data format received');
+            }
+            
+            const select = document.getElementById('rebook_room_number');
+            if (!select) {
+                console.error('❌ Room select element not found');
+                return;
+            }
+            
+            select.innerHTML = '<option value="">Choose a room...</option>';
+            
+            let roomsAdded = 0;
+            
+            data.rooms.forEach(room => {
+                const option = document.createElement('option');
+                option.value = room.room_number;
+                option.dataset.type = room.room_type;
+                option.dataset.isOccupied = room.is_occupied ? '1' : '0';
+                
+                // ✅ CRITICAL: Store all pricing tiers as data attributes
+                option.dataset.price3hrs = room.price_3hrs || '0';
+                option.dataset.price6hrs = room.price_6hrs || '0';
+                option.dataset.price12hrs = room.price_12hrs || '0';
+                option.dataset.price24hrs = room.price_24hrs || '0';
+                option.dataset.priceOt = room.price_ot || '0';
+                
+                console.log(`📊 Room ${room.room_number} pricing:`, {
+                    '3hrs': room.price_3hrs,
+                    '6hrs': room.price_6hrs,
+                    '12hrs': room.price_12hrs,
+                    '24hrs': room.price_24hrs,
+                    'OT': room.price_ot,
+                    'occupied': room.is_occupied
+                });
+                
+                // Validate that room has pricing data
+                if (!room.price_3hrs || parseFloat(room.price_3hrs) <= 0) {
+                    console.warn(`⚠️ Room ${room.room_number} has no valid pricing data!`);
+                }
+                
+                // Add "(CURRENTLY BOOKED)" indicator for occupied rooms
+                const occupiedLabel = room.is_occupied ? ' (Currently Booked)' : '';
+                option.textContent = `Room ${room.room_number} - ${room.room_type}${occupiedLabel}`;
+                
+                // Visual indicator for occupied rooms
+                if (room.is_occupied) {
+                    option.style.color = '#dc3545';
+                    option.style.fontWeight = '500';
+                }
+                
+                select.appendChild(option);
+                roomsAdded++;
+            });
+            
+            console.log(`✅ ${roomsAdded} room(s) added to dropdown`);
+            
+            if (roomsAdded === 0) {
+                console.warn('⚠️ No rooms available');
+                select.innerHTML = '<option value="">No rooms available</option>';
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error fetching rooms:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Failed to Load Rooms',
+                text: error.message || 'Could not fetch available rooms. Please try again.',
+                confirmButtonColor: '#8b1d2d'
+            });
+        });
+}
+
+// ============================================
+// 🎯 EVENT LISTENERS
+// ============================================
+
+// Duration change listener
+document.getElementById('rebook_duration')?.addEventListener('change', function() {
+    console.log('⏱️ Duration changed to:', this.value, 'hours');
+    calculateRebookDetails();
+});
+
+// Simplify the frontend validation
+document.getElementById('rebook_checkin_date')?.addEventListener('change', function() {
+    const selectedTime = this.value;
+    if (!selectedTime) return;
+    
+    const selectedTimestamp = new Date(selectedTime).getTime();
+    const nowTimestamp = new Date().getTime();
+    
+    // Only warn about past dates, don't auto-correct
+    if (selectedTimestamp < nowTimestamp) {
+        console.log('⚠️ Selected time is in the past');
+        // You can show a warning but don't prevent the user
+    }
+    
+    calculateRebookDetails();
+});
+
+// Room selection change listener
+document.getElementById('rebook_room_number')?.addEventListener('change', function() {
+    console.log('🏠 Room changed to:', this.value);
+    
+    const selectedOption = this.options[this.selectedIndex];
+    const roomType = selectedOption.dataset.type || '';
+    
+    console.log('  Room type:', roomType);
+    console.log('  Pricing data:');
+    console.log('    3hrs: ₱' + selectedOption.dataset.price3hrs);
+    console.log('    6hrs: ₱' + selectedOption.dataset.price6hrs);
+    console.log('    12hrs: ₱' + selectedOption.dataset.price12hrs);
+    console.log('    24hrs: ₱' + selectedOption.dataset.price24hrs);
+    console.log('    OT: ₱' + selectedOption.dataset.priceOt);
+    
+    document.getElementById('rebook_room_type').value = roomType;
+    calculateRebookDetails();
+});
+
+// Amount paid input listener
+document.getElementById('rebook_amount_paid')?.addEventListener('input', function() {
+    console.log('💰 Amount paid changed to: ₱' + this.value);
+    calculateRebookChange();
+});
+
+// Payment mode change listener
+document.getElementById('rebook_payment_mode')?.addEventListener('change', toggleRebookGcash);
+
+// GCash reference input validation (numbers only)
+document.getElementById('rebook_gcash_reference')?.addEventListener('input', function(e) {
+    this.value = this.value.replace(/[^0-9]/g, '');
+});
+
+console.log('✅ Rebook calculation functions loaded successfully');
+
+// Validate amount paid against total price
+document.getElementById('rebook_amount_paid')?.addEventListener('input', function() {
+  const totalText = document.getElementById('rebook_total_price').value;
+  const total = parseFloat(totalText.replace('₱', '').replace(',', '')) || 0;
+  const paid = parseFloat(this.value) || 0;
+  const errorEl = document.getElementById('rebook_amount_error');
+
+  if (paid < total && total > 0) {
+    errorEl.classList.remove('d-none');
+  } else {
+    errorEl.classList.add('d-none');
+  }
+
+  calculateRebookChange();
+});
+
+// Validate GCash reference format (13 digits)
+document.getElementById('rebook_gcash_reference')?.addEventListener('input', function() {
+  const errorEl = document.getElementById('rebook_gcash_error');
+  const isValid = /^\d{13}$/.test(this.value);
+
+  if (this.value && !isValid) {
+    errorEl.classList.remove('d-none');
+  } else {
+    errorEl.classList.add('d-none');
+  }
+});
+
+
+
+
+// Submit rebook
+function submitRebook() {
+    const form = document.getElementById('rebookForm');
+    
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const checkinInput = document.getElementById('rebook_checkin_date');
+    const messageDiv = document.getElementById('rebook_availability_message');
+    const selectedTime = checkinInput.value;
+    
+    if (!selectedTime) {
+        alert('Please select a check-in time');
+        return;
+    }
+
+    console.log('🚀 Submitting rebook - checking availability...');
+    const isAvailable = checkRebookRoomAvailability();
+    console.log('📋 Availability check result:', isAvailable);
+    
+    if (!isAvailable) {
+        console.log('❌ Blocking submission - room not available');
+        
+        if (messageDiv) {
+            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        return;
+    }
+    
+    console.log('✅ Proceeding with rebook submission');
+
+    // Validate payment
+    const totalText = document.getElementById('rebook_total_price').value;
+    const total = parseFloat(totalText.replace('₱', '').replace(',', '')) || 0;
+    const paid = parseFloat(document.getElementById('rebook_amount_paid').value) || 0;
+    const mode = document.getElementById('rebook_payment_mode').value;
+    const gcashRef = document.getElementById('rebook_gcash_reference').value.trim();
+
+    if (paid < total) {
+        Swal.fire('Invalid Payment', 'Amount paid cannot be less than total price.', 'warning');
+        return;
+    }
+
+    if (mode === 'gcash' && !/^\d{13}$/.test(gcashRef)) {
+        Swal.fire('Invalid GCash Reference', 'Please enter a valid 13-digit GCash reference number.', 'warning');
+        return;
+    }
+  
+    const formData = new FormData(form);
+    const totalPrice = parseFloat(document.getElementById('rebook_total_price').value) || 0;
+    const amountPaid = parseFloat(document.getElementById('rebook_amount_paid').value) || 0;
+    const changeAmount = amountPaid - totalPrice;
+  
+    formData.append('action', 'rebook');
+    formData.append('total_price', totalPrice);
+    formData.append('change_amount', changeAmount >= 0 ? changeAmount : 0);
+
+    // ✅ FIX: Use the SELECTED duration from dropdown, not calculated
+    const durationSelect = document.getElementById('rebook_duration');
+    const selectedDuration = parseInt(durationSelect.value) || 0;
+    
+    formData.set('stay_duration', selectedDuration);
+    console.log('✅ Using selected duration:', selectedDuration, 'hours');
+      
+    const checkInInput = document.getElementById('rebook_checkin_date');
+    if (checkInInput && checkInInput.value) {
+      const localDateTime = new Date(checkInInput.value);
+      
+      const mysqlDateTime = localDateTime.getFullYear() + '-' + 
+                            String(localDateTime.getMonth() + 1).padStart(2, '0') + '-' + 
+                            String(localDateTime.getDate()).padStart(2, '0') + ' ' + 
+                            String(localDateTime.getHours()).padStart(2, '0') + ':' + 
+                            String(localDateTime.getMinutes()).padStart(2, '0') + ':00';
+      
+      formData.set('check_in_date', mysqlDateTime);
+      
+      console.log('🕒 Selected datetime-local value:', checkInInput.value);
+      console.log('🕒 Formatted for MySQL:', mysqlDateTime);
+    }
+
+    console.log('📤 Sending rebook data to server...');
+    
+    Swal.fire({
+        title: 'Processing...',
+        text: 'Rebooking guest, please wait...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+        
+    fetch('process-rebook.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('📥 Response:', data);
+        
+        Swal.close();
+        
+        if (data.success) {
+            Swal.fire({
+                title: 'Success!',
+                text: data.message || 'Guest has been rebooked successfully',
+                icon: 'success',
+                confirmButtonColor: '#8b1d2d'
+            }).then(() => {
+                // ✅ FIX: Reload page to show updated duration
+                location.reload();
+            });
+        } else {
+            Swal.fire({
+                title: 'Error',
+                text: data.message || 'Failed to rebook guest',
+                icon: 'error',
+                confirmButtonColor: '#8b1d2d'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('❌ Fetch Error:', error);
+        
+        Swal.close();
+        
+        Swal.fire({
+            title: 'Network Error',
+            text: error.message || 'An error occurred while connecting to server',
+            icon: 'error',
+            confirmButtonColor: '#8b1d2d'
+        });
+    });
+}
+
+
+// ============================================
+// 🎯 EVENT LISTENERS FOR REBOOK MODAL
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Room selection listener
+    const roomSelect = document.getElementById('rebook_room_number');
+    if (roomSelect) {
+        roomSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const roomType = selectedOption.dataset.type || '';
+            const isOccupied = selectedOption.dataset.isOccupied === '1';
+            
+            document.getElementById('rebook_room_type').value = roomType;
+            
+            if (isOccupied && this.value) {
+                const messageDiv = document.getElementById('rebook_availability_message');
+                messageDiv.innerHTML = `
+                    <div class="alert alert-info border-0 shadow-sm" style="background-color: #d1ecf1; border-radius: 12px;">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-info-circle text-info me-2"></i>
+                            <span class="text-info fw-medium">
+                                This room is currently occupied. Please verify the booking time doesn't conflict.
+                            </span>
+                        </div>
+                    </div>`;
+            }
+            
+            calculateRebookDetails();
+        });
+    }
+
+    // ✅ NEW: Check-in date/time validation listener
+    const checkinInput = document.getElementById('rebook_checkin_date');
+    if (checkinInput) {
+        checkinInput.addEventListener('change', function() {
+            const minTime = this.min;
+            const selectedTime = this.value;
+            const messageDiv = document.getElementById('rebook_availability_message');
+            
+            if (!selectedTime || !minTime) {
+                return;
+            }
+            
+            // ✅ Convert to timestamps for accurate comparison
+            const minTimestamp = new Date(minTime).getTime();
+            const selectedTimestamp = new Date(selectedTime).getTime();
+            
+            console.log('📅 Check-in validation:');
+            console.log('  Selected:', new Date(selectedTime).toLocaleString());
+            console.log('  Minimum:', new Date(minTime).toLocaleString());
+            console.log('  Selected timestamp:', selectedTimestamp);
+            console.log('  Minimum timestamp:', minTimestamp);
+            console.log('  Is valid?', selectedTimestamp >= minTimestamp);
+            
+            // ✅ Only show error if ACTUALLY before the minimum time
+            if (selectedTimestamp < minTimestamp) {
+                console.log('❌ Selected time is before checkout time!');
+                
+                if (messageDiv) {
+                    const minDate = new Date(minTime);
+                    messageDiv.innerHTML = `
+                        <div class="alert alert-warning border-0 shadow-sm" style="background-color: #fff3cd; border-radius: 12px;">
+                            <div class="mb-2">
+                                <strong class="text-warning" style="font-size: 1.1rem;">⚠️ Invalid Check-in Time</strong>
+                            </div>
+                            <p class="mb-0 text-dark">
+                                Check-in time must be <strong>${minDate.toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                })}</strong> or later.
+                            </p>
+                        </div>`;
+                    
+                    messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
+                // Reset to minimum time
+                this.value = minTime;
+            } else {
+                console.log('✅ Valid check-in time selected');
+                
+                // Clear warning message if valid
+                if (messageDiv) {
+                    const hasWarning = messageDiv.querySelector('.alert-warning');
+                    if (hasWarning) {
+                        messageDiv.innerHTML = '';
+                    }
+                }
+            }
+            
+            // Recalculate after validation
+            calculateRebookDetails();
+        });
+        
+        // ✅ ADDED: Also validate on input (while typing)
+        checkinInput.addEventListener('input', function() {
+            const minTime = this.min;
+            const selectedTime = this.value;
+            
+            if (!selectedTime || !minTime) {
+                return;
+            }
+            
+            const minTimestamp = new Date(minTime).getTime();
+            const selectedTimestamp = new Date(selectedTime).getTime();
+            
+            // If user manually types an invalid time, correct it
+            if (selectedTimestamp < minTimestamp) {
+                console.log('⚠️ User typed invalid time, correcting...');
+                this.value = minTime;
+            }
+        });
+    }
+});
+
+
 
   // Update clock
   function updateClock() {
@@ -1485,9 +2745,10 @@ function showPaymentForm(paymentDetails, autoCheckout = false) {
       </div>
 
       <div id="gcash_ref_wrapper" style="display:none; margin-top: 15px; text-align: left;">
-          <label style="display: block; color: #ccc; font-size: 14px; margin-bottom: 6px; font-weight: 500;">GCash Reference:</label>
-          <input id="gcash_reference" placeholder="Enter GCash reference number"
+          <label style="display: block; color: #ccc; font-size: 14px; margin-bottom: 6px; font-weight: 500;">GCash Reference (13 digits):</label>
+          <input id="gcash_reference" placeholder="Enter 13-digit reference number" maxlength="13"
               style="width: 100%; padding: 12px; border: 1px solid #444; border-radius: 6px; font-size: 15px; background: #222; color: #eee; box-sizing: border-box;" />
+          <small style="color: #888; font-size: 12px; display: block; margin-top: 4px;">Only numbers allowed (exactly 13 digits)</small>
       </div>
     `,
     background: '#1a1a1a',
@@ -1495,8 +2756,8 @@ function showPaymentForm(paymentDetails, autoCheckout = false) {
     showCancelButton: true,
     confirmButtonText: 'Submit Payment',
     cancelButtonText: 'Cancel',
-    confirmButtonColor: '#8b1d2d', // maroon button
-    cancelButtonColor: '#555', // gray cancel
+    confirmButtonColor: '#8b1d2d',
+    cancelButtonColor: '#555',
     customClass: {
       popup: 'payment-modal-popup'
     },
@@ -1505,8 +2766,16 @@ function showPaymentForm(paymentDetails, autoCheckout = false) {
     didOpen: () => {
       const modeSelect = document.getElementById('payment_mode');
       const gcashWrapper = document.getElementById('gcash_ref_wrapper');
+      const gcashInput = document.getElementById('gcash_reference');
+      
+      // Show/hide GCash reference field based on payment method
       modeSelect.addEventListener('change', () => {
         gcashWrapper.style.display = modeSelect.value === 'gcash' ? 'block' : 'none';
+      });
+
+      // Restrict input to numbers only
+      gcashInput.addEventListener('input', (e) => {
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
       });
     },
     preConfirm: () => {
@@ -1519,6 +2788,26 @@ function showPaymentForm(paymentDetails, autoCheckout = false) {
         return false;
       }
 
+      // Validate GCash reference if GCash is selected
+      if (mode === 'gcash') {
+        if (!gcash_reference) {
+          Swal.showValidationMessage("Please enter a GCash reference number.");
+          return false;
+        }
+        
+        // Check if it contains only digits
+        if (!/^\d+$/.test(gcash_reference)) {
+          Swal.showValidationMessage("GCash reference must contain only numbers.");
+          return false;
+        }
+        
+        // Check if it's exactly 13 digits
+        if (gcash_reference.length !== 13) {
+          Swal.showValidationMessage("GCash reference must be exactly 13 digits.");
+          return false;
+        }
+      }
+
       return { amount, mode, gcash_reference };
     }
   }).then((result) => {
@@ -1526,7 +2815,6 @@ function showPaymentForm(paymentDetails, autoCheckout = false) {
       const payload = new URLSearchParams();
       payload.append('action', 'add_payment');
       payload.append('guest_id', paymentDetails.guest_id);
-      // If client-side knows amount_paid is 0 (initial payment), tell server to replace.
       const currentlyPaid = Number(paymentDetails.amount_paid ?? 0) || 0;
       const replaceFlag = currentlyPaid <= 0 ? '1' : '0';
 
@@ -1610,10 +2898,10 @@ function processPayment(guestId, amount, mode, gcashRef, isCheckout) {
                 confirmButtonText: 'OK'
             }).then(() => {
                 if (isCheckout && data.can_checkout) {
-                    // ✅ Automatically check out guest if full payment done
+                    // Automatically check out guest if full payment done
                     checkOutGuest(guestId);
                 } else {
-                    // ✅ Refresh to show updated "Paid", "Change", or "Due" values
+                    // Refresh to show updated "Paid", "Change", or "Due" values
                     location.reload();
                 }
             });
@@ -1700,6 +2988,7 @@ function extendStay(guestId) {
     });
 }
 
+
 function printReceipt(guestId) {
     if (!guestId) {
         alert('Invalid guest ID');
@@ -1715,8 +3004,23 @@ function printReceipt(guestId) {
             }
 
             const guest = data.guest;
+            
+            console.log('=== RECEIPT DATA ===');
+            console.log('Total Price:', guest.total_price);
+            console.log('Previous Charges:', guest.previous_charges);
+            console.log('New Charges:', guest.new_charges);
+            console.log('Is Rebooked:', guest.is_rebooked);
+            console.log('Orders Total:', guest.orders_total);
+            console.log('Grand Total:', guest.grand_total);
+            console.log('===================');
+            
             const roomCharge = parseFloat(guest.total_price || 0);
             const ordersTotal = parseFloat(guest.orders_total || 0);
+            const previousCharges = parseFloat(guest.previous_charges || 0);
+            const newCharges = parseFloat(guest.new_charges || 0);
+            const isRebooked = guest.is_rebooked || previousCharges > 0;
+            
+            // Grand total calculation
             const grandTotal = parseFloat(guest.grand_total || 0);
             const paid = parseFloat(guest.amount_paid || 0);
             
@@ -1744,6 +3048,55 @@ function printReceipt(guestId) {
                         </tr>
                     `;
                 });
+            }
+
+            // Build rebooking info section
+            let rebookSection = '';
+            if (isRebooked && guest.rebook_info) {
+                const oldInfo = guest.rebook_info;
+                rebookSection = `
+                    <div class="rebook-notice">
+                        <div class="alert alert-info" style="background: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px; padding: 12px; margin: 15px 0;">
+                            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                <i class="fas fa-redo" style="color: #2196f3; margin-right: 8px;"></i>
+                                <strong style="color: #1976d2;">Rebooked Guest</strong>
+                            </div>
+                            <div style="font-size: 0.85rem; color: #555; line-height: 1.6;">
+                                <div>Previous Stay: Room ${oldInfo.old_room} (${oldInfo.old_duration} hrs)</div>
+                                <div>Previous Period: ${new Date(oldInfo.old_checkin).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} - ${new Date(oldInfo.old_checkout).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // ✅ FIXED: Charges breakdown
+            let chargesBreakdown = '';
+            if (isRebooked && previousCharges > 0) {
+                // Show breakdown for rebooked guests
+                const totalRoomCharges = previousCharges + newCharges;
+                chargesBreakdown = `
+                    <div class="summary-row" style="background: #f8f9fa; padding: 8px 0; margin: 8px 0; border-radius: 4px;">
+                        <span style="color: #666;">Previous Stay Charges</span>
+                        <span style="color: #666;">₱${previousCharges.toFixed(2)}</span>
+                    </div>
+                    <div class="summary-row" style="background: #e8f5e9; padding: 8px 0; margin: 8px 0; border-radius: 4px;">
+                        <span style="color: #2e7d32; font-weight: 600;">Additional Charges (Rebook)</span>
+                        <span style="color: #2e7d32; font-weight: 600;">₱${newCharges.toFixed(2)}</span>
+                    </div>
+                    <div class="summary-row" style="padding-top: 8px; border-top: 1px dashed #dee2e6;">
+                        <span style="font-weight: 500;">Total Room Charges (${guest.stay_duration} hrs)</span>
+                        <span style="font-weight: 500;">₱${totalRoomCharges.toFixed(2)}</span>
+                    </div>
+                `;
+            } else {
+                // Regular single stay
+                chargesBreakdown = `
+                    <div class="summary-row room-charge">
+                        <span>Room Charge (${guest.stay_duration} hrs)</span>
+                        <span>₱${roomCharge.toFixed(2)}</span>
+                    </div>
+                `;
             }
 
             const receiptContent = `
@@ -1793,6 +3146,9 @@ function printReceipt(guestId) {
                         font-size: 0.9rem;
                         color: #6c757d;
                         margin-bottom: 15px;
+                    }
+                    .rebook-notice {
+                        margin: 15px 0;
                     }
                     hr {
                         border: 0;
@@ -1892,8 +3248,9 @@ function printReceipt(guestId) {
                         ${currentDate} • ${currentTime}
                     </div>
                     <div class="timestamp" style="margin-top: -8px;">
-                        Check-in: ${guest.check_in_date} | Check-out: ${guest.check_out_date}
+                        Current Stay: ${guest.check_in_date} - ${guest.check_out_date}
                     </div>
+                    ${rebookSection}
                     <hr>
 
                     ${ordersRows ? `
@@ -1909,23 +3266,27 @@ function printReceipt(guestId) {
                             ${ordersRows}
                         </tbody>
                     </table>
-                    ` : ''}
-
                     <div class="summary-section">
-                        ${ordersRows ? `
                         <div class="summary-row">
                             <span>Orders Subtotal</span>
                             <span>₱${ordersTotal.toFixed(2)}</span>
                         </div>
-                        ` : ''}
-                        
-                        <div class="summary-row room-charge">
-                            <span>Room Charge (${guest.stay_duration} hrs)</span>
-                            <span>₱${roomCharge.toFixed(2)}</span>
+                    </div>
+                    <hr style="margin: 10px 0; border-top: 1px dashed #dee2e6;">
+                    ` : ''}
+
+                    <div class="summary-section">
+                        ${chargesBreakdown}
+
+                        ${ordersRows ? `
+                        <div class="summary-row" style="padding-top: 8px; border-top: 1px dashed #dee2e6;">
+                            <span>Orders Total</span>
+                            <span>₱${ordersTotal.toFixed(2)}</span>
                         </div>
+                        ` : ''}
 
                         <div class="summary-row total-row">
-                            <span>TOTAL</span>
+                            <span>GRAND TOTAL</span>
                             <span class="amount">₱${grandTotal.toFixed(2)}</span>
                         </div>
                     </div>
@@ -1956,6 +3317,7 @@ function printReceipt(guestId) {
                     <div class="footer-text">
                         <strong>Thank you for your patronage!</strong>
                         <span>Receipt #: GIT-${guest.id}-${new Date().getFullYear()}</span>
+                        ${isRebooked ? '<div style="margin-top: 8px; font-size: 0.8rem; color: #2196f3;"><i class="fas fa-info-circle"></i> This receipt includes charges from rebooked stay</div>' : ''}
                     </div>
                 </div>
             `;
@@ -2097,7 +3459,6 @@ setTimeout(() => {
 
 </body>
 </html>
-
 
 
 

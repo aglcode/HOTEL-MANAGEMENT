@@ -1,7 +1,29 @@
 <?php
 session_start();
 
-require_once 'database.php'; // Include your database connection settings
+require_once 'database.php';
+
+// ✅ CRITICAL FIX: Update room status based on current checkins
+// This ensures rooms with active/scheduled guests show correct status
+$conn->query("
+    UPDATE rooms r
+    LEFT JOIN (
+        SELECT room_number, check_out_date, status
+        FROM (
+            SELECT room_number, check_out_date, status,
+                   ROW_NUMBER() OVER (PARTITION BY room_number ORDER BY check_in_date DESC) as rn
+            FROM checkins
+            WHERE status IN ('checked_in', 'scheduled')
+        ) ranked
+        WHERE rn = 1
+    ) c ON r.room_number = c.room_number
+    SET r.status = CASE
+        WHEN c.status = 'checked_in' THEN 'booked'
+        WHEN c.status = 'scheduled' THEN 'booked'
+        ELSE 'available'
+    END
+    WHERE r.status != 'maintenance'
+");
 
 // Auto-update booked rooms without active timer to available
 $expiredRooms = $conn->query("
@@ -10,9 +32,11 @@ $expiredRooms = $conn->query("
     LEFT JOIN (
         SELECT room_number, MAX(check_out_date) AS latest_checkout
         FROM checkins
+        WHERE status IN ('checked_in', 'scheduled')
         GROUP BY room_number
     ) c ON r.room_number = c.room_number
-    WHERE r.status = 'booked' AND (c.latest_checkout IS NULL OR c.latest_checkout <= NOW())
+    WHERE r.status = 'booked' 
+    AND (c.latest_checkout IS NULL OR c.latest_checkout <= NOW())
 ");
 
 while ($room = $expiredRooms->fetch_assoc()) {
@@ -23,27 +47,28 @@ while ($room = $expiredRooms->fetch_assoc()) {
 $bookedRooms = $conn->query("SELECT COUNT(*) AS booked FROM rooms WHERE status = 'booked'")->fetch_assoc()['booked'] ?? 0;
 $maintenanceRooms = $conn->query("SELECT COUNT(*) AS maintenance FROM rooms WHERE status = 'maintenance'")->fetch_assoc()['maintenance'] ?? 0;
 
-
 $totalRooms = $conn->query("SELECT COUNT(*) AS total FROM rooms")->fetch_assoc()['total'] ?? 0;
 $availableRooms = $conn->query("SELECT COUNT(*) AS available FROM rooms WHERE status = 'available'")->fetch_assoc()['available'] ?? 0;
 
-// Booking count
 $booking_count_result = $conn->query("SELECT COUNT(*) AS total FROM bookings");
 $booking_count_row = $booking_count_result->fetch_assoc();
 $booking_count = $booking_count_row['total'] ?? 0;
 
-// Booking data result for listing
 $bookings_result = $conn->query("SELECT * FROM bookings ORDER BY start_date DESC");
 
-// Room list with check-out
+// ✅ CRITICAL FIX: Updated room query with proper checkin data
 $allRoomsQuery = "
     SELECT r.room_number, r.room_type, r.status,
-        (SELECT c.check_out_date
-         FROM checkins c
-         WHERE c.room_number = r.room_number AND c.check_out_date > NOW()
-         ORDER BY c.check_out_date DESC
-         LIMIT 1) AS check_out_date
+        c.check_out_date,
+        c.status as checkin_status
     FROM rooms r
+    LEFT JOIN (
+        SELECT room_number, check_out_date, status,
+               ROW_NUMBER() OVER (PARTITION BY room_number ORDER BY check_in_date DESC) as rn
+        FROM checkins
+        WHERE status IN ('checked_in', 'scheduled')
+    ) c ON r.room_number = c.room_number AND c.rn = 1
+    ORDER BY r.room_number ASC
 ";
 $resultRooms = $conn->query($allRoomsQuery);
 
@@ -59,13 +84,11 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
-// ---------------------------
-//  ACTIONS: EXTEND / CHECKOUT
-// ---------------------------
+// ACTIONS: EXTEND / CHECKOUT
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     $room_number = (int)$_POST['room_number'];
 
-    // ---------------- EXTEND ----------------
+    // EXTEND
     if (isset($_POST['extend'])) {
         $stmt = $conn->prepare("
             SELECT id, check_out_date, total_price 
@@ -84,11 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $check_out_date = $checkin['check_out_date'];
             $new_check_out_date = date('Y-m-d H:i:s', strtotime($check_out_date . ' +1 hour'));
 
-            // Permanent extension fee ₱120
             $extension_fee = 120;
             $new_total_price = $checkin['total_price'] + $extension_fee;
 
-            // Update check-out time and price
             $stmt_update = $conn->prepare("
                 UPDATE checkins 
                 SET check_out_date = ?, total_price = ?, status = 'checked_in'
@@ -98,7 +119,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $stmt_update->execute();
             $stmt_update->close();
 
-            // Extend keycard validity
             $stmt_k = $conn->prepare("
                 UPDATE keycards 
                 SET valid_to = ?, status = 'active' 
@@ -117,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         }
     }
 
-    // ---------------- CHECKOUT ----------------
+    // CHECKOUT
     if (isset($_POST['checkout'])) {
         $stmt = $conn->prepare("
             SELECT id, total_price, amount_paid, guest_name 
@@ -137,19 +157,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $guest_name = $checkin['guest_name'];
             $balance = $total_price - $amount_paid;
 
-            // ❌ Require full payment before checkout
             if ($balance > 0) {
                 header("Location: receptionist-room.php?error=unpaid&balance=" . $balance);
                 exit;
             }
 
-            // ✅ Mark room available
             $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
             $stmt->bind_param('i', $room_number);
             $stmt->execute();
             $stmt->close();
 
-            // ✅ Update checkin status
             $stmt_update2 = $conn->prepare("
                 UPDATE checkins 
                 SET check_out_date = NOW(), status = 'checked_out' 
@@ -159,7 +176,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $stmt_update2->execute();
             $stmt_update2->close();
 
-            // ✅ Complete related booking
             $bkSel = $conn->prepare("
                 SELECT id FROM bookings 
                 WHERE guest_name = ? AND room_number = ? 
@@ -180,7 +196,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                 $bkSel->close();
             }
 
-            // ✅ Expire keycard
             $stmt_k2 = $conn->prepare("
                 UPDATE keycards 
                 SET status='expired' 
@@ -190,19 +205,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $stmt_k2->execute();
             $stmt_k2->close();
 
-            // ✅ 🧹 DELETE all pending and served orders
             $del = $conn->prepare("
                 DELETE FROM orders 
                 WHERE room_number = ? 
                 AND status IN ('pending','served')
             ");
-            $room_number_str = (string)$room_number; // orders.room_number = VARCHAR(10)
+            $room_number_str = (string)$room_number;
             $del->bind_param('s', $room_number_str);
             $del->execute();
             $deleted_orders = $del->affected_rows;
             $del->close();
 
-            // ✅ Redirect with success message
             header("Location: receptionist-room.php?success=checked_out&deleted={$deleted_orders}");
             exit;
 
@@ -212,10 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         }
     }
 }
-
-
 ?>
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -223,19 +233,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gitarra Apartelle - Room Management</title>
-    <!-- Favicon -->
-<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
+    <link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- DataTables CSS -->
     <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
 
     <style>
-/* === Sidebar Container === */
+/* Sidebar styles */
 .sidebar {
   width: 260px;
   height: 100vh;
@@ -250,7 +258,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
   font-family: 'Poppins', sans-serif;
 }
 
-/* === Header === */
 .sidebar h4 {
   text-align: center;
   font-weight: 700;
@@ -258,7 +265,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
   margin-bottom: 30px;
 }
 
-/* === User Info === */
 .user-info {
   text-align: center;
   background: #f9fafb;
@@ -285,7 +291,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
   color: #111827;
 }
 
-/* === Sidebar Navigation === */
 .nav-links {
   flex-grow: 1;
   display: flex;
@@ -313,7 +318,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
   transition: color 0.2s ease;
 }
 
-/* Hover state — icon & text both turn black */
 .nav-links a:hover {
   background: #f3f4f6;
   color: #111827;
@@ -323,7 +327,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
   color: #111827;
 }
 
-/* Active state — white text & icon on dark background */
 .nav-links a.active {
   background: #871D2B;
   color: #fff;
@@ -333,7 +336,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
   color: #fff;
 }
 
-/* === Sign Out === */
 .signout {
   border-top: 1px solid #e5e7eb;
   padding: 15px 20px 0;
@@ -352,7 +354,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
   transition: all 0.2s ease;
 }
 
-/* Hover effect — same feel as other links */
 .signout a:hover {
   background: #f3f4f6;
   color: #dc2626;
@@ -362,15 +363,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
   color: #dc2626;
 }
 
-/* === Main Content Offset === */
 .content {
   margin-left: 270px;
   padding: 30px;
   max-width: 1400px;
 }
 
-
-    /* STAT CARD DESIGN */
     .stat-card {
         border-radius: 12px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.05);
@@ -409,7 +407,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         color: #888;
     }
 
-    /* Optional smooth card shadow transition */
     .card {
         border: none;
     }
@@ -456,7 +453,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: #dc3545; /* red */
+    background: #dc3545;
     color: white;
     padding: 12px 20px;
     border-radius: 6px;
@@ -580,8 +577,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
   </div>
 </div>
 
-
-
 <div class="content p-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -610,9 +605,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     </div>
     <?php unset($_SESSION['error_msg']); endif; ?>
 
-<!-- STATISTICS CARDS (Admin Style) -->
+<!-- STATISTICS CARDS -->
 <div class="row mb-4">
-    <!-- Total Rooms -->
     <div class="col-md-3 mb-3">
         <div class="card stat-card h-100 p-3">
             <div class="d-flex justify-content-between align-items-center">
@@ -626,7 +620,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         </div>
     </div>
 
-    <!-- Available Rooms -->
     <div class="col-md-3 mb-3">
         <div class="card stat-card h-100 p-3">
             <div class="d-flex justify-content-between align-items-center">
@@ -640,7 +633,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         </div>
     </div>
 
-    <!-- Booked Rooms -->
     <div class="col-md-3 mb-3">
         <div class="card stat-card h-100 p-3">
             <div class="d-flex justify-content-between align-items-center">
@@ -654,7 +646,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         </div>
     </div>
 
-    <!-- Maintenance Rooms -->
     <div class="col-md-3 mb-3">
         <div class="card stat-card h-100 p-3">
             <div class="d-flex justify-content-between align-items-center">
@@ -678,7 +669,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         <div class="card-body">
             <div class="row">
                 <?php while ($room = $resultRooms->fetch_assoc()): 
-    // 🔔 Fetch pending orders for this room
+    // Fetch pending orders for this room
     $orderCountQuery = $conn->prepare("
         SELECT COUNT(*) AS pending_orders 
         FROM orders 
@@ -688,7 +679,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     $orderCountQuery->execute();
     $orderResult = $orderCountQuery->get_result();
     $orderCount = $orderResult->fetch_assoc()['pending_orders'] ?? 0;
-    $orderCountQuery->close();?>
+    $orderCountQuery->close();
+    
+    // ✅ Use the checkin_status and check_out_date from the JOIN
+    $hasActiveCheckin = !empty($room['check_out_date']) && !empty($room['checkin_status']);
+?>
                     
                     <div class="col-md-4 mb-3">
                         <div class="card room-card <?= $room['status'] ?>"
@@ -706,7 +701,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                                     <span class="fw-semibold"><?= ucfirst($room['room_type']) ?></span>
                                 </div>
                                 
-                                <?php if ($room['status'] === 'booked' && !empty($room['check_out_date'])): ?>
+                                <?php if ($hasActiveCheckin): ?>
                                     <div class="d-flex justify-content-between align-items-center mb-3">
                                         <span class="text-muted"><i class="fas fa-clock me-2"></i>Time Left:</span>
                                         <span class="countdown-timer" data-room="<?= $room['room_number']; ?>" data-checkout="<?= $room['check_out_date']; ?>">Loading...</span>
@@ -799,7 +794,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                 </thead>
                 <tbody>
                     <?php
-                        // Modified query to include booking status
                         $summary_result = $conn->query("SELECT guest_name, start_date, end_date, room_number, duration, num_people, status FROM bookings ORDER BY start_date DESC");
                         if ($summary_result->num_rows > 0):
                             while ($booking = $summary_result->fetch_assoc()):
@@ -807,13 +801,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                                 $booking_start = $booking['start_date'];
                                 $booking_end = $booking['end_date'];
                                 $guest_name = $booking['guest_name'];
-                                $booking_status = $booking['status']; // Get booking status
+                                $booking_status = $booking['status'];
                                 $now = new DateTime();
 
                                 $booking_end_dt = new DateTime($booking_end);
                                 $booking_finished = $now >= $booking_end_dt;
 
-                                // Check if booking is cancelled
                                 $is_cancelled = ($booking_status === 'cancelled');
 
                                 $already_checked_in = false;
@@ -821,9 +814,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                                 $checked_out_for_booking = false;
                                 $current_occupant = null;
 
-                                // Only check checkin status if booking is not cancelled
                                 if (!$is_cancelled) {
-                                    // Check current occupant
                                     $currStmt = $conn->prepare("
                                         SELECT guest_name, check_out_date 
                                         FROM checkins 
@@ -846,7 +837,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                                     }
                                     $currStmt->close();
 
-                                    // Check if already checked out
                                     if (!$already_checked_in) {
                                         $coStmt = $conn->prepare("
                                             SELECT id 
@@ -875,7 +865,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                         <td class="align-middle"><?= $booking['duration'] ?> hrs</td>
                         <td class="align-middle">
                             <?php
-                                // Check if booking is cancelled first
                                 if ($is_cancelled):
                             ?>
                                 <span class="badge bg-danger">Cancelled</span>
@@ -893,7 +882,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                                 <span class="badge bg-warning text-dark">Room Unavailable</span>
                             <?php 
                                 else:
-                                    // Check room availability for non-cancelled bookings
                                     $room_check = $conn->prepare("SELECT status FROM rooms WHERE room_number = ?");
                                     $room_check->bind_param("i", $booking['room_number']);
                                     $room_check->execute();
@@ -936,12 +924,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
 
 </div>
 
-<!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- DataTables JS -->
-    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
 
@@ -987,7 +973,6 @@ document.querySelectorAll('.countdown-timer').forEach(function (timer) {
     }, 1000);
 });
 
-// SweetAlert Confirmation before Extending Stay
 document.querySelectorAll('.extend-form').forEach(form => {
     form.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -1011,15 +996,12 @@ document.querySelectorAll('.extend-form').forEach(form => {
     });
 });
 
-
-// SweetAlert Confirmation before Check Out (with payment popup)
 document.querySelectorAll('.checkout-form').forEach(form => {
   form.addEventListener('submit', function (e) {
-    e.preventDefault(); // prevent default form submit
+    e.preventDefault();
 
     const roomNumber = form.querySelector('input[name="room_number"]').value;
 
-    // Check payment status first
     fetch("receptionist-guest.php", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -1028,7 +1010,6 @@ document.querySelectorAll('.checkout-form').forEach(form => {
     .then(res => res.json())
     .then(data => {
       if (data.payment_required) {
-        // 🧾 Show styled payment popup
         const amountDueRaw = Number(data.amount_due) || 0;
         const amountDueDisplay = amountDueRaw.toFixed(2);
 
@@ -1105,7 +1086,6 @@ document.querySelectorAll('.checkout-form').forEach(form => {
           }
         }).then(result => {
           if (result.isConfirmed) {
-            // Submit payment before checkout
             const payload = new URLSearchParams();
             payload.append('action', 'add_payment');
             payload.append('guest_id', data.guest_id);
@@ -1128,7 +1108,7 @@ document.querySelectorAll('.checkout-form').forEach(form => {
                   background: '#1a1a1a',
                   confirmButtonColor: "#8b1d2d"
                 }).then(() => {
-                  form.submit(); // proceed with checkout
+                  form.submit();
                 });
               } else {
                 Swal.fire("Error", payData.message || "Payment failed.", "error");
@@ -1142,7 +1122,6 @@ document.querySelectorAll('.checkout-form').forEach(form => {
         });
 
       } else {
-        // ✅ No payment required — regular checkout confirmation
         Swal.fire({
           title: 'Are you sure?',
           text: "Do you really want to check out this guest?",
@@ -1166,17 +1145,12 @@ document.querySelectorAll('.checkout-form').forEach(form => {
   });
 });
 
-
-
-// Handle card click
 function cardClicked(event, roomNumber, status) {
-    // Prevent the click if user clicked a button inside the card
     if (event.target.tagName.toLowerCase() === 'button' || event.target.closest('form')) {
         return;
     }
 
     if (status === 'booked') {
-        // Show toast instead of redirect
         let toast = document.getElementById('roomToast');
         toast.classList.add('show');
         setTimeout(() => {
@@ -1186,7 +1160,6 @@ function cardClicked(event, roomNumber, status) {
         return false;
     }
 
-    // If available, continue to check-in
     window.location.href = `check-in.php?room_number=${roomNumber}`;
 }
 
@@ -1201,7 +1174,7 @@ function updateClock() {
 }
 
 setInterval(updateClock, 1000);
-updateClock(); // run once immediately
+updateClock();
 
 function refreshOrderBadges() {
   fetch('fetch_pending_orders.php')
@@ -1220,9 +1193,8 @@ function refreshOrderBadges() {
       }
     });
 }
-setInterval(refreshOrderBadges, 5000); // Refresh every 5 seconds
+setInterval(refreshOrderBadges, 5000);
 
-// DATA TABLE
 $(document).ready(function() {
   var bookingSummary = $('#bookingSummaryTable').DataTable({
     paging: true,
@@ -1234,7 +1206,7 @@ $(document).ready(function() {
     responsive: true,
     pageLength: 5,
     lengthMenu: [5, 10, 25, 50, 100],
-    dom: 'rt<"row mt-3"<"col-sm-5"i><"col-sm-7"p>>', // no header controls here
+    dom: 'rt<"row mt-3"<"col-sm-5"i><"col-sm-7"p>>',
     language: {
       emptyTable: "<i class='fas fa-calendar-times fa-3x text-muted mb-3'></i><p class='mb-0'>No bookings found</p>",
       info: "Showing _START_ to _END_ of _TOTAL_ bookings",
@@ -1250,7 +1222,6 @@ $(document).ready(function() {
     }
   });
 
-  // === Custom Length Dropdown ===
   bookingSummary.on('init', function () {
     var lengthSelect = $('#bookingSummaryTable_length select')
       .addClass('form-select form-select-sm')
@@ -1267,12 +1238,10 @@ $(document).ready(function() {
     $('#bookingSummaryTable_length').hide();
   });
 
-  // === Custom Search ===
   $('#bookingSearchInput').on('keyup', function() {
     bookingSummary.search(this.value).draw();
   });
 
-  // === Sorting Icons ===
   bookingSummary.on('order.dt', function() {
     $('th.sorting', bookingSummary.table().header()).removeClass('sorting_asc sorting_desc');
     bookingSummary.columns().every(function(index) {
@@ -1290,7 +1259,6 @@ $(document).ready(function() {
 </html>
 
 <?php
-// Only close the connection if it's still open and is an object
 if (isset($conn) && $conn instanceof mysqli) {
     if (@$conn->ping()) {
         $conn->close();
