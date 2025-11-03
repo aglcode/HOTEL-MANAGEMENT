@@ -2,9 +2,7 @@
 session_start();
 require_once 'database.php';
 
-// Clear any previous output
 ob_clean();
-
 header('Content-Type: application/json');
 
 if (!isset($_GET['guest_id'])) {
@@ -15,12 +13,13 @@ if (!isset($_GET['guest_id'])) {
 $guest_id = intval($_GET['guest_id']);
 
 try {
-    // Get guest checkin data - FIXED: Calculate orders total properly
+    // Get guest checkin data with orders
     $stmt = $conn->prepare("
         SELECT 
             c.*,
             COALESCE(SUM(o.price * o.quantity), 0) as orders_total,
-            c.previous_charges
+            c.previous_charges,
+            c.is_rebooked
         FROM checkins c
         LEFT JOIN orders o ON c.room_number = CAST(o.room_number AS UNSIGNED) 
             AND o.status IN ('pending', 'served')
@@ -71,13 +70,14 @@ try {
         $orders = [];
     }
 
-    // ✅ ENHANCED: Get complete rebooking history with charges breakdown
+    // ✅ FIXED: Calculate charges correctly
     $previous_charges = floatval($guest['previous_charges'] ?? 0);
+    $current_charges = floatval($guest['total_price']); // This is the ADDITIONAL charge (for rebook)
+    $is_rebooked = ($guest['is_rebooked'] == 1);
     $rebook_info = null;
 
-    // If this is a rebooked guest, get the original booking info
-    if ($guest['is_rebooked'] == 1 || $previous_charges > 0) {
-        // Try to get info from rebooked_from reference
+    // Get rebooking info if rebooked
+    if ($is_rebooked && $previous_charges > 0) {
         $rebooked_from_id = intval($guest['rebooked_from'] ?? 0);
         
         if ($rebooked_from_id > 0) {
@@ -103,46 +103,32 @@ try {
             }
             $rebook_stmt->close();
         }
-        
-        // If still no info, try to find most recent previous booking by same guest
-        if (!$rebook_info) {
-            $rebook_stmt = $conn->prepare("
-                SELECT 
-                    id as old_checkin_id,
-                    room_number as old_room,
-                    total_price as old_total,
-                    stay_duration as old_duration,
-                    check_in_date as old_checkin,
-                    check_out_date as old_checkout,
-                    amount_paid as old_paid
-                FROM checkins 
-                WHERE guest_name = ? 
-                AND id < ?
-                AND DATE(check_in_date) = DATE(?)
-                ORDER BY id DESC
-                LIMIT 1
-            ");
-
-            if ($rebook_stmt) {
-                $rebook_stmt->bind_param('sis', $guest['guest_name'], $guest_id, $guest['check_in_date']);
-                $rebook_stmt->execute();
-                $rebook_result = $rebook_stmt->get_result();
-
-                if ($rebook_result->num_rows > 0) {
-                    $rebook_info = $rebook_result->fetch_assoc();
-                }
-                $rebook_stmt->close();
-            }
-        }
     }
 
-    // Calculate totals
-    $room_charge = floatval($guest['total_price']);
+    // ✅ Calculate totals correctly
     $orders_total = floatval($guest['orders_total']);
-    $grand_total = $room_charge + $orders_total;
     
-    // Calculate new charges (current total minus previous charges)
-    $new_charges = $room_charge - $previous_charges;
+    // If rebooked: room charges = previous + current (additional)
+    // If not rebooked: room charges = current only
+    if ($is_rebooked && $previous_charges > 0) {
+        $total_room_charges = $previous_charges + $current_charges;
+        $new_charges = $current_charges; // For display
+    } else {
+        $total_room_charges = $current_charges;
+        $new_charges = 0; // Not rebooked
+    }
+    
+    // Grand total = total room charges + orders
+    $grand_total = $total_room_charges + $orders_total;
+
+    error_log("=== RECEIPT CALCULATION ===");
+    error_log("Is Rebooked: " . ($is_rebooked ? 'YES' : 'NO'));
+    error_log("Previous Charges: ₱" . $previous_charges);
+    error_log("Current/Additional Charges: ₱" . $current_charges);
+    error_log("Total Room Charges: ₱" . $total_room_charges);
+    error_log("Orders Total: ₱" . $orders_total);
+    error_log("Grand Total: ₱" . $grand_total);
+    error_log("===========================");
 
     // Format dates
     $checkin_dt = new DateTime($guest['check_in_date']);
@@ -156,7 +142,8 @@ try {
     $guest['rebook_info'] = $rebook_info;
     $guest['previous_charges'] = $previous_charges;
     $guest['new_charges'] = $new_charges;
-    $guest['is_rebooked'] = $previous_charges > 0;
+    $guest['total_room_charges'] = $total_room_charges;
+    $guest['is_rebooked'] = $is_rebooked;
 
     echo json_encode([
         'success' => true,

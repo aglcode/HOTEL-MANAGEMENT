@@ -357,7 +357,10 @@ $current_guests = $conn->query("SELECT
     payment_mode,
     gcash_reference,
     status,
-    last_modified
+    last_modified,
+    previous_charges,
+    is_rebooked,
+    rebooked_from
 FROM checkins
 WHERE status IN ('checked_in', 'scheduled')
 ORDER BY check_in_date DESC");
@@ -469,11 +472,19 @@ $scheduled_checkins = $scheduled_checkins_result->fetch_assoc()['scheduled_check
 
 
 // Generate room schedules for conflict detection (for rebooking)
-$rebook_schedule_query = "SELECT room_number, start_date, end_date, guest_name
-                           FROM bookings 
-                           WHERE status NOT IN ('cancelled', 'completed')";
+$rebook_schedule_query = "SELECT 
+    room_number, 
+    start_date, 
+    end_date, 
+    guest_name,
+    status
+FROM bookings 
+WHERE status NOT IN ('cancelled', 'completed')
+ORDER BY start_date ASC";
+
 $rebook_schedule_result = $conn->query($rebook_schedule_query);
 $rebook_schedules = [];
+
 while ($schedule = $rebook_schedule_result->fetch_assoc()) {
     $room_num = $schedule['room_number'];
     if (!isset($rebook_schedules[$room_num])) {
@@ -482,28 +493,45 @@ while ($schedule = $rebook_schedule_result->fetch_assoc()) {
     $rebook_schedules[$room_num][] = [
         'start_date' => $schedule['start_date'],
         'end_date' => $schedule['end_date'],
-        'guest_name' => $schedule['guest_name'] ?? '' // ✅ Added guest identifier
+        'guest_name' => $schedule['guest_name'] ?? '',
+        'status' => $schedule['status'] ?? ''
     ];
 }
 
 // Also include check-ins that are scheduled or currently checked in
-$rebook_checkin_query = "SELECT id, room_number, check_in_date, check_out_date, guest_name 
-                          FROM checkins 
-                          WHERE status IN ('scheduled', 'checked_in')";
+$rebook_checkin_query = "SELECT 
+    id, 
+    room_number, 
+    check_in_date, 
+    check_out_date, 
+    guest_name,
+    status
+FROM checkins 
+WHERE status IN ('scheduled', 'checked_in')
+ORDER BY check_in_date ASC";
+
 $rebook_checkin_result = $conn->query($rebook_checkin_query);
 $rebook_checkin_data = [];
+
 while ($checkin = $rebook_checkin_result->fetch_assoc()) {
     $room_num = $checkin['room_number'];
     if (!isset($rebook_checkin_data[$room_num])) {
         $rebook_checkin_data[$room_num] = [];
     }
     $rebook_checkin_data[$room_num][] = [
-        'checkin_id' => $checkin['id'], // ✅ Added checkin ID
+        'checkin_id' => $checkin['id'],
         'start_date' => $checkin['check_in_date'],
         'end_date' => $checkin['check_out_date'],
-        'guest_name' => $checkin['guest_name'] ?? ''
+        'guest_name' => $checkin['guest_name'] ?? '',
+        'status' => $checkin['status'] ?? ''
     ];
 }
+
+// 🔍 Debug output (remove after testing)
+error_log("=== REBOOK SCHEDULES DEBUG ===");
+error_log("Bookings: " . json_encode($rebook_schedules));
+error_log("Checkins: " . json_encode($rebook_checkin_data));
+error_log("=============================");
 ?>
 
 <!DOCTYPE html>
@@ -1032,20 +1060,41 @@ while ($checkin = $rebook_checkin_result->fetch_assoc()) {
                     </span>
 
                     <?php 
-                    // Ensure accurate numeric handling
-                    $total = floatval($guest['total_price'] ?? 0);
+                    // ✅ FIXED: Calculate correct totals for rebooked vs regular guests
+                    $current_total = floatval($guest['total_price'] ?? 0);
+                    $previous_charges = floatval($guest['previous_charges'] ?? 0);
+                    $is_rebooked = ($guest['is_rebooked'] == 1);
                     $paid = floatval($guest['amount_paid'] ?? 0);
-                    $change_amount = round($paid - $total, 2);
-
-                    // Always show Total and Paid
+                    
+                    // If rebooked, overall total = previous charges + current charges
+                    // If not rebooked, overall total = current charges only
+                    $overall_total = $is_rebooked && $previous_charges > 0 
+                        ? $previous_charges + $current_total 
+                        : $current_total;
+                    
+                    // Calculate change/due based on overall total
+                    $change_amount = round($paid - $overall_total, 2);
+                    
+                    // Debug logging (remove after fixing)
+                    error_log("Guest ID {$guest['id']}: is_rebooked={$is_rebooked}, previous={$previous_charges}, current={$current_total}, overall={$overall_total}, paid={$paid}, change={$change_amount}");
                     ?>
-                    <small class="text-muted">Total: ₱<?= number_format($total, 2) ?></small>
+                    
+                    <?php if ($is_rebooked && $previous_charges > 0): ?>
+                        <!-- Show breakdown for rebooked guests -->
+                        <small class="text-muted">Previous: ₱<?= number_format($previous_charges, 2) ?></small>
+                        <small class="text-muted">Additional: ₱<?= number_format($current_total, 2) ?></small>
+                        <small class="text-muted fw-bold">Total: ₱<?= number_format($overall_total, 2) ?></small>
+                    <?php else: ?>
+                        <!-- Show simple total for regular guests -->
+                        <small class="text-muted">Total: ₱<?= number_format($overall_total, 2) ?></small>
+                    <?php endif; ?>
+                    
                     <small class="text-muted">Paid: ₱<?= number_format($paid, 2) ?></small>
 
                     <?php if ($change_amount > 0.00): ?>
                         <small class="text-info">Change: ₱<?= number_format($change_amount, 2) ?></small>
                     <?php elseif ($change_amount < 0.00): ?>
-                        <small class="text-danger">Due: ₱<?= number_format(abs($change_amount), 2) ?></small>
+                        <small class="text-danger fw-bold">Due: ₱<?= number_format(abs($change_amount), 2) ?></small>
                     <?php endif; ?>
                   </div>
                 </td>
@@ -1627,9 +1676,9 @@ function checkRebookRoomAvailability() {
     const durationSelect = document.getElementById('rebook_duration');
     const messageDiv = document.getElementById('rebook_availability_message');
     
-    // ✅ Get current guest ID to exclude from conflict check
+    // Get current guest info
     const currentGuestId = parseInt(document.getElementById('rebook_guest_id')?.value) || 0;
-    const currentGuestName = document.getElementById('rebook_guest_name')?.value || '';
+    const currentGuestName = document.getElementById('rebook_guest_name')?.value?.trim() || '';
     
     const roomNumber = roomSelect?.value;
     const checkinTime = checkinInput?.value;
@@ -1646,14 +1695,11 @@ function checkRebookRoomAvailability() {
         return true;
     }
     
-    // Parse duration
     const duration = parseInt(durationValue);
-    
-    // Calculate checkout time
     const selectedCheckin = new Date(checkinTime);
     const selectedCheckout = new Date(selectedCheckin.getTime() + duration * 60 * 60 * 1000);
     
-    // ✅ FIX: Safely get schedules with fallback to empty arrays
+    // Get schedules with fallback
     const bookingsList = Array.isArray(rebookRoomSchedules[roomNumber]) 
         ? rebookRoomSchedules[roomNumber] 
         : [];
@@ -1662,65 +1708,118 @@ function checkRebookRoomAvailability() {
         ? rebookCheckinSchedules[roomNumber] 
         : [];
     
-    console.log('🔍 Checking Room:', roomNumber);
-    console.log('📅 Selected Check-in:', selectedCheckin);
-    console.log('📅 Selected Check-out:', selectedCheckout);
-    console.log('📋 Bookings List:', bookingsList);
-    console.log('📋 Checkins List:', checkinsList);
-    console.log('👤 Current Guest ID:', currentGuestId);
-    console.log('👤 Current Guest Name:', currentGuestName);
+    console.log('🔍 === REBOOK CONFLICT CHECK ===');
+    console.log('Guest ID:', currentGuestId, '| Name:', currentGuestName);
+    console.log('Room:', roomNumber);
+    console.log('New Period:', selectedCheckin.toLocaleString(), '->', selectedCheckout.toLocaleString());
+    console.log('Bookings to check:', bookingsList.length);
+    console.log('Checkins to check:', checkinsList.length);
     
-    // ✅ EXCLUDE CURRENT GUEST'S EXISTING SCHEDULE
+    const now = new Date();
+    
+    // ============================================
+    // 🔧 FILTER OUT: Same guest's schedules
+    // ============================================
+    
     const filteredBookings = bookingsList.filter(schedule => {
-        // Exclude if same guest name (for bookings table)
-        const isCurrentGuest = schedule.guest_name === currentGuestName;
-        console.log('Booking:', schedule.guest_name, '| Is Current Guest?', isCurrentGuest);
-        return !isCurrentGuest;
+        const bookedStart = new Date(schedule.start_date);
+        const bookedEnd = new Date(schedule.end_date);
+        const guestName = (schedule.guest_name || '').trim().toLowerCase();
+        
+        // 1. Exclude if same guest (case-insensitive match)
+        if (guestName === currentGuestName.toLowerCase()) {
+            console.log('❌ Excluded Booking (same guest):', schedule.guest_name, bookedStart.toLocaleString());
+            return false;
+        }
+        
+        // 2. Exclude if booking is completely in the past
+        if (bookedEnd < now) {
+            console.log('❌ Excluded Booking (past):', schedule.guest_name, bookedEnd.toLocaleString());
+            return false;
+        }
+        
+        // 3. Exclude cancelled/completed
+        if (schedule.status && ['cancelled', 'completed'].includes(schedule.status.toLowerCase())) {
+            console.log('❌ Excluded Booking (cancelled/completed):', schedule.guest_name);
+            return false;
+        }
+        
+        console.log('✅ Include Booking:', schedule.guest_name, bookedStart.toLocaleString(), '->', bookedEnd.toLocaleString());
+        return true;
     });
     
     const filteredCheckins = checkinsList.filter(schedule => {
-        // Exclude if same checkin ID or same guest name
-        const isCurrentGuest = (schedule.checkin_id === currentGuestId) || 
-                               (schedule.guest_name === currentGuestName);
-        console.log('Checkin:', schedule.guest_name, 'ID:', schedule.checkin_id, '| Is Current Guest?', isCurrentGuest);
-        return !isCurrentGuest;
+        const bookedStart = new Date(schedule.start_date);
+        const bookedEnd = new Date(schedule.end_date);
+        const guestName = (schedule.guest_name || '').trim().toLowerCase();
+        const checkinId = parseInt(schedule.checkin_id) || 0;
+        
+        // 1. Exclude if same checkin ID (this is the guest being rebooked)
+        if (checkinId === currentGuestId) {
+            console.log('❌ Excluded Checkin (same ID):', checkinId, schedule.guest_name);
+            return false;
+        }
+        
+        // 2. Exclude if same guest name
+        if (guestName === currentGuestName.toLowerCase()) {
+            console.log('❌ Excluded Checkin (same guest):', schedule.guest_name, bookedStart.toLocaleString());
+            return false;
+        }
+        
+        // 3. Exclude if checkin is completely in the past
+        if (bookedEnd < now) {
+            console.log('❌ Excluded Checkin (past):', schedule.guest_name, bookedEnd.toLocaleString());
+            return false;
+        }
+        
+        // 4. Exclude checked_out status
+        if (schedule.status && schedule.status.toLowerCase() === 'checked_out') {
+            console.log('❌ Excluded Checkin (checked out):', schedule.guest_name);
+            return false;
+        }
+        
+        console.log('✅ Include Checkin:', schedule.guest_name, bookedStart.toLocaleString(), '->', bookedEnd.toLocaleString());
+        return true;
     });
     
-    console.log('✅ Filtered Bookings:', filteredBookings);
-    console.log('✅ Filtered Checkins:', filteredCheckins);
-    
     const allSchedules = [...filteredBookings, ...filteredCheckins];
+    console.log('📊 Total schedules after filtering:', allSchedules.length);
     
-    console.log('📊 Total Schedules to Check:', allSchedules.length);
+    // ============================================
+    // 🔧 CHECK FOR OVERLAPS with OTHER guests
+    // ============================================
     
-    // Check for conflicts with OTHER guests only
     let isAvailable = true;
     let conflictSchedule = null;
     
     for (let schedule of allSchedules) {
-        const bookedCheckin = new Date(schedule.start_date);
-        const bookedCheckout = new Date(schedule.end_date);
+        const bookedStart = new Date(schedule.start_date);
+        const bookedEnd = new Date(schedule.end_date);
         
-        console.log('Checking conflict with:', schedule.guest_name);
-        console.log('  Booked period:', bookedCheckin, 'to', bookedCheckout);
+        console.log('⚙️ Checking:', schedule.guest_name);
+        console.log('   Booked:', bookedStart.toLocaleString(), '->', bookedEnd.toLocaleString());
         
-        // Check for overlap: (start1 < end2) AND (end1 > start2)
-        const hasOverlap = selectedCheckin < bookedCheckout && selectedCheckout > bookedCheckin;
+        // Overlap check: (start1 < end2) AND (end1 > start2)
+        const hasOverlap = selectedCheckin < bookedEnd && selectedCheckout > bookedStart;
         
-        console.log('  Has overlap?', hasOverlap);
+        console.log('   Overlap?', hasOverlap);
         
         if (hasOverlap) {
             isAvailable = false;
             conflictSchedule = schedule;
-            console.log('❌ CONFLICT FOUND with', schedule.guest_name);
+            console.log('❌ CONFLICT DETECTED with', schedule.guest_name);
             break;
         }
     }
     
-    console.log('🎯 Final Result - Available?', isAvailable);
+    console.log('🎯 Result: Available =', isAvailable);
+    console.log('================================');
+    
+    // ============================================
+    // 🎨 DISPLAY RESULT
+    // ============================================
     
     if (isAvailable) {
-        // Show success message
         if (messageDiv) {
             const selectedOption = roomSelect.options[roomSelect.selectedIndex];
             const isOccupied = selectedOption.dataset.isOccupied === '1';
@@ -1748,8 +1847,8 @@ function checkRebookRoomAvailability() {
         if (checkinInput) checkinInput.setCustomValidity('');
         return true;
     } else {
-        const bookedCheckin = new Date(conflictSchedule.start_date);
-        const bookedCheckout = new Date(conflictSchedule.end_date);
+        const bookedStart = new Date(conflictSchedule.start_date);
+        const bookedEnd = new Date(conflictSchedule.end_date);
         
         const formatOptions = {
             month: 'short',
@@ -1759,8 +1858,8 @@ function checkRebookRoomAvailability() {
             hour12: true
         };
         
-        const formattedCheckin = bookedCheckin.toLocaleString('en-US', formatOptions);
-        const formattedCheckout = bookedCheckout.toLocaleString('en-US', formatOptions);
+        const formattedStart = bookedStart.toLocaleString('en-US', formatOptions);
+        const formattedEnd = bookedEnd.toLocaleString('en-US', formatOptions);
         
         if (messageDiv) {
             messageDiv.innerHTML = `
@@ -1769,7 +1868,7 @@ function checkRebookRoomAvailability() {
                         <strong class="text-danger" style="font-size: 1.1rem;">⚠️ Time Conflict Detected</strong>
                     </div>
                     <p class="mb-0 text-danger">
-                        This room is already booked by <strong>${conflictSchedule.guest_name}</strong> from <strong>${formattedCheckin}</strong> to <strong>${formattedCheckout}</strong>.<br>
+                        This room is already booked by <strong>${conflictSchedule.guest_name}</strong> from <strong>${formattedStart}</strong> to <strong>${formattedEnd}</strong>.<br>
                         Please select a different time or room.
                     </p>
                 </div>`;
@@ -1841,23 +1940,42 @@ function openRebookModal(guestId) {
         document.getElementById('rebook_telephone').value = guest.telephone;
         document.getElementById('rebook_address').value = guest.address;
         
-        // ✅ Keep ORIGINAL check-in time (don't change it)
-        const originalCheckin = new Date(guest.check_in_date);
+        // ✅ Set minimum check-in time to current checkout
+        const currentCheckout = new Date(guest.check_out_date);
         
-        const year = originalCheckin.getFullYear();
-        const month = String(originalCheckin.getMonth() + 1).padStart(2, '0');
-        const day = String(originalCheckin.getDate()).padStart(2, '0');
-        const hours = String(originalCheckin.getHours()).padStart(2, '0');
-        const minutes = String(originalCheckin.getMinutes()).padStart(2, '0');
+        // Format for datetime-local input (YYYY-MM-DDTHH:MM)
+        const year = currentCheckout.getFullYear();
+        const month = String(currentCheckout.getMonth() + 1).padStart(2, '0');
+        const day = String(currentCheckout.getDate()).padStart(2, '0');
+        const hours = String(currentCheckout.getHours()).padStart(2, '0');
+        const minutes = String(currentCheckout.getMinutes()).padStart(2, '0');
         
-        const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
+        const minDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
         
-        console.log('✅ Preserving original check-in:', dateTimeString);
-        console.log('✅ Original checkout:', guest.check_out_date);
+        console.log('✅ Current checkout:', guest.check_out_date);
+        console.log('✅ Minimum rebook time:', minDateTime);
         
-        // ✅ Store original checkout for calculation
-        document.getElementById('rebook_checkin_date').dataset.originalCheckout = guest.check_out_date;
-        document.getElementById('rebook_checkin_date').value = dateTimeString;
+        // Set the minimum attribute and default value
+        const checkinInput = document.getElementById('rebook_checkin_date');
+        // Don't set min attribute - we'll validate manually for same-day only
+        checkinInput.value = minDateTime; // Default to checkout time
+        
+        // Store original checkout for validation
+        checkinInput.dataset.originalCheckout = guest.check_out_date;
+        
+        // Add validation message
+        const checkinLabel = document.querySelector('label[for="rebook_checkin_date"]');
+        if (checkinLabel) {
+          // Remove any existing validation message
+          const existingMsg = checkinLabel.querySelector('.validation-msg');
+          if (existingMsg) existingMsg.remove();
+          
+          // Add new validation message
+          const validationMsg = document.createElement('small');
+          validationMsg.className = 'validation-msg d-block text-info mt-1';
+          validationMsg.innerHTML = `<i class="fas fa-info-circle me-1"></i>For same-day rebooking, must be ${currentCheckout.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })} or later`;
+          checkinLabel.appendChild(validationMsg);
+        }
         
         // Reset other fields
         document.getElementById('rebook_duration').value = 3;
@@ -1868,6 +1986,9 @@ function openRebookModal(guestId) {
         document.getElementById('rebook_checkout_date').value = '';
         document.getElementById('rebook_total_price').value = '';
         document.getElementById('rebook_change_amount').value = '';
+        
+        // Clear any previous messages
+        document.getElementById('rebook_availability_message').innerHTML = '';
         
         fetchAvailableRooms();
         
@@ -1930,47 +2051,32 @@ function calculateRebookDetails() {
         return;
     }
     
-    const hoursToAdd = parseInt(durationSelect.value) || 0;
+    // ✅ Get the SELECTED duration (not calculated)
+    const selectedHours = parseInt(durationSelect.value) || 0;
     const checkinDate = checkinInput.value;
     const selectedOption = roomSelect.options[roomSelect.selectedIndex];
     
     console.log('📋 Input values:');
-    console.log('  Hours to add:', hoursToAdd);
+    console.log('  Selected duration:', selectedHours, 'hours');
     console.log('  Check-in date:', checkinDate);
     console.log('  Room selected:', selectedOption.value);
     
-    if (!checkinDate || !selectedOption.value || hoursToAdd <= 0) {
+    if (!checkinDate || !selectedOption.value || selectedHours <= 0) {
         return;
     }
     
+    // ✅ Parse check-in date
     const checkin = new Date(checkinDate);
     
-    // ✅ OPTION 3 LOGIC: Add hours to ORIGINAL checkout
-    const originalCheckout = checkinInput.dataset.originalCheckout;
-    let checkout;
-    let totalDurationHours;
+    // ✅ Calculate checkout = check-in + selected hours (NOT from original checkout!)
+    const checkout = new Date(checkin.getTime() + selectedHours * 60 * 60 * 1000);
     
-    if (originalCheckout) {
-        // Add hours to existing checkout
-        const originalCheckoutDate = new Date(originalCheckout);
-        checkout = new Date(originalCheckoutDate.getTime() + hoursToAdd * 60 * 60 * 1000);
-        
-        // Calculate TOTAL duration from original check-in to new checkout
-        const totalDurationMs = checkout.getTime() - checkin.getTime();
-        totalDurationHours = Math.ceil(totalDurationMs / (1000 * 60 * 60));
-        
-        console.log('✅ EXTENDING from original checkout:');
-        console.log('  Original checkout:', originalCheckoutDate.toLocaleString());
-        console.log('  + Adding:', hoursToAdd, 'hours');
-        console.log('  = New checkout:', checkout.toLocaleString());
-        console.log('  Total duration:', totalDurationHours, 'hours');
-    } else {
-        // Fallback: calculate from check-in
-        checkout = new Date(checkin.getTime() + hoursToAdd * 60 * 60 * 1000);
-        totalDurationHours = hoursToAdd;
-        console.log('✅ Calculating from check-in (no original checkout found)');
-    }
+    console.log('✅ CALCULATION:');
+    console.log('  Check-in:', checkin.toLocaleString());
+    console.log('  + Duration:', selectedHours, 'hours');
+    console.log('  = Checkout:', checkout.toLocaleString());
     
+    // Format checkout display
     const formattedCheckout = checkout.toLocaleString('en-US', {
         year: 'numeric',
         month: 'short',
@@ -1981,7 +2087,7 @@ function calculateRebookDetails() {
     
     checkoutDisplay.value = formattedCheckout;
     
-    // Get room pricing
+    // ✅ Get room pricing from dropdown data attributes
     const roomData = {
         price3hrs: selectedOption.dataset.price3hrs || '0',
         price6hrs: selectedOption.dataset.price6hrs || '0',
@@ -1990,8 +2096,10 @@ function calculateRebookDetails() {
         priceOt: selectedOption.dataset.priceOt || '0'
     };
     
-    // ✅ Calculate price based on TOTAL duration (not just added hours)
-    const totalPrice = calculateTieredPrice(totalDurationHours, roomData);
+    console.log('💰 Room pricing data:', roomData);
+    
+    // ✅ Calculate price based ONLY on selected duration
+    const totalPrice = calculateTieredPrice(selectedHours, roomData);
     
     if (totalPrice <= 0) {
         Swal.fire({
@@ -2004,10 +2112,10 @@ function calculateRebookDetails() {
     }
     
     totalPriceInput.value = totalPrice.toFixed(2);
-    console.log('💰 Total price for', totalDurationHours, 'hours: ₱' + totalPrice.toFixed(2));
+    console.log('💵 Final price for', selectedHours, 'hours: ₱' + totalPrice.toFixed(2));
     
-    // ✅ Store calculated total duration for submission
-    durationSelect.dataset.calculatedDuration = totalDurationHours;
+    // ✅ Store the selected duration (not calculated!)
+    durationSelect.dataset.calculatedDuration = selectedHours;
     
     calculateRebookChange();
     checkRebookRoomAvailability();
@@ -2144,9 +2252,20 @@ document.getElementById('rebook_duration')?.addEventListener('change', function(
     calculateRebookDetails();
 });
 
-// Check-in date change listener
+// Simplify the frontend validation
 document.getElementById('rebook_checkin_date')?.addEventListener('change', function() {
-    console.log('📅 Check-in date changed to:', this.value);
+    const selectedTime = this.value;
+    if (!selectedTime) return;
+    
+    const selectedTimestamp = new Date(selectedTime).getTime();
+    const nowTimestamp = new Date().getTime();
+    
+    // Only warn about past dates, don't auto-correct
+    if (selectedTimestamp < nowTimestamp) {
+        console.log('⚠️ Selected time is in the past');
+        // You can show a warning but don't prevent the user
+    }
+    
     calculateRebookDetails();
 });
 
@@ -2225,21 +2344,12 @@ function submitRebook() {
         return;
     }
 
-    // ✅ Validate that check-in time is not in the past
     const checkinInput = document.getElementById('rebook_checkin_date');
-    const checkinValue = new Date(checkinInput.value);
-    const now = new Date();
+    const messageDiv = document.getElementById('rebook_availability_message');
+    const selectedTime = checkinInput.value;
     
-    // Allow up to 1 minute in the past to account for form filling time
-    const oneMinuteAgo = new Date(now.getTime() - 60000);
-    
-    if (checkinValue < oneMinuteAgo) {
-        Swal.fire({
-            title: '⚠️ Invalid Check-in Time',
-            text: 'Check-in time cannot be in the past. Please select current time or future.',
-            icon: 'warning',
-            confirmButtonColor: '#8b1d2d'
-        });
+    if (!selectedTime) {
+        alert('Please select a check-in time');
         return;
     }
 
@@ -2249,17 +2359,11 @@ function submitRebook() {
     
     if (!isAvailable) {
         console.log('❌ Blocking submission - room not available');
-        const messageDiv = document.getElementById('rebook_availability_message');
+        
         if (messageDiv) {
             messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
         
-        Swal.fire({
-            title: '⚠️ Room Not Available',
-            text: 'This room is not available for the selected time period. Please choose a different time or room.',
-            icon: 'warning',
-            confirmButtonColor: '#8b1d2d'
-        });
         return;
     }
     
@@ -2291,24 +2395,17 @@ function submitRebook() {
     formData.append('total_price', totalPrice);
     formData.append('change_amount', changeAmount >= 0 ? changeAmount : 0);
 
-    // ✅ ADD THIS: Send the CALCULATED total duration, not dropdown value
+    // ✅ FIX: Use the SELECTED duration from dropdown, not calculated
     const durationSelect = document.getElementById('rebook_duration');
-    const calculatedDuration = durationSelect.dataset.calculatedDuration;
-
-    if (calculatedDuration) {
-    formData.set('stay_duration', calculatedDuration);
-    console.log('✅ Using calculated total duration:', calculatedDuration, 'hours');
-    } else {
-        console.warn('⚠️ No calculated duration found, using dropdown value');
-    }
+    const selectedDuration = parseInt(durationSelect.value) || 0;
+    
+    formData.set('stay_duration', selectedDuration);
+    console.log('✅ Using selected duration:', selectedDuration, 'hours');
       
-    // ✅ CRITICAL FIX: Convert datetime-local to MySQL format properly
     const checkInInput = document.getElementById('rebook_checkin_date');
     if (checkInInput && checkInInput.value) {
-      // Create Date object from the local datetime-local input
       const localDateTime = new Date(checkInInput.value);
       
-      // Format to MySQL datetime (YYYY-MM-DD HH:MM:SS)
       const mysqlDateTime = localDateTime.getFullYear() + '-' + 
                             String(localDateTime.getMonth() + 1).padStart(2, '0') + '-' + 
                             String(localDateTime.getDate()).padStart(2, '0') + ' ' + 
@@ -2316,18 +2413,13 @@ function submitRebook() {
                             String(localDateTime.getMinutes()).padStart(2, '0') + ':00';
       
       formData.set('check_in_date', mysqlDateTime);
-      console.log('🕒 Check-in Datetime:', mysqlDateTime);
-      console.log('🕒 As Date object:', localDateTime.toLocaleString());
-    }
-
-    console.log('📤 Form data being sent:');
-    for (let [key, value] of formData.entries()) {
-        console.log(`  ${key}: ${value}`);
+      
+      console.log('🕒 Selected datetime-local value:', checkInInput.value);
+      console.log('🕒 Formatted for MySQL:', mysqlDateTime);
     }
 
     console.log('📤 Sending rebook data to server...');
     
-    // Show loading state
     Swal.fire({
         title: 'Processing...',
         text: 'Rebooking guest, please wait...',
@@ -2355,6 +2447,7 @@ function submitRebook() {
                 icon: 'success',
                 confirmButtonColor: '#8b1d2d'
             }).then(() => {
+                // ✅ FIX: Reload page to show updated duration
                 location.reload();
             });
         } else {
@@ -2380,8 +2473,12 @@ function submitRebook() {
     });
 }
 
-// Add event listeners when the rebook modal is opened
+
+// ============================================
+// 🎯 EVENT LISTENERS FOR REBOOK MODAL
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
+    // Room selection listener
     const roomSelect = document.getElementById('rebook_room_number');
     if (roomSelect) {
         roomSelect.addEventListener('change', function() {
@@ -2389,10 +2486,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const roomType = selectedOption.dataset.type || '';
             const isOccupied = selectedOption.dataset.isOccupied === '1';
             
-            // Update room type display
             document.getElementById('rebook_room_type').value = roomType;
             
-            // Show info message if room is currently occupied
             if (isOccupied && this.value) {
                 const messageDiv = document.getElementById('rebook_availability_message');
                 messageDiv.innerHTML = `
@@ -2406,8 +2501,94 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>`;
             }
             
-            // Calculate details and check availability
             calculateRebookDetails();
+        });
+    }
+
+    // ✅ NEW: Check-in date/time validation listener
+    const checkinInput = document.getElementById('rebook_checkin_date');
+    if (checkinInput) {
+        checkinInput.addEventListener('change', function() {
+            const minTime = this.min;
+            const selectedTime = this.value;
+            const messageDiv = document.getElementById('rebook_availability_message');
+            
+            if (!selectedTime || !minTime) {
+                return;
+            }
+            
+            // ✅ Convert to timestamps for accurate comparison
+            const minTimestamp = new Date(minTime).getTime();
+            const selectedTimestamp = new Date(selectedTime).getTime();
+            
+            console.log('📅 Check-in validation:');
+            console.log('  Selected:', new Date(selectedTime).toLocaleString());
+            console.log('  Minimum:', new Date(minTime).toLocaleString());
+            console.log('  Selected timestamp:', selectedTimestamp);
+            console.log('  Minimum timestamp:', minTimestamp);
+            console.log('  Is valid?', selectedTimestamp >= minTimestamp);
+            
+            // ✅ Only show error if ACTUALLY before the minimum time
+            if (selectedTimestamp < minTimestamp) {
+                console.log('❌ Selected time is before checkout time!');
+                
+                if (messageDiv) {
+                    const minDate = new Date(minTime);
+                    messageDiv.innerHTML = `
+                        <div class="alert alert-warning border-0 shadow-sm" style="background-color: #fff3cd; border-radius: 12px;">
+                            <div class="mb-2">
+                                <strong class="text-warning" style="font-size: 1.1rem;">⚠️ Invalid Check-in Time</strong>
+                            </div>
+                            <p class="mb-0 text-dark">
+                                Check-in time must be <strong>${minDate.toLocaleString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                })}</strong> or later.
+                            </p>
+                        </div>`;
+                    
+                    messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
+                // Reset to minimum time
+                this.value = minTime;
+            } else {
+                console.log('✅ Valid check-in time selected');
+                
+                // Clear warning message if valid
+                if (messageDiv) {
+                    const hasWarning = messageDiv.querySelector('.alert-warning');
+                    if (hasWarning) {
+                        messageDiv.innerHTML = '';
+                    }
+                }
+            }
+            
+            // Recalculate after validation
+            calculateRebookDetails();
+        });
+        
+        // ✅ ADDED: Also validate on input (while typing)
+        checkinInput.addEventListener('input', function() {
+            const minTime = this.min;
+            const selectedTime = this.value;
+            
+            if (!selectedTime || !minTime) {
+                return;
+            }
+            
+            const minTimestamp = new Date(minTime).getTime();
+            const selectedTimestamp = new Date(selectedTime).getTime();
+            
+            // If user manually types an invalid time, correct it
+            if (selectedTimestamp < minTimestamp) {
+                console.log('⚠️ User typed invalid time, correcting...');
+                this.value = minTime;
+            }
         });
     }
 });
@@ -2769,6 +2950,7 @@ function extendStay(guestId) {
     });
 }
 
+
 function printReceipt(guestId) {
     if (!guestId) {
         alert('Invalid guest ID');
@@ -2785,26 +2967,14 @@ function printReceipt(guestId) {
 
             const guest = data.guest;
             
-            // 🔍 DEBUG: Log all values
-            console.log('=== RECEIPT DEBUG ===');
-            console.log('Guest ID:', guest.id);
-            console.log('Guest Name:', guest.guest_name);
-            console.log('Total Price (room_charge):', guest.total_price);
-            console.log('Orders Total:', guest.orders_total);
+            console.log('=== RECEIPT DATA ===');
+            console.log('Total Price:', guest.total_price);
             console.log('Previous Charges:', guest.previous_charges);
             console.log('New Charges:', guest.new_charges);
             console.log('Is Rebooked:', guest.is_rebooked);
+            console.log('Orders Total:', guest.orders_total);
             console.log('Grand Total:', guest.grand_total);
-            console.log('Rebook Info:', guest.rebook_info);
-            console.log('====================');
-            
-            // Also show in alert for easy viewing
-            alert(`DEBUG INFO:
-Room Charge: ₱${guest.total_price}
-Previous Charges: ₱${guest.previous_charges}
-New Charges: ₱${guest.new_charges}
-Is Rebooked: ${guest.is_rebooked}
-Calculation: ${guest.total_price} - ${guest.previous_charges} = ${guest.new_charges}`);
+            console.log('===================');
             
             const roomCharge = parseFloat(guest.total_price || 0);
             const ordersTotal = parseFloat(guest.orders_total || 0);
@@ -2812,7 +2982,7 @@ Calculation: ${guest.total_price} - ${guest.previous_charges} = ${guest.new_char
             const newCharges = parseFloat(guest.new_charges || 0);
             const isRebooked = guest.is_rebooked || previousCharges > 0;
             
-            // Calculate grand total
+            // Grand total calculation
             const grandTotal = parseFloat(guest.grand_total || 0);
             const paid = parseFloat(guest.amount_paid || 0);
             
@@ -2862,24 +3032,27 @@ Calculation: ${guest.total_price} - ${guest.previous_charges} = ${guest.new_char
                 `;
             }
 
-            // Build charges breakdown
+            // ✅ FIXED: Charges breakdown
             let chargesBreakdown = '';
-            if (isRebooked) {
+            if (isRebooked && previousCharges > 0) {
+                // Show breakdown for rebooked guests
+                const totalRoomCharges = previousCharges + newCharges;
                 chargesBreakdown = `
                     <div class="summary-row" style="background: #f8f9fa; padding: 8px 0; margin: 8px 0; border-radius: 4px;">
                         <span style="color: #666;">Previous Stay Charges</span>
                         <span style="color: #666;">₱${previousCharges.toFixed(2)}</span>
                     </div>
                     <div class="summary-row" style="background: #e8f5e9; padding: 8px 0; margin: 8px 0; border-radius: 4px;">
-                        <span style="color: #2e7d32; font-weight: 600;">New Stay Charges</span>
+                        <span style="color: #2e7d32; font-weight: 600;">Additional Charges (Rebook)</span>
                         <span style="color: #2e7d32; font-weight: 600;">₱${newCharges.toFixed(2)}</span>
                     </div>
                     <div class="summary-row" style="padding-top: 8px; border-top: 1px dashed #dee2e6;">
-                        <span style="font-weight: 500;">Total Room Charges</span>
-                        <span style="font-weight: 500;">₱${roomCharge.toFixed(2)}</span>
+                        <span style="font-weight: 500;">Total Room Charges (${guest.stay_duration} hrs)</span>
+                        <span style="font-weight: 500;">₱${totalRoomCharges.toFixed(2)}</span>
                     </div>
                 `;
             } else {
+                // Regular single stay
                 chargesBreakdown = `
                     <div class="summary-row room-charge">
                         <span>Room Charge (${guest.stay_duration} hrs)</span>
