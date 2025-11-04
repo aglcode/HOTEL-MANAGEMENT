@@ -1105,9 +1105,10 @@ document.querySelectorAll('.checkout-form').forEach(form => {
             </div>
 
             <div id="gcash_ref_wrapper" style="display:none; margin-top: 15px; text-align: left;">
-              <label style="display: block; color: #ccc; font-size: 14px; margin-bottom: 6px; font-weight: 500;">GCash Reference:</label>
-              <input id="gcash_reference" placeholder="Enter GCash reference number"
+              <label style="display: block; color: #ccc; font-size: 14px; margin-bottom: 6px; font-weight: 500;">GCash Reference (13 digits):</label>
+              <input id="gcash_reference" placeholder="Enter 13-digit reference number" maxlength="13"
                 style="width: 100%; padding: 12px; border: 1px solid #444; border-radius: 6px; font-size: 15px; background: #222; color: #eee; box-sizing: border-box;" />
+              <small style="color: #888; font-size: 12px; display: block; margin-top: 4px;">Only numbers allowed (exactly 13 digits)</small>
             </div>
           `,
           background: '#1a1a1a',
@@ -1122,8 +1123,16 @@ document.querySelectorAll('.checkout-form').forEach(form => {
           didOpen: () => {
             const modeSelect = document.getElementById('payment_mode');
             const gcashWrapper = document.getElementById('gcash_ref_wrapper');
+            const gcashInput = document.getElementById('gcash_reference');
+
+            // Show/hide GCash field
             modeSelect.addEventListener('change', () => {
               gcashWrapper.style.display = modeSelect.value === 'gcash' ? 'block' : 'none';
+            });
+
+            // Allow only numbers in GCash input
+            gcashInput.addEventListener('input', (e) => {
+              e.target.value = e.target.value.replace(/[^0-9]/g, '');
             });
           },
           preConfirm: () => {
@@ -1136,9 +1145,21 @@ document.querySelectorAll('.checkout-form').forEach(form => {
               return false;
             }
 
-            if (mode === "gcash" && !gcash_reference) {
-              Swal.showValidationMessage("Please enter GCash reference number.");
-              return false;
+            if (mode === "gcash") {
+              if (!gcash_reference) {
+                Swal.showValidationMessage("Please enter a GCash reference number.");
+                return false;
+              }
+
+              if (!/^[0-9]+$/.test(gcash_reference)) {
+                Swal.showValidationMessage("GCash reference must contain only numbers.");
+                return false;
+              }
+
+              if (gcash_reference.length !== 13) {
+                Swal.showValidationMessage("GCash reference must be exactly 13 digits.");
+                return false;
+              }
             }
 
             return { amount, mode, gcash_reference };
@@ -1203,6 +1224,7 @@ document.querySelectorAll('.checkout-form').forEach(form => {
     });
   });
 });
+
 
 function cardClicked(event, roomNumber, status) {
     if (event.target.tagName.toLowerCase() === 'button' || event.target.closest('form')) {

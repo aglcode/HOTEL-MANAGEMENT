@@ -365,32 +365,20 @@ FROM checkins
 WHERE status IN ('checked_in', 'scheduled')
 ORDER BY check_in_date DESC");
 
-// Guest Check-in History - Updated SQL query to use checkins table
 $search = isset($_GET['search']) ? trim($conn->real_escape_string($_GET['search'])) : '';
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
+$date_type = $_GET['date_type'] ?? 'all';
+$month_filter = $_GET['month_filter'] ?? '';
+$exact_date = $_GET['exact_date'] ?? '';
 
 $history_sql = "SELECT 
-    id,
-    guest_name,
-    address,
-    telephone,
-    room_number,
-    room_type,
-    stay_duration,
-    total_price,
-    amount_paid,
-    change_amount,
-    payment_mode,
-    check_in_date,
-    check_out_date,
-    gcash_reference,
-    receptionist_id,
-    status,
-    last_modified
+    id, guest_name, address, telephone, room_number, room_type, stay_duration,
+    total_price, amount_paid, change_amount, payment_mode,
+    check_in_date, check_out_date, gcash_reference,
+    receptionist_id, status, last_modified
 FROM checkins WHERE 1=1";
 
-
-// Apply filter (updated to use status column)
+// Apply filters
 if ($filter === 'recent') {
     $history_sql .= " AND check_in_date > DATE_SUB(NOW(), INTERVAL 7 DAY)";
 } elseif ($filter === 'past') {
@@ -399,13 +387,23 @@ if ($filter === 'recent') {
     $history_sql .= " AND status = 'checked_in'";
 } elseif ($filter === 'scheduled') {
     $history_sql .= " AND status = 'scheduled'";
-} elseif ($filter === 'all') {
-    // Show all records - no additional filter needed
 }
 
-// Apply search
+// Search field
 if (!empty($search)) {
-    $history_sql .= " AND (guest_name LIKE '%$search%' OR room_number LIKE '%$search%' OR payment_mode LIKE '%$search%' OR address LIKE '%$search%')";
+    $history_sql .= " AND (
+        guest_name LIKE '%$search%' OR
+        room_number LIKE '%$search%' OR
+        address LIKE '%$search%' OR
+        payment_mode LIKE '%$search%'
+    )";
+}
+
+// Date filters
+if ($date_type === 'month' && !empty($month_filter)) {
+    $history_sql .= " AND DATE_FORMAT(check_in_date, '%Y-%m') = '$month_filter'";
+} elseif ($date_type === 'exact' && !empty($exact_date)) {
+    $history_sql .= " AND DATE(check_in_date) = '$exact_date'";
 }
 
 $history_sql .= " ORDER BY check_in_date DESC";
@@ -985,6 +983,26 @@ error_log("=============================");
           <option value="recent" <?= $filter === 'recent' ? 'selected' : '' ?>>Recent (Last 7 Days)</option>
           <option value="past" <?= $filter === 'past' ? 'selected' : '' ?>>Past Check-ins</option>
         </select>
+      </div>
+      <div class="col-md-4">
+        <label for="filterDate" class="form-label">Filter by Date</label>
+        <div class="input-group">
+          <select name="date_type" class="form-select">
+            <option value="all" <?= ($_GET['date_type'] ?? 'all') === 'all' ? 'selected' : '' ?>>All Dates</option>
+            <option value="month" <?= ($_GET['date_type'] ?? '') === 'month' ? 'selected' : '' ?>>By Month</option>
+            <option value="exact" <?= ($_GET['date_type'] ?? '') === 'exact' ? 'selected' : '' ?>>Exact Date</option>
+          </select>
+
+          <!-- Month filter -->
+          <input type="month" name="month_filter" class="form-control"
+            value="<?= htmlspecialchars($_GET['month_filter'] ?? '') ?>"
+            style="<?= ($_GET['date_type'] ?? '') === 'month' ? '' : 'display:none;' ?>">
+
+          <!-- Exact date filter -->
+          <input type="date" name="exact_date" class="form-control"
+            value="<?= htmlspecialchars($_GET['exact_date'] ?? '') ?>"
+            style="<?= ($_GET['date_type'] ?? '') === 'exact' ? '' : 'display:none;' ?>">
+        </div>
       </div>
       <div class="col-md-4 d-flex">
         <button type="submit" class="btn btn-dark me-2 flex-grow-1">
@@ -2680,6 +2698,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// Show/hide month/date input based on selection
+  document.querySelector('select[name="date_type"]').addEventListener('change', function() {
+    const monthInput = document.querySelector('input[name="month_filter"]');
+    const dateInput = document.querySelector('input[name="exact_date"]');
+
+    monthInput.style.display = this.value === 'month' ? '' : 'none';
+    dateInput.style.display = this.value === 'exact' ? '' : 'none';
+  });
 
 
   // Update clock

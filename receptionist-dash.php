@@ -383,6 +383,30 @@ $upcoming_bookings_result = $conn->query("
                 <p class="stat-change text-muted">Click to view</p>
             </div>
         </div>
+
+      <div class="col-md-3 mb-3" style="cursor: pointer; position: relative;">
+        <div class="card stat-card h-100 p-3 position-relative" 
+            data-bs-toggle="collapse" 
+            data-bs-target="#ordersList"
+            id="ordersCard">
+          <div class="d-flex justify-content-between align-items-center">
+            <p class="stat-title">Orders</p>
+            <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+              <i class="fas fa-utensils"></i>
+            </div>
+          </div>
+          <h3 class="fw-bold mb-1" id="pendingOrdersCount">0</h3>
+          <p class="stat-change text-muted">Click to view</p>
+
+          <!-- 🔴 Notification badge -->
+          <span id="ordersBadge" 
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                style="font-size: 0.7rem; padding: 5px 7px;">
+            ●
+          </span>
+        </div>
+      </div>
+
     </div>
 
 <!-- Current Check-ins List -->
@@ -666,15 +690,15 @@ $upcoming_bookings_result = $conn->query("
     </div>
 
     <!-- ✅ Pending Orders Section -->
-<div class="container mt-5">
-    <div class="card shadow-sm">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Pending Orders</h5>
-        </div>
-        <div class="card-body">
-            <div id="order-list">Loading pending orders...</div>
-        </div>
+<div id="ordersList" class="collapse mt-3">
+  <div class="card shadow-sm">
+    <div class="card-header bg-danger text-white">
+      <h5 class="mb-0"><i class="fas fa-utensils me-2"></i> Pending Orders</h5>
     </div>
+    <div class="card-body">
+      <div id="order-list">Loading pending orders...</div>
+    </div>
+  </div>
 </div>
 
 <!-- Receipt Modal -->
@@ -711,7 +735,9 @@ let orderInterval;
 
 async function fetchOrders(forceUpdate = false) {
   const container = document.getElementById("order-list");
-  const notifBadge = document.getElementById("orderNotifCount"); // 🔴 badge element
+  const notifBadge = document.getElementById("orderNotifCount"); // 🔴 sidebar badge
+  const orderCountElement = document.getElementById("pendingOrdersCount"); // 🧮 card number
+  const ordersBadge = document.getElementById("ordersBadge"); // 🔴 card badge
 
   try {
     const res = await fetch("fetch_pending_orders.php");
@@ -720,7 +746,7 @@ async function fetchOrders(forceUpdate = false) {
     // 🧩 Compare with previous data
     const dataChanged = JSON.stringify(data) !== JSON.stringify(previousData);
 
-    // 🔢 Count all pending orders
+    // 🔢 Count pending orders
     let pendingCount = 0;
     if (data && Object.keys(data).length > 0) {
       for (const orders of Object.values(data)) {
@@ -728,7 +754,7 @@ async function fetchOrders(forceUpdate = false) {
       }
     }
 
-    // 🔴 Update notification badge
+    // 🔴 Sidebar badge (top nav)
     if (notifBadge) {
       if (pendingCount > 0) {
         notifBadge.textContent = pendingCount;
@@ -738,13 +764,24 @@ async function fetchOrders(forceUpdate = false) {
       }
     }
 
-    // 🧱 Update UI if data changed or forced refresh
+    // 🧮 Update Orders card number
+    if (orderCountElement) {
+      orderCountElement.textContent = pendingCount;
+    }
+
+    // 🔴 Toggle red badge on card
+    if (ordersBadge) {
+      if (pendingCount > 0) {
+        ordersBadge.classList.remove("d-none");
+      } else {
+        ordersBadge.classList.add("d-none");
+      }
+    }
+
+    // 🧱 Re-render UI if changed
     if (forceUpdate || dataChanged) {
-      console.log("🔄 Data changed, updating UI...");
-      previousData = data; // store new data
+      previousData = data;
       renderOrders(data);
-    } else {
-      console.log("✅ No change detected, keeping UI as is.");
     }
 
   } catch (err) {
@@ -757,6 +794,8 @@ async function fetchOrders(forceUpdate = false) {
     `;
   }
 }
+
+
 
 
 // 🧱 Rendering function
