@@ -314,13 +314,28 @@ $result = $conn->query($sql);
     <h6>Receptionist</h6>
   </div>
 
-  <div class="nav-links">
-    <a href="receptionist-dash.php"><i class="fa-solid fa-gauge"></i> Dashboard</a>
-    <a href="receptionist-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
-    <a href="receptionist-guest.php"><i class="fa-solid fa-users"></i> Guests</a>
-    <a href="receptionist-booking.php"><i class="fa-solid fa-calendar-check"></i> Booking</a>
-    <a href="receptionist-payment.php" class="active"><i class="fa-solid fa-money-check"></i> Payment</a>
-  </div>
+<div class="nav-links">
+  <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active position-relative' : 'position-relative'; ?>" id="notif-dashboard">
+    <i class="fa-solid fa-gauge"></i> Dashboard
+    <span id="orderNotifCount"
+          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+          style="font-size: 0.7rem; padding: 4px 6px;">0</span>
+  </a>
+
+  <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-bed"></i> Rooms
+  </a>
+  <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-users"></i> Guests
+  </a>
+  <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-calendar-check"></i> Booking
+  </a>
+  <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
+    <i class="fa-solid fa-money-check"></i> Payment
+  </a>
+</div>
+
 
   <div class="signout">
     <a href="signin.php"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
@@ -490,6 +505,49 @@ $result = $conn->query($sql);
 
   <script>
 
+let previousNotifCount = 0;
+
+// 🔔 Check pending orders count
+async function checkOrderNotifications() {
+  const notifBadge = document.getElementById("orderNotifCount");
+  if (!notifBadge) return;
+
+  try {
+    const res = await fetch("fetch_pending_orders.php");
+    const data = await res.json();
+
+    let pendingCount = 0;
+    if (data && Object.keys(data).length > 0) {
+      for (const orders of Object.values(data)) {
+        pendingCount += orders.filter(o => o.status === "pending").length;
+      }
+    }
+
+    // 🔴 Update the badge
+    if (pendingCount > 0) {
+      notifBadge.textContent = pendingCount;
+      notifBadge.classList.remove("d-none");
+
+      // 🌀 Animate if the number increased
+      if (pendingCount > previousNotifCount) {
+        notifBadge.classList.add("animate__animated", "animate__bounceIn");
+        setTimeout(() => notifBadge.classList.remove("animate__animated", "animate__bounceIn"), 1000);
+      }
+
+    } else {
+      notifBadge.classList.add("d-none");
+    }
+
+    previousNotifCount = pendingCount;
+
+  } catch (error) {
+    console.error("Failed to fetch order notifications:", error);
+  }
+}
+
+// Run every 10 seconds
+checkOrderNotifications();
+setInterval(checkOrderNotifications, 10000);
     // Data tables
   $(document).ready(function() {
   var paymentTable = $('#paymentTable').DataTable({

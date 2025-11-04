@@ -80,6 +80,15 @@ $upcoming_bookings_result = $conn->query("
   font-family: 'Poppins', sans-serif;
 }
 
+#orderNotifCount {
+  font-size: 0.75rem;
+  padding: 4px 7px;
+  line-height: 1;
+  border-radius: 50%;
+  color: white;
+  background-color: red;
+}
+
 /* === Header === */
 .sidebar h4 {
   text-align: center;
@@ -294,7 +303,12 @@ $upcoming_bookings_result = $conn->query("
   </div>
 
   <div class="nav-links">
-    <a href="receptionist-dash.php" class="active"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+<a href="receptionist-dash.php" class="active position-relative" id="dashboard-link">
+  <i class="fa-solid fa-gauge"></i> Dashboard
+  <span id="orderNotifCount" 
+        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+        style="font-size: 0.7rem; padding: 4px 6px;">0</span>
+</a>
     <a href="receptionist-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
     <a href="receptionist-guest.php"><i class="fa-solid fa-users"></i> Guests</a>
     <a href="receptionist-booking.php"><i class="fa-solid fa-calendar-check"></i> Booking</a>
@@ -697,6 +711,7 @@ let orderInterval;
 
 async function fetchOrders(forceUpdate = false) {
   const container = document.getElementById("order-list");
+  const notifBadge = document.getElementById("orderNotifCount"); // 🔴 badge element
 
   try {
     const res = await fetch("fetch_pending_orders.php");
@@ -705,6 +720,25 @@ async function fetchOrders(forceUpdate = false) {
     // 🧩 Compare with previous data
     const dataChanged = JSON.stringify(data) !== JSON.stringify(previousData);
 
+    // 🔢 Count all pending orders
+    let pendingCount = 0;
+    if (data && Object.keys(data).length > 0) {
+      for (const orders of Object.values(data)) {
+        pendingCount += orders.filter(o => o.status === "pending").length;
+      }
+    }
+
+    // 🔴 Update notification badge
+    if (notifBadge) {
+      if (pendingCount > 0) {
+        notifBadge.textContent = pendingCount;
+        notifBadge.classList.remove("d-none");
+      } else {
+        notifBadge.classList.add("d-none");
+      }
+    }
+
+    // 🧱 Update UI if data changed or forced refresh
     if (forceUpdate || dataChanged) {
       console.log("🔄 Data changed, updating UI...");
       previousData = data; // store new data
@@ -712,6 +746,7 @@ async function fetchOrders(forceUpdate = false) {
     } else {
       console.log("✅ No change detected, keeping UI as is.");
     }
+
   } catch (err) {
     console.error(err);
     container.innerHTML = `
@@ -722,6 +757,7 @@ async function fetchOrders(forceUpdate = false) {
     `;
   }
 }
+
 
 // 🧱 Rendering function
 function renderOrders(data) {
@@ -759,28 +795,41 @@ function renderOrders(data) {
             <div class="accordion" id="accordion-${room}">
     `;
 
-    orders.forEach((o, index) => {
-      html += `
-        <div class="accordion-item">
-          <h2 class="accordion-header" id="heading-${room}-${index}">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-              data-bs-target="#collapse-${room}-${index}" aria-expanded="false">
-              ${o.item_name} (${o.quantity}) - 
-              <span class="ms-1 badge ${o.status === "served" ? "bg-success" : "bg-warning text-dark"}">${o.status}</span>
-            </button>
-          </h2>
-          <div id="collapse-${room}-${index}" class="accordion-collapse collapse"
-            data-bs-parent="#accordion-${room}">
-            <div class="accordion-body">
-              <div class="d-flex justify-content-between"><span>Category:</span><span>${o.category}</span></div>
-              ${o.size ? `<div class="d-flex justify-content-between"><span>Size:</span><span>${o.size}</span></div>` : ''}
-              <div class="d-flex justify-content-between"><span>Payment:</span><span class="badge bg-info">${o.mode_payment}</span></div>
-              <div class="d-flex justify-content-between mt-2"><span>Price:</span><span class="text-success fw-bold">₱${parseFloat(o.price).toFixed(2)}</span></div>
-            </div>
-          </div>
-        </div>
-      `;
-    });
+            orders.forEach((o, index) => {
+              html += `
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="heading-${room}-${index}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                      data-bs-target="#collapse-${room}-${index}" aria-expanded="false">
+                      ${o.item_name} (${o.quantity}) - 
+                      <span class="ms-1 badge ${o.status === "served" ? "bg-success" : "bg-warning text-dark"}">${o.status}</span>
+                    </button>
+                  </h2>
+
+                  <div id="collapse-${room}-${index}" class="accordion-collapse collapse"
+                    data-bs-parent="#accordion-${room}">
+                  <div class="accordion-body">
+                    <div class="d-flex justify-content-between"><span>Category:</span><span>${o.category}</span></div>
+                    ${o.size ? `<div class="d-flex justify-content-between"><span>Size:</span><span>${o.size}</span></div>` : ''}
+                    <div class="d-flex justify-content-between"><span>Payment:</span><span class="badge bg-info">${o.mode_payment}</span></div>
+                    <div class="d-flex justify-content-between mt-2"><span>Price:</span><span class="text-success fw-bold">₱${parseFloat(o.price).toFixed(2)}</span></div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                      <button class="btn btn-sm btn-outline-primary" 
+                              onclick="editOrder(${o.id}, '${o.item_name}', ${o.quantity})">
+                        <i class="fas fa-edit me-1"></i>Edit
+                      </button>
+                      <button class="btn btn-sm btn-outline-danger" 
+                              onclick="deleteOrder(${o.id}, '${room}')">
+                        <i class="fas fa-trash me-1"></i>Delete
+                      </button>
+                    </div>
+                  </div>
+                  </div>
+                </div>
+              `;
+            });
+
 
     html += `
             </div>
@@ -909,6 +958,97 @@ async function markAllServed(roomNumber) {
   }
 }
 
+// ✏️ EDIT ORDER (Quantity only; auto price adjustment handled by backend)
+async function editOrder(orderId, itemName, quantity) {
+  const { value: newQty } = await Swal.fire({
+    title: `Edit Quantity for ${itemName}`,
+    input: 'number',
+    inputLabel: 'Enter new quantity:',
+    inputValue: quantity,
+    inputAttributes: { min: 1 },
+    showCancelButton: true,
+    confirmButtonText: 'Update',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#198754',
+    cancelButtonColor: '#6c757d',
+    inputValidator: (value) => {
+      if (!value || value <= 0) {
+        return 'Quantity must be greater than 0';
+      }
+    }
+  });
+
+  if (!newQty) return; // cancelled
+
+  try {
+    const res = await fetch('guest_update_order.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orderId, quantity: newQty })
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
+      await Swal.fire({
+        icon: 'success',
+        title: 'Updated!',
+        text: `Order updated successfully. New total: ₱${result.new_price}`,
+        timer: 2000,
+        showConfirmButton: false
+      });
+      fetchOrders(true); // refresh orders list
+    } else {
+      throw new Error(result.message || 'Update failed');
+    }
+  } catch (err) {
+    console.error(err);
+    Swal.fire('Error', 'Failed to update order. Please try again.', 'error');
+  }
+}
+
+
+// 🗑 DELETE ORDER (Permanent)
+async function deleteOrder(orderId, roomNumber) {
+  const confirmDelete = await Swal.fire({
+    title: 'Delete this order?',
+    text: `This will permanently remove the order from Room ${roomNumber}.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, delete it',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d'
+  });
+
+  if (!confirmDelete.isConfirmed) return;
+
+  try {
+    const res = await fetch('guest_delete_order.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orderId })
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
+      await Swal.fire({
+        icon: 'success',
+        title: 'Deleted!',
+        text: 'The order has been permanently removed.',
+        timer: 1500,
+        showConfirmButton: false
+      });
+      fetchOrders(true);
+    } else {
+      throw new Error(result.message || 'Delete failed');
+    }
+  } catch (err) {
+    console.error(err);
+    Swal.fire('Error', 'Failed to delete the order. Please try again.', 'error');
+  }
+}
 
 // print receipt for a room
 async function printReceipt(roomNumber) {
