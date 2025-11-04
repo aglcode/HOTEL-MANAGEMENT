@@ -97,38 +97,63 @@ if (isset($_POST['login'])) {
 
   <style>
     body {
-      background: linear-gradient(to right, #eef2f3, #dfe9f3);
+      background: url('Image/gitarra_apartelle.jpg') no-repeat center center fixed;
+      background-size: cover;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
       font-family: 'Segoe UI', sans-serif;
+      position: relative;
+      overflow: hidden;
     }
+
+    /* 🩶 Semi-transparent overlay for readability */
+    body::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 0;
+    }
+
     .login-card {
-      background: #fff;
+      position: relative;
+      z-index: 1;
+      background: rgba(255, 255, 255, 0.95);
       border-radius: 20px;
       padding: 2.5rem;
       width: 100%;
       max-width: 400px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
       text-align: center;
+      backdrop-filter: blur(6px);
     }
+
     .login-card img {
       width: 60px;
       margin-bottom: 1rem;
     }
+
     .login-card h2 {
       font-weight: 700;
       margin-bottom: .25rem;
+      color: #871D2B;
     }
+
     .login-card p {
       color: #6c757d;
       margin-bottom: 2rem;
     }
+
     .form-control {
       padding-left: 40px;
       border-radius: 10px;
     }
+
     .input-icon {
       position: absolute;
       left: 12px;
@@ -136,35 +161,56 @@ if (isset($_POST['login'])) {
       transform: translateY(-50%);
       color: #6c757d;
     }
+
     .btn-primary {
-      background: #2563eb;
+      background: #871D2B;
       border: none;
       border-radius: 12px;
       padding: .75rem;
       font-weight: 600;
       font-size: 1rem;
-      box-shadow: 0 4px 10px rgba(37,99,235,0.3);
+      box-shadow: 0 4px 10px rgba(235, 37, 83, 0.3);
       transition: 0.3s;
     }
+
     .btn-primary:hover {
-      background: #1e4ed8;
+      background: #FF5457;
     }
+
     .forgot-link {
       font-size: 0.9rem;
       text-decoration: none;
-      color: #2563eb;
+      color: #871D2B;
     }
+
     .forgot-link:hover {
       text-decoration: underline;
     }
+
+    .login-logo {
+      width: 280px !important;   /* force bigger width */
+      height: auto !important;
+      max-width: none !important;
+      display: block;
+      margin: 0 auto 1.5rem;
+    }
+
+    .login-subtext {
+      color: #6c757d;
+      margin-bottom: 2rem;
+      font-size: 1rem;
+    }
+
   </style>
+
 </head>
 <body>
 
   <div class="login-card">
     <!-- Title -->
-    <h2>Gitarra Apartelle</h2>
-    <p>Sign in to your account</p>
+    <!-- Logo and Subtitle -->
+    <img src="Image/signin_logo.png" alt="Gitarra Apartelle Logo" class="login-logo">
+    <p class="login-subtext">Sign in to your account</p>
 
     <!-- Error -->
     <?php if (isset($error_message)): ?>

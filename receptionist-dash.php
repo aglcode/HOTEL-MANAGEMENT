@@ -795,10 +795,8 @@ async function fetchOrders(forceUpdate = false) {
   }
 }
 
+let roomTimers = {}; // Store active timers by room
 
-
-
-// 🧱 Rendering function
 function renderOrders(data) {
   const container = document.getElementById("order-list");
 
@@ -818,66 +816,88 @@ function renderOrders(data) {
     const allServed = orders.every(o => o.status === "served");
     const pendingCount = orders.filter(o => o.status === "pending").length;
 
+    // 🔍 Flexible keyword check (case-insensitive)
+    const hasApartelle = orders.some(o =>
+      o.category?.toLowerCase().includes("apartelle") ||
+      o.item_name?.toLowerCase().includes("apartelle")
+    );
+    const hasLomi = orders.some(o =>
+      o.category?.toLowerCase().includes("lomi") ||
+      o.item_name?.toLowerCase().includes("lomi")
+    );
+
+    // 🕒 Determine prep time
+    let prepTime = 0;
+    if (hasApartelle && hasLomi) prepTime = 20;
+    else if (hasLomi) prepTime = 20;
+    else if (hasApartelle) prepTime = 5;
+
+    const prepSeconds = prepTime * 60;
+    const timerDisplay = roomTimers[room]?.remaining ?? prepSeconds;
+
     html += `
       <div class="col-md-6 col-lg-4">
         <div class="card order-card h-100">
           <div class="card-body">
-            <div class="d-flex align-items-center mb-3">
-              <div class="room-avatar me-3">${room}</div>
+            <div class="d-flex align-items-center justify-content-between mb-3">
               <div>
-                <h6 class="mb-0">Room ${room}</h6>
+                <h6 class="mb-0">
+                  Room ${room}
+                  ${prepTime > 0 ? `<span id="timer-${room}" class="badge bg-danger ms-2">${formatTime(timerDisplay)}</span>` : ''}
+                </h6>
                 <small class="text-muted">
                   ${allServed ? "All Orders Served" : `Pending Orders: ${pendingCount}`}
                 </small>
               </div>
             </div>
+
             <div class="accordion" id="accordion-${room}">
     `;
 
-            orders.forEach((o, index) => {
-              html += `
-                <div class="accordion-item">
-                  <h2 class="accordion-header" id="heading-${room}-${index}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                      data-bs-target="#collapse-${room}-${index}" aria-expanded="false">
-                      ${o.item_name} (${o.quantity}) - 
-                      <span class="ms-1 badge ${o.status === "served" ? "bg-success" : "bg-warning text-dark"}">${o.status}</span>
-                    </button>
-                  </h2>
+    orders.forEach((o, index) => {
+      html += `
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="heading-${room}-${index}">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+              data-bs-target="#collapse-${room}-${index}" aria-expanded="false">
+              ${o.item_name} (${o.quantity}) - 
+              <span class="ms-1 badge ${o.status === "served" ? "bg-success" : "bg-warning text-dark"}">${o.status}</span>
+            </button>
+          </h2>
+          <div id="collapse-${room}-${index}" class="accordion-collapse collapse"
+            data-bs-parent="#accordion-${room}">
+            <div class="accordion-body">
+              <div class="d-flex justify-content-between"><span>Category:</span><span>${o.category}</span></div>
+              ${o.size ? `<div class="d-flex justify-content-between"><span>Size:</span><span>${o.size}</span></div>` : ''}
+              <div class="d-flex justify-content-between"><span>Payment:</span><span class="badge bg-info">${o.mode_payment}</span></div>
+              <div class="d-flex justify-content-between mt-2"><span>Price:</span><span class="text-success fw-bold">₱${parseFloat(o.price).toFixed(2)}</span></div>
 
-                  <div id="collapse-${room}-${index}" class="accordion-collapse collapse"
-                    data-bs-parent="#accordion-${room}">
-                  <div class="accordion-body">
-                    <div class="d-flex justify-content-between"><span>Category:</span><span>${o.category}</span></div>
-                    ${o.size ? `<div class="d-flex justify-content-between"><span>Size:</span><span>${o.size}</span></div>` : ''}
-                    <div class="d-flex justify-content-between"><span>Payment:</span><span class="badge bg-info">${o.mode_payment}</span></div>
-                    <div class="d-flex justify-content-between mt-2"><span>Price:</span><span class="text-success fw-bold">₱${parseFloat(o.price).toFixed(2)}</span></div>
-
-                    <div class="d-flex justify-content-end gap-2 mt-3">
-                      <button class="btn btn-sm btn-outline-primary" 
-                              onclick="editOrder(${o.id}, '${o.item_name}', ${o.quantity})">
-                        <i class="fas fa-edit me-1"></i>Edit
-                      </button>
-                      <button class="btn btn-sm btn-outline-danger" 
-                              onclick="deleteOrder(${o.id}, '${room}')">
-                        <i class="fas fa-trash me-1"></i>Delete
-                      </button>
-                    </div>
-                  </div>
-                  </div>
-                </div>
-              `;
-            });
-
+              <div class="d-flex justify-content-end gap-2 mt-3">
+                <button class="btn btn-sm btn-outline-primary" onclick="editOrder(${o.id}, '${o.item_name}', ${o.quantity})">
+                  <i class="fas fa-edit me-1"></i>Edit
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteOrder(${o.id}, '${room}')">
+                  <i class="fas fa-trash me-1"></i>Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
 
     html += `
             </div>
             <hr>
-            <div class="d-flex flex-column gap-2 mt-3">
+            <div class="d-flex flex-column gap-2 mt-2">
               ${!allServed ? `
                 <button class="btn btn-success w-100" id="serve-btn-${room}" onclick="markAllServed('${room}')">
                   <i class="fas fa-check me-1"></i> Mark All Served
                 </button>
+                ${prepTime > 0 ? `
+                <button class="btn btn-outline-danger w-100" id="start-btn-${room}" onclick="startTimer('${room}', ${prepSeconds})">
+                  <i class="fas fa-hourglass-start me-1"></i> Start Timer
+                </button>` : ''}
                 <button class="btn btn-outline-secondary w-100 d-none" id="print-btn-${room}" onclick="printReceipt('${room}')">
                   <i class="fas fa-print me-1"></i> Print Receipt
                 </button>
@@ -900,9 +920,47 @@ function renderOrders(data) {
   container.innerHTML = html;
 }
 
+
+
 // Initialize
 fetchOrders(true);
 orderInterval = setInterval(fetchOrders, 8000);
+
+function startTimer(roomNumber, duration) {
+  const timerEl = document.getElementById(`timer-${roomNumber}`);
+  const startBtn = document.getElementById(`start-btn-${roomNumber}`);
+
+  if (!timerEl || roomTimers[roomNumber]) return;
+
+  startBtn.disabled = true;
+  startBtn.textContent = "Running...";
+
+  roomTimers[roomNumber] = {
+    remaining: duration,
+    interval: setInterval(() => {
+      const t = roomTimers[roomNumber];
+      if (!t) return;
+      t.remaining -= 1;
+
+      if (t.remaining <= 0) {
+        clearInterval(t.interval);
+        timerEl.classList.remove("bg-danger");
+        timerEl.classList.add("bg-success");
+        timerEl.textContent = "Ready";
+        startBtn.textContent = "Completed";
+        return;
+      }
+
+      timerEl.textContent = formatTime(t.remaining);
+    }, 1000)
+  };
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 
 // mark all orders for a room as served
