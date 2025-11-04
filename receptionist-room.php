@@ -86,12 +86,15 @@ $booking_count = $booking_count_row['total'] ?? 0;
 $bookings_result = $conn->query("SELECT * FROM bookings ORDER BY start_date DESC");
 
 // ✅ STEP 4: Query rooms with ONLY current active booking (not future ones)
+// FIXED: Always fetch the latest check_out_date for active bookings
 $allRoomsQuery = "
     SELECT r.room_number, r.room_type, r.status,
         c.check_out_date,
         c.checkin_status,
         c.guest_name,
-        c.checkin_id
+        c.checkin_id,
+        c.stay_duration,
+        c.last_modified
     FROM rooms r
     LEFT JOIN (
         SELECT 
@@ -100,6 +103,8 @@ $allRoomsQuery = "
             check_out_date, 
             status as checkin_status,
             guest_name,
+            stay_duration,
+            last_modified,
             ROW_NUMBER() OVER (
                 PARTITION BY room_number 
                 ORDER BY 
@@ -108,6 +113,7 @@ $allRoomsQuery = "
                         WHEN status = 'scheduled' AND check_in_date <= NOW() AND check_out_date > NOW() THEN 2
                         ELSE 3
                     END,
+                    last_modified DESC,  -- ✅ FIX: Prioritize most recently modified booking
                     check_in_date ASC
             ) as rn
         FROM checkins
