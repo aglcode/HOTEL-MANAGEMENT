@@ -1,9 +1,11 @@
 <?php
 session_start();
-require_once 'database.php'; // Include your database connection settings
-
-// Set timezone and current time for check-in
+require_once 'database.php';
 date_default_timezone_set('Asia/Manila');
+
+// ============================
+// Initialize core variables
+// ============================
 $checkInDate = date("Y-m-d H:i:s");
 $checkInDisplay = date("F j, Y h:i A");
 
@@ -11,8 +13,6 @@ $guest_name = $_GET['guest_name'] ?? '';
 $checkin = $_GET['checkin'] ?? '';
 $checkout = $_GET['checkout'] ?? '';
 $num_people = $_GET['num_people'] ?? '';
-$room_number = $_GET['room_number'] ?? '';
-
 
 $room_number = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? (int)($_POST['room_number'] ?? 0)
@@ -23,8 +23,10 @@ if (!$room_number) {
     exit();
 }
 
+// ============================
 // Fetch room info
-$roomQuery = "SELECT * FROM rooms WHERE room_number = ? AND status = 'available'";
+// ============================
+$roomQuery = "SELECT * FROM rooms WHERE room_number = ? AND status != 'maintenance'";
 $stmt = $conn->prepare($roomQuery);
 $stmt->bind_param("i", $room_number);
 $stmt->execute();
@@ -32,6 +34,9 @@ $result = $stmt->get_result();
 $room = $result->fetch_assoc();
 $stmt->close();
 
+// ============================
+// COMPREHENSIVE CHECK-IN VALIDATION
+// ============================
 if (!$room && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo "
     <style>
@@ -39,7 +44,7 @@ if (!$room && $_SERVER['REQUEST_METHOD'] !== 'POST') {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #dc3545; /* red danger */
+            background: #dc3545;
             color: white;
             padding: 12px 20px;
             border-radius: 6px;
@@ -55,84 +60,114 @@ if (!$room && $_SERVER['REQUEST_METHOD'] !== 'POST') {
             pointer-events: auto;
             transform: translateY(0);
         }
-        .btn-toast {
-            margin: 20px;
-            padding: 10px 16px;
-            border: none;
-            background: #007bff;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .btn-toast:hover {
-            background: #0056b3;
-        }
     </style>
-
-    <button id='toastBtn' class='btn-toast'>Show Warning</button>
     <div id='toast' class='toast'>Room not found or not available.</div>
-
     <script>
-        document.getElementById('toastBtn').addEventListener('click', function() {
-            let toast = document.getElementById('toast');
-            toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 4000); // auto-hide after 4s
-        });
+        let toast = document.getElementById('toast');
+        toast.classList.add('show');
+        setTimeout(() => window.location.href = 'receptionist-room.php', 2000);
     </script>
     ";
     exit();
 }
 
-// Check if there is an ACTIVE booking for this room
-$bookingStatus = null;
-$bookingQuery = "SELECT status FROM bookings WHERE room_number = ? ORDER BY end_date DESC LIMIT 1";
-$stmtBooking = $conn->prepare($bookingQuery);
-$stmtBooking->bind_param("i", $room_number);
-$stmtBooking->execute();
-$stmtBooking->bind_result($bookingStatus);
-$stmtBooking->fetch();
-$stmtBooking->close();
+// ============================
+// ✅ CHECK FOR CONFLICTING BOOKINGS
+// ============================
 
-// Only block if the last booking is still active
-if ($bookingStatus === 'booked' || $bookingStatus === 'checked_in') {
+// Active check-in conflict
+$activeCheckinQuery = "
+    SELECT COUNT(*) as active_count
+    FROM checkins
+    WHERE room_number = ?
+      AND status IN ('checked_in', 'scheduled')
+      AND check_in_date <= NOW()
+      AND check_out_date > NOW()
+";
+$stmtActive = $conn->prepare($activeCheckinQuery);
+$stmtActive->bind_param("i", $room_number);
+$stmtActive->execute();
+$activeCount = (int)$stmtActive->get_result()->fetch_assoc()['active_count'];
+$stmtActive->close();
+
+if ($activeCount > 0) {
     echo "
     <div style='max-width:600px;margin:60px auto;padding:40px 30px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;'>
         <i class='fas fa-ban fa-3x text-danger mb-3'></i>
-        <h2 class='mb-2'>Check-In Unavailable</h2>
-        <p class='mb-3'>This room is still <strong>occupied</strong> or <strong>reserved</strong>.<br>
-        Please select another room.</p>
+        <h2 class='mb-2'>Room Currently Occupied</h2>
+        <p class='mb-3'>This room is currently being used by another guest.<br>
+        Please select another room or wait until it becomes available.</p>
         <a href='receptionist-room.php' class='btn btn-primary mt-2'><i class='fas fa-arrow-left me-2'></i>Back to Rooms</a>
     </div>
     ";
     exit();
 }
 
-// ✅ If last booking was completed/checked_out → room is available
-$conn->query("UPDATE rooms SET status = 'available' WHERE room_number = $room_number");
+// Booking conflict
+$bookingConflictQuery = "
+    SELECT guest_name, start_date, end_date
+    FROM bookings
+    WHERE room_number = ?
+      AND status NOT IN ('cancelled', 'completed')
+      AND end_date > NOW()
+    ORDER BY start_date ASC
+    LIMIT 1
+";
+$stmtBooking = $conn->prepare($bookingConflictQuery);
+$stmtBooking->bind_param("i", $room_number);
+$stmtBooking->execute();
+$bookingResult = $stmtBooking->get_result();
+$conflictingBooking = $bookingResult->fetch_assoc();
+$stmtBooking->close();
 
-// Handle form submission
+if ($conflictingBooking) {
+    $conflictStart = date('M d, Y h:i A', strtotime($conflictingBooking['start_date']));
+    $conflictEnd = date('M d, Y h:i A', strtotime($conflictingBooking['end_date']));
+    
+    echo "
+    <div style='max-width:600px;margin:60px auto;padding:40px 30px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;'>
+        <i class='fas fa-calendar-times fa-3x text-warning mb-3'></i>
+        <h2 class='mb-2'>Room Already Reserved</h2>
+        <p class='mb-3'>This room has an upcoming reservation by <strong>" . htmlspecialchars($conflictingBooking['guest_name']) . "</strong></p>
+        <div class='alert alert-warning' style='padding:15px;border-radius:8px;background:#fff3cd;border:1px solid #ffc107;'>
+            <p class='mb-1'><strong>Reserved Period:</strong></p>
+            <p class='mb-0'>From: {$conflictStart}</p>
+            <p class='mb-0'>To: {$conflictEnd}</p>
+        </div>
+        <a href='receptionist-room.php' class='btn btn-primary mt-3'><i class='fas fa-arrow-left me-2'></i>Back to Rooms</a>
+    </div>
+    <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
+    <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css'>
+    ";
+    exit();
+}
+
+// ✅ Make room available if no issues
+$conn->query("UPDATE rooms SET status = 'available' WHERE room_number = $room_number AND status != 'maintenance'");
+
+// ============================
+// ✅ FORM SUBMISSION WITH VALIDATION
+// ============================
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $guest_name = htmlspecialchars(trim($_POST['guest_name']));
     $address = htmlspecialchars(trim($_POST['address']));
     $telephone = htmlspecialchars(trim($_POST['telephone']));
-    $room_type = htmlspecialchars(trim($_POST['room_type']));
+    $room_type = htmlspecialchars(trim($_POST['room_type'] ?? $room['room_type']));
     $stay_duration = (int)($_POST['stay_duration']);
     $payment_mode = htmlspecialchars(trim($_POST['payment_mode']));
     $gcash_reference = htmlspecialchars(trim($_POST['gcash_ref_id'] ?? ''));
-    $user_id = $_SESSION['user_id'];
+    $user_id = $_SESSION['user_id'] ?? null;
 
     if (
         empty($guest_name) || empty($address) || empty($telephone) ||
         $stay_duration <= 0 || $payment_mode === "select" ||
         ($payment_mode === "gcash" && empty($gcash_reference))
     ) {
-        echo "Please fill in all required fields.";
+        $_SESSION['error_msg'] = "Please fill in all required fields.";
+        header("Location: check-in.php?room_number={$room_number}");
         exit();
     }
 
-    // ✅ Pricing map
     $pricing = [
         3 => $room['price_3hrs'],
         6 => $room['price_6hrs'],
@@ -141,61 +176,108 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     ];
 
     if (!isset($pricing[$stay_duration])) {
-        echo "Invalid stay duration.";
+        $_SESSION['error_msg'] = "Invalid stay duration.";
+        header("Location: check-in.php?room_number={$room_number}");
         exit();
     }
 
-    // ✅ Calculate total first
     $total_price = floatval($pricing[$stay_duration]);
+    $amount_paid = isset($_POST['amount_paid']) && is_numeric($_POST['amount_paid'])
+        ? floatval($_POST['amount_paid'])
+        : 0.00;
+    $change = max(0, $amount_paid - $total_price);
 
-// Calculate total first
-$pricing = [
-    3 => $room['price_3hrs'],
-    6 => $room['price_6hrs'],
-    12 => $room['price_12hrs'],
-    24 => $room['price_24hrs']
-];
+    $check_in_datetime = new DateTime('now', new DateTimeZone('Asia/Manila'));
+    $check_out_datetime = clone $check_in_datetime;
+    $check_out_datetime->modify("+{$stay_duration} hours");
 
-if (!isset($pricing[$stay_duration])) {
-    echo "Invalid stay duration.";
-    exit();
-}
+    $check_in_mysql = $check_in_datetime->format('Y-m-d H:i:s');
+    $check_out_mysql = $check_out_datetime->format('Y-m-d H:i:s');
 
-$total_price = floatval($pricing[$stay_duration]);
+    // ============================
+    // ✅ Time conflict checks
+    // ============================
+    $overlapCheckinQuery = "
+        SELECT guest_name, check_in_date, check_out_date
+        FROM checkins
+        WHERE room_number = ?
+          AND status IN ('checked_in', 'scheduled')
+          AND (
+              (check_in_date < ? AND check_out_date > ?) OR
+              (check_in_date < ? AND check_out_date > ?) OR
+              (check_in_date >= ? AND check_out_date <= ?)
+          )
+        LIMIT 1
+    ";
+    $stmtOverlap = $conn->prepare($overlapCheckinQuery);
+    $stmtOverlap->bind_param(
+        'issssss',
+        $room_number,
+        $check_out_mysql, $check_in_mysql,
+        $check_out_mysql, $check_in_mysql,
+        $check_in_mysql, $check_out_mysql
+    );
+    $stmtOverlap->execute();
+    $overlapResult = $stmtOverlap->get_result();
+    $overlappingCheckin = $overlapResult->fetch_assoc();
+    $stmtOverlap->close();
 
-// Read user payment
-$amount_paid = isset($_POST['amount_paid']) && is_numeric($_POST['amount_paid']) 
-    ? floatval($_POST['amount_paid']) 
-    : 0.00;
+    if ($overlappingCheckin) {
+        $_SESSION['error_msg'] = "Time conflict detected! Room already booked by " .
+                                 htmlspecialchars($overlappingCheckin['guest_name']);
+        header("Location: check-in.php?room_number={$room_number}");
+        exit();
+    }
 
-// Compute change
-$change = max(0, $amount_paid - $total_price);
+    // Booking overlap check
+    $overlapBookingQuery = "
+        SELECT guest_name, start_date, end_date
+        FROM bookings
+        WHERE room_number = ?
+          AND status NOT IN ('cancelled', 'completed')
+          AND (
+              (start_date < ? AND end_date > ?) OR
+              (start_date < ? AND end_date > ?) OR
+              (start_date >= ? AND end_date <= ?)
+          )
+        LIMIT 1
+    ";
+    $stmtBookingOverlap = $conn->prepare($overlapBookingQuery);
+    $stmtBookingOverlap->bind_param(
+        'issssss',
+        $room_number,
+        $check_out_mysql, $check_in_mysql,
+        $check_out_mysql, $check_in_mysql,
+        $check_in_mysql, $check_out_mysql
+    );
+    $stmtBookingOverlap->execute();
+    $bookingOverlapResult = $stmtBookingOverlap->get_result();
+    $overlappingBooking = $bookingOverlapResult->fetch_assoc();
+    $stmtBookingOverlap->close();
 
+    if ($overlappingBooking) {
+        $_SESSION['error_msg'] = "Time conflict detected! Room reserved by " .
+                                 htmlspecialchars($overlappingBooking['guest_name']);
+        header("Location: check-in.php?room_number={$room_number}");
+        exit();
+    }
 
-    // ✅ Calculate check-out time
-    $check_out_date = new DateTime();
-    $check_out_date->modify("+$stay_duration hours");
-    $formatted_check_out = $check_out_date->format('Y-m-d H:i:s');
-
-    // ✅ Insert into the database
-    $sql = "INSERT INTO checkins (guest_name, address, telephone, room_number, room_type, stay_duration, total_price, amount_paid, change_amount, payment_mode, gcash_reference, check_in_date, check_out_date, receptionist_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    // ============================
+    // ✅ Insert check-in record
+    // ============================
+    $sql = "INSERT INTO checkins 
+            (guest_name, address, telephone, room_number, room_type, stay_duration,
+             total_price, amount_paid, change_amount, payment_mode, gcash_reference,
+             check_in_date, check_out_date, status, receptionist_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'checked_in', ?)";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param(
-        "sssisisddssssi",
-        $guest_name,
-        $address,
-        $telephone,
-        $room_number,
-        $room_type,
-        $stay_duration,
-        $total_price,
-        $amount_paid,
-        $change,
-        $payment_mode,
-        $gcash_reference,
-        $checkInDate,
-        $formatted_check_out,
+        "sssisiddsssssi",
+        $guest_name, $address, $telephone,
+        $room_number, $room_type, $stay_duration,
+        $total_price, $amount_paid, $change,
+        $payment_mode, $gcash_reference,
+        $check_in_mysql, $check_out_mysql,
         $user_id
     );
 
@@ -204,18 +286,21 @@ $change = max(0, $amount_paid - $total_price);
         $updateStmt = $conn->prepare($updateRoomStatusQuery);
         $updateStmt->bind_param("i", $room_number);
         $updateStmt->execute();
+        $updateStmt->close();
 
         $_SESSION['guest_name'] = $guest_name;
         $_SESSION['room_number'] = $room_number;
         $_SESSION['room_type'] = $room_type;
-        $_SESSION['check_in_date'] = $checkInDisplay;
-        $_SESSION['check_out_date'] = $check_out_date->format('F j, Y h:i A');
+        $_SESSION['check_in_date'] = $check_in_datetime->format('F j, Y h:i A');
+        $_SESSION['check_out_date'] = $check_out_datetime->format('F j, Y h:i A');
         $_SESSION['total_price'] = $total_price;
 
         header("Location: receptionist-guest.php?success=checkedin");
         exit();
     } else {
-        echo "Error: " . $stmt->error;
+        $_SESSION['error_msg'] = "Check-in failed: " . $stmt->error;
+        header("Location: check-in.php?room_number={$room_number}");
+        exit();
     }
 
     $stmt->close();
@@ -223,6 +308,7 @@ $change = max(0, $amount_paid - $total_price);
 
 $conn->close();
 ?>
+
 
 <!-- HTML FORM -->
 <!DOCTYPE html>

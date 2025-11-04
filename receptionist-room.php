@@ -11,9 +11,20 @@ $conn->query("
         SELECT room_number, check_out_date, status
         FROM (
             SELECT room_number, check_out_date, status,
-                   ROW_NUMBER() OVER (PARTITION BY room_number ORDER BY check_in_date DESC) as rn
+                   ROW_NUMBER() OVER (
+                       PARTITION BY room_number 
+                       ORDER BY 
+                           CASE 
+                               WHEN status = 'checked_in' AND check_in_date <= NOW() AND check_out_date > NOW() THEN 1
+                               WHEN status = 'scheduled' AND check_in_date <= NOW() AND check_out_date > NOW() THEN 2
+                               ELSE 3
+                           END,
+                           check_in_date ASC
+                   ) as rn
             FROM checkins
             WHERE status IN ('checked_in', 'scheduled')
+              AND check_in_date <= NOW() 
+              AND check_out_date > NOW()
         ) ranked
         WHERE rn = 1
     ) c ON r.room_number = c.room_number
@@ -25,18 +36,37 @@ $conn->query("
     WHERE r.status != 'maintenance'
 ");
 
-// Auto-update booked rooms without active timer to available
+// ✅ STEP 2: Auto-checkout expired bookings
+$conn->query("
+    UPDATE checkins 
+    SET status = 'checked_out'
+    WHERE status IN ('checked_in', 'scheduled')
+      AND check_out_date <= NOW()
+      AND id NOT IN (
+          SELECT id FROM (
+              SELECT MIN(id) as id 
+              FROM checkins 
+              WHERE status = 'scheduled' 
+                AND check_in_date > NOW()
+              GROUP BY room_number, guest_name
+          ) future_bookings
+      )
+");
+
+// ✅ STEP 3: Free rooms with no active bookings
 $expiredRooms = $conn->query("
     SELECT r.room_number
     FROM rooms r
     LEFT JOIN (
-        SELECT room_number, MAX(check_out_date) AS latest_checkout
+        SELECT room_number
         FROM checkins
         WHERE status IN ('checked_in', 'scheduled')
+          AND check_in_date <= NOW()
+          AND check_out_date > NOW()
         GROUP BY room_number
     ) c ON r.room_number = c.room_number
     WHERE r.status = 'booked' 
-    AND (c.latest_checkout IS NULL OR c.latest_checkout <= NOW())
+      AND c.room_number IS NULL
 ");
 
 while ($room = $expiredRooms->fetch_assoc()) {
@@ -46,7 +76,6 @@ while ($room = $expiredRooms->fetch_assoc()) {
 
 $bookedRooms = $conn->query("SELECT COUNT(*) AS booked FROM rooms WHERE status = 'booked'")->fetch_assoc()['booked'] ?? 0;
 $maintenanceRooms = $conn->query("SELECT COUNT(*) AS maintenance FROM rooms WHERE status = 'maintenance'")->fetch_assoc()['maintenance'] ?? 0;
-
 $totalRooms = $conn->query("SELECT COUNT(*) AS total FROM rooms")->fetch_assoc()['total'] ?? 0;
 $availableRooms = $conn->query("SELECT COUNT(*) AS available FROM rooms WHERE status = 'available'")->fetch_assoc()['available'] ?? 0;
 
@@ -56,17 +85,35 @@ $booking_count = $booking_count_row['total'] ?? 0;
 
 $bookings_result = $conn->query("SELECT * FROM bookings ORDER BY start_date DESC");
 
-// ✅ CRITICAL FIX: Updated room query with proper checkin data
+// ✅ STEP 4: Query rooms with ONLY current active booking (not future ones)
 $allRoomsQuery = "
     SELECT r.room_number, r.room_type, r.status,
         c.check_out_date,
-        c.status as checkin_status
+        c.checkin_status,
+        c.guest_name,
+        c.checkin_id
     FROM rooms r
     LEFT JOIN (
-        SELECT room_number, check_out_date, status,
-               ROW_NUMBER() OVER (PARTITION BY room_number ORDER BY check_in_date DESC) as rn
+        SELECT 
+            id as checkin_id,
+            room_number, 
+            check_out_date, 
+            status as checkin_status,
+            guest_name,
+            ROW_NUMBER() OVER (
+                PARTITION BY room_number 
+                ORDER BY 
+                    CASE 
+                        WHEN status = 'checked_in' AND check_in_date <= NOW() AND check_out_date > NOW() THEN 1
+                        WHEN status = 'scheduled' AND check_in_date <= NOW() AND check_out_date > NOW() THEN 2
+                        ELSE 3
+                    END,
+                    check_in_date ASC
+            ) as rn
         FROM checkins
         WHERE status IN ('checked_in', 'scheduled')
+          AND check_in_date <= NOW()
+          AND check_out_date > NOW()
     ) c ON r.room_number = c.room_number AND c.rn = 1
     ORDER BY r.room_number ASC
 ";
@@ -84,16 +131,21 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
-// ACTIONS: EXTEND / CHECKOUT
+// ============================================
+// IMPROVED CHECKOUT ACTION - Handles Gap Rebookings
+// ============================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     $room_number = (int)$_POST['room_number'];
 
-    // EXTEND
+    // EXTEND ACTION
     if (isset($_POST['extend'])) {
         $stmt = $conn->prepare("
             SELECT id, check_out_date, total_price 
             FROM checkins 
-            WHERE room_number = ? AND status = 'checked_in' 
+            WHERE room_number = ? 
+              AND status = 'checked_in'
+              AND check_in_date <= NOW()
+              AND check_out_date > NOW()
             ORDER BY check_in_date DESC LIMIT 1
         ");
         $stmt->bind_param('i', $room_number);
@@ -137,12 +189,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         }
     }
 
-    // CHECKOUT
+    // ✅ IMPROVED CHECKOUT - Only checks out CURRENT active booking
     if (isset($_POST['checkout'])) {
         $stmt = $conn->prepare("
             SELECT id, total_price, amount_paid, guest_name 
             FROM checkins 
-            WHERE room_number = ? AND status = 'checked_in' 
+            WHERE room_number = ? 
+              AND status = 'checked_in'
+              AND check_in_date <= NOW()
+              AND check_out_date > NOW()
             ORDER BY check_in_date DESC LIMIT 1
         ");
         $stmt->bind_param('i', $room_number);
@@ -162,11 +217,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                 exit;
             }
 
-            $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
-            $stmt->bind_param('i', $room_number);
-            $stmt->execute();
-            $stmt->close();
+            // ✅ Check if there's a future scheduled booking for this room
+            $futureCheck = $conn->prepare("
+                SELECT COUNT(*) as has_future
+                FROM checkins
+                WHERE room_number = ?
+                  AND status = 'scheduled'
+                  AND check_in_date > NOW()
+                LIMIT 1
+            ");
+            $futureCheck->bind_param('i', $room_number);
+            $futureCheck->execute();
+            $hasFuture = (int)$futureCheck->get_result()->fetch_assoc()['has_future'];
+            $futureCheck->close();
 
+            // ✅ Only set room to available if no future bookings
+            if ($hasFuture === 0) {
+                $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
+                $stmt->bind_param('i', $room_number);
+                $stmt->execute();
+                $stmt->close();
+            }
+
+            // Check out current booking
             $stmt_update2 = $conn->prepare("
                 UPDATE checkins 
                 SET check_out_date = NOW(), status = 'checked_out' 
@@ -176,6 +249,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $stmt_update2->execute();
             $stmt_update2->close();
 
+            // Update related booking status
             $bkSel = $conn->prepare("
                 SELECT id FROM bookings 
                 WHERE guest_name = ? AND room_number = ? 
@@ -196,6 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                 $bkSel->close();
             }
 
+            // Expire keycard
             $stmt_k2 = $conn->prepare("
                 UPDATE keycards 
                 SET status='expired' 
@@ -205,6 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $stmt_k2->execute();
             $stmt_k2->close();
 
+            // Delete orders
             $del = $conn->prepare("
                 DELETE FROM orders 
                 WHERE room_number = ? 

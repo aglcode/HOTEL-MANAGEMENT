@@ -1,0 +1,132 @@
+// ERD 
+
+REMOVE -
+*staff, stock_logs, feedback, guest, and products {tables}
+
+
+*rename ROOM_ORDERS TO ORDERS
+
+(double check the schema sa ERD nyo may naka include don na wala naman dito)
+// TABLES NEEDED
+1. `checkins` 
+  `id` int ,
+  `guest_name` varchar(100) 
+  `address` varchar(255) 
+  `telephone` varchar(15) 
+  `room_number` int ,
+  `room_type` varchar(50) 
+  `stay_duration` int ,
+  `total_price` decimal(10,2) ,
+  `amount_paid` decimal(10,2) ,
+  `change_amount` decimal(10,2) ,
+  `payment_mode` enum
+  `check_in_date` datetime ,
+  `check_out_date` datetime ,
+  `status` enum
+  `gcash_reference` varchar(100)
+  `receptionist_id` int  
+  `last_modified` timestamp   
+  `previous_charges` decimal(10,2)  
+  `rebooked_from` int  
+  `is_rebooked` tinyint(1) 
+
+2. `bookings` 
+  `id` int ,
+  `guest_name` varchar(100)  
+  `email` varchar(255)  
+  `address` text
+  `telephone` varchar(20)  
+  `age` int  
+  `num_people` int  
+  `room_number` varchar(10)  
+  `duration` varchar(10)  ,
+  `payment_mode` varchar(10)  
+  `reference_number` varchar(50)  
+  `booking_token` varchar(20)  
+  `amount_paid` double  
+  `total_price` double  
+  `change_amount` double  
+  `start_date` datetime  
+  `status` varchar(20) 
+  `created_at` timestamp  
+  `cancellation_reason` text
+  `cancelled_by` int  
+  `cancelled_at` datetime  
+
+3.`announcements` 
+  `id` int 
+  `title` varchar(255) 
+  `message` text 
+  `created_by` varchar(50) 
+  `created_at` timestamp   
+
+4. `keycards` 
+  `id` int 
+  `room_number` int 
+  `booking_id` int  
+  `guest_id` int  
+  `qr_code` varchar(255) 
+  `valid_from` datetime 
+  `valid_to` datetime 
+  `status` enum
+
+5. `orders` 
+  `id` int 
+  `room_number` varchar(10) 
+  `category` varchar(50) 
+  `item_name` varchar(100) 
+  `size` varchar(50)  
+  `price` decimal(10,2) 
+  `quantity` int 
+  `status` enum
+  `created_at` timestamp 
+
+6.`rooms` 
+  `id` int ,
+  `room_number` int 
+  `room_type` enum
+  `status` enum
+  `created_at` timestamp   
+  `updated_at` timestamp  
+  `price_3hrs` decimal(10,2)   
+  `price_6hrs` decimal(10,2)   
+  `price_12hrs` decimal(10,2)  
+  `price_24hrs` decimal(10,2)   
+  `price_ot` decimal(10,2)  
+  `is_archived` tinyint(1)  
+  `archived_at` datetime  
+
+7. `supplies` 
+  `id` int ,
+  `name` varchar(100) 
+  `price` decimal(10,2) 
+  `quantity` int   
+  `category` enum
+  `image` varchar(255)  
+  `created_at` timestamp  
+  `is_archived` tinyint(1)  
+  `archived_at` datetime  
+
+8. `users` 
+  `user_id` int 
+  `name` varchar(255) 
+  `username` varchar(255) 
+  `email` varchar(255) 
+  `password` varchar(255) 
+  `role` enum
+  `status` enum
+  `reset_token` varchar(255) 
+  `reset_expires` datetime 
+  `is_archived` tinyint(1) 
+  `archived_at` datetime 
+
+
+
+
+
+
+
+
+
+
+

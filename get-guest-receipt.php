@@ -70,14 +70,14 @@ try {
         $orders = [];
     }
 
-    // ✅ FIXED: Calculate charges correctly
+    // Calculate charges correctly
     $previous_charges = floatval($guest['previous_charges'] ?? 0);
-    $current_charges = floatval($guest['total_price']); // This is the ADDITIONAL charge (for rebook)
+    $current_charges = floatval($guest['total_price']);
     $is_rebooked = ($guest['is_rebooked'] == 1);
     $rebook_info = null;
+    $extension_info = null;
 
-    // Get rebooking info if rebooked
-    // Get rebooking info if rebooked
+    // ✅ NEW: Detect if this is an extension (continuous rebook)
     if ($is_rebooked && $previous_charges > 0) {
         $rebooked_from_id = intval($guest['rebooked_from'] ?? 0);
         
@@ -102,13 +102,14 @@ try {
             if ($rebook_result->num_rows > 0) {
                 $rebook_info = $rebook_result->fetch_assoc();
                 
-                // ✅ Detect time gap between bookings
+                // Detect time gap between bookings
                 $old_checkout = new DateTime($rebook_info['old_checkout']);
                 $current_checkin = new DateTime($guest['check_in_date']);
                 
                 $has_gap = ($current_checkin > $old_checkout);
                 
                 if ($has_gap) {
+                    // Gap rebook (separate booking)
                     $gap_duration = $old_checkout->diff($current_checkin);
                     $gap_hours = ($gap_duration->days * 24) + $gap_duration->h;
                     $gap_minutes = $gap_duration->i;
@@ -116,27 +117,52 @@ try {
                     $rebook_info['has_gap'] = true;
                     $rebook_info['gap_hours'] = $gap_hours;
                     $rebook_info['gap_minutes'] = $gap_minutes;
-                    
-                    error_log("Time gap detected: {$gap_hours}h {$gap_minutes}m between bookings");
                 } else {
+                    // ✅ Continuous extension
                     $rebook_info['has_gap'] = false;
+                    
+                    // Calculate extension details
+                    $original_duration = intval($rebook_info['old_duration']);
+                    $total_duration = intval($guest['stay_duration']);
+                    $extended_hours = $total_duration - $original_duration;
+                    
+                    // Count how many times extended (based on previous_charges accumulation)
+                    $total_extensions = 1;
+                    if ($previous_charges > floatval($rebook_info['old_total'])) {
+                        // Multiple extensions
+                        $total_extensions = ceil($previous_charges / floatval($rebook_info['old_total']));
+                    }
+                    
+                    $extension_info = [
+                        'is_extension' => true,
+                        'original_duration' => $original_duration,
+                        'extended_hours' => $extended_hours,
+                        'total_duration' => $total_duration,
+                        'original_checkout' => date('M j, Y g:i A', strtotime($rebook_info['old_checkout'])),
+                        'extended_checkout' => date('M j, Y g:i A', strtotime($guest['check_out_date'])),
+                        'total_extensions' => $total_extensions
+                    ];
+                    
+                    error_log("=== EXTENSION DETECTED ===");
+                    error_log("Original: {$original_duration}h → Extended: +{$extended_hours}h → Total: {$total_duration}h");
+                    error_log("Extensions count: {$total_extensions}");
+                    error_log("========================");
                 }
             }
             $rebook_stmt->close();
         }
     }
     
-    // ✅ Calculate totals correctly
+    // Calculate totals correctly
     $orders_total = floatval($guest['orders_total']);
     
     // If rebooked: room charges = previous + current (additional)
-    // If not rebooked: room charges = current only
     if ($is_rebooked && $previous_charges > 0) {
         $total_room_charges = $previous_charges + $current_charges;
-        $new_charges = $current_charges; // For display
+        $new_charges = $current_charges;
     } else {
         $total_room_charges = $current_charges;
-        $new_charges = 0; // Not rebooked
+        $new_charges = 0;
     }
     
     // Grand total = total room charges + orders
@@ -144,6 +170,7 @@ try {
 
     error_log("=== RECEIPT CALCULATION ===");
     error_log("Is Rebooked: " . ($is_rebooked ? 'YES' : 'NO'));
+    error_log("Is Extension: " . ($extension_info ? 'YES' : 'NO'));
     error_log("Previous Charges: ₱" . $previous_charges);
     error_log("Current/Additional Charges: ₱" . $current_charges);
     error_log("Total Room Charges: ₱" . $total_room_charges);
@@ -161,6 +188,7 @@ try {
     $guest['orders_total'] = $orders_total;
     $guest['grand_total'] = $grand_total;
     $guest['rebook_info'] = $rebook_info;
+    $guest['extension_info'] = $extension_info; // ✅ NEW
     $guest['previous_charges'] = $previous_charges;
     $guest['new_charges'] = $new_charges;
     $guest['total_room_charges'] = $total_room_charges;
