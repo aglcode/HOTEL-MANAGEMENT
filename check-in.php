@@ -148,6 +148,52 @@ if (!$from_booking) {
 $conn->query("UPDATE rooms SET status = 'available' WHERE room_number = $room_number AND status != 'maintenance'");
 
 // ============================
+// Fetch existing bookings/check-ins for timeline display
+// ============================
+$upcomingSchedules = [];
+
+// Get active check-ins (only those that have started or are upcoming)
+$activeCheckinQuery = "
+    SELECT guest_name, check_in_date, check_out_date, status, 'checkin' as type
+    FROM checkins
+    WHERE room_number = ?
+      AND status IN ('checked_in', 'scheduled')
+      AND check_out_date > NOW()
+    ORDER BY check_in_date ASC
+";
+$stmtActive = $conn->prepare($activeCheckinQuery);
+$stmtActive->bind_param("i", $room_number);
+$stmtActive->execute();
+$activeResult = $stmtActive->get_result();
+while ($row = $activeResult->fetch_assoc()) {
+    $upcomingSchedules[] = $row;
+}
+$stmtActive->close();
+
+// Get upcoming bookings
+$upcomingBookingsQuery = "
+    SELECT guest_name, start_date as check_in_date, end_date as check_out_date, status, 'booking' as type
+    FROM bookings
+    WHERE room_number = ?
+      AND status NOT IN ('cancelled', 'completed')
+      AND end_date > NOW()
+    ORDER BY start_date ASC
+";
+$stmtBooking = $conn->prepare($upcomingBookingsQuery);
+$stmtBooking->bind_param("i", $room_number);
+$stmtBooking->execute();
+$bookingResult = $stmtBooking->get_result();
+while ($row = $bookingResult->fetch_assoc()) {
+    $upcomingSchedules[] = $row;
+}
+$stmtBooking->close();
+
+// Sort all schedules by check-in date
+usort($upcomingSchedules, function($a, $b) {
+    return strtotime($a['check_in_date']) - strtotime($b['check_in_date']);
+});
+
+// ============================
 // ✅ FORM SUBMISSION WITH SMART VALIDATION
 // ============================
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -378,6 +424,17 @@ $conn->close();
             },
         }
     </script>
+
+    <style>
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+</style>
+
 </head>
 
 <body class="bg-gray-50 font-sans">
@@ -413,6 +470,107 @@ $conn->close();
                                     </p>
                                 </div>
                             </div>
+
+<!-- Occupied Time Slots Display -->
+<?php if (!empty($upcomingSchedules)): ?>
+<div class="mb-6">
+    <div class="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg">
+        <div class="bg-yellow-50 px-4 py-3 border-b border-yellow-200">
+            <h5 class="font-medium flex items-center text-yellow-800">
+                <i class="fas fa-calendar-alt mr-2"></i>
+                Occupied Time Slots for Room <?php echo $room['room_number']; ?>
+            </h5>
+        </div>
+        <div class="p-5">
+            <div class="space-y-3">
+                <?php foreach ($upcomingSchedules as $schedule): 
+                    $checkInTime = strtotime($schedule['check_in_date']);
+                    $checkOutTime = strtotime($schedule['check_out_date']);
+                    $currentTime = time();
+                    
+                    // ✅ Currently occupied = check-in has started AND hasn't ended yet
+                    $isCurrentlyOccupied = ($checkInTime <= $currentTime) && ($checkOutTime > $currentTime);
+                    
+                    // ✅ Upcoming = hasn't started yet
+                    $isUpcoming = $checkInTime > $currentTime;
+                    
+                    $borderColor = $schedule['type'] === 'checkin' ? 'border-blue-500' : 'border-purple-500';
+                    $bgColor = $schedule['type'] === 'checkin' ? 'bg-blue-50' : 'bg-purple-50';
+                    $iconColor = $schedule['type'] === 'checkin' ? 'text-blue-600' : 'text-purple-600';
+                    $typeLabel = $schedule['type'] === 'checkin' ? 'Check-in' : 'Booking';
+                    
+                    // Determine status label
+                    if ($isCurrentlyOccupied) {
+                        $statusLabel = 'Currently Occupied';
+                        $statusClass = 'bg-red-200 text-red-800';
+                        $statusIcon = 'fa-circle';
+                    } elseif ($isUpcoming) {
+                        $statusLabel = 'Upcoming';
+                        $statusClass = 'bg-yellow-200 text-yellow-800';
+                        $statusIcon = 'fa-clock';
+                    } else {
+                        $statusLabel = 'Past';
+                        $statusClass = 'bg-gray-200 text-gray-800';
+                        $statusIcon = 'fa-history';
+                    }
+                ?>
+                <div class="border-l-4 <?php echo $borderColor; ?> <?php echo $bgColor; ?> p-4 rounded-lg">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2 flex-wrap gap-2">
+                                <i class="fas fa-user <?php echo $iconColor; ?> mr-1"></i>
+                                <span class="font-semibold <?php echo $iconColor; ?>">
+                                    <?php echo htmlspecialchars($schedule['guest_name']); ?>
+                                </span>
+                                <span class="text-xs px-2 py-1 rounded-full <?php echo $schedule['type'] === 'checkin' ? 'bg-blue-200 text-blue-800' : 'bg-purple-200 text-purple-800'; ?>">
+                                    <?php echo $typeLabel; ?>
+                                </span>
+                                <span class="text-xs px-2 py-1 rounded-full <?php echo $statusClass; ?> <?php echo $isCurrentlyOccupied ? 'animate-pulse' : ''; ?>">
+                                    <i class="fas <?php echo $statusIcon; ?> mr-1"></i><?php echo $statusLabel; ?>
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div class="flex items-center text-gray-700">
+                                    <i class="fas fa-sign-in-alt text-green-600 mr-2 w-4"></i>
+                                    <span class="font-medium">Check-in:</span>
+                                    <span class="ml-2"><?php echo date('M d, Y h:i A', $checkInTime); ?></span>
+                                </div>
+                                <div class="flex items-center text-gray-700">
+                                    <i class="fas fa-sign-out-alt text-red-600 mr-2 w-4"></i>
+                                    <span class="font-medium">Check-out:</span>
+                                    <span class="ml-2"><?php echo date('M d, Y h:i A', $checkOutTime); ?></span>
+                                </div>
+                            </div>
+                            <?php 
+                            $duration = ($checkOutTime - $checkInTime) / 3600;
+                            $remainingHours = max(0, ($checkOutTime - $currentTime) / 3600);
+                            $hoursUntilStart = max(0, ($checkInTime - $currentTime) / 3600);
+                            ?>
+                            <div class="mt-2 text-xs text-gray-600">
+                                <i class="fas fa-clock mr-1"></i>
+                                Duration: <?php echo number_format($duration, 1); ?> hours
+                                <?php if ($isCurrentlyOccupied && $remainingHours > 0): ?>
+                                    • <span class="text-orange-600 font-medium"><?php echo number_format($remainingHours, 1); ?> hours remaining</span>
+                                <?php elseif ($isUpcoming && $hoursUntilStart > 0): ?>
+                                    • <span class="text-blue-600 font-medium">Starts in <?php echo number_format($hoursUntilStart, 1); ?> hours</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p class="text-sm text-blue-800 flex items-start">
+                    <i class="fas fa-info-circle mr-2 mt-1"></i>
+                    <span><strong>Important:</strong> Please select a check-in time and duration that doesn't conflict with the occupied slots above. The system will automatically validate your selection.</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="bg-white rounded-xl shadow-md overflow-hidden h-full transition-all duration-300 hover:shadow-lg">
@@ -880,6 +1038,74 @@ function selectPayment(mode) {
 
                 return true;
             }
+
+            // Occupied time slots data
+const occupiedSlots = <?php echo json_encode(array_map(function($schedule) {
+    return [
+        'guest_name' => $schedule['guest_name'],
+        'check_in' => strtotime($schedule['check_in_date']) * 1000,
+        'check_out' => strtotime($schedule['check_out_date']) * 1000,
+        'type' => $schedule['type']
+    ];
+}, $upcomingSchedules)); ?>;
+
+// Function to check if selected time conflicts with existing schedules
+function checkTimeConflict() {
+    const duration = parseInt(document.getElementById("stay_duration").value);
+    if (!duration) return;
+    
+    const now = new Date().getTime();
+    const selectedCheckout = now + (duration * 60 * 60 * 1000);
+    
+    let hasConflict = false;
+    let conflictDetails = '';
+    
+    occupiedSlots.forEach(slot => {
+        if ((now < slot.check_out && selectedCheckout > slot.check_in) ||
+            (now >= slot.check_in && selectedCheckout <= slot.check_out)) {
+            hasConflict = true;
+            const checkInDate = new Date(slot.check_in).toLocaleString();
+            const checkOutDate = new Date(slot.check_out).toLocaleString();
+            conflictDetails += `\n• ${slot.guest_name} (${slot.type === 'checkin' ? 'Check-in' : 'Booking'}): ${checkInDate} - ${checkOutDate}`;
+        }
+    });
+    
+    if (hasConflict) {
+        showConflictWarning(conflictDetails);
+    } else {
+        hideConflictWarning();
+    }
+}
+
+function showConflictWarning(details) {
+    let warningDiv = document.getElementById('conflict-warning');
+    if (!warningDiv) {
+        warningDiv = document.createElement('div');
+        warningDiv.id = 'conflict-warning';
+        warningDiv.className = 'mt-3 p-3 bg-red-50 border-l-4 border-red-500 rounded-lg';
+        document.getElementById('stay_duration').parentNode.appendChild(warningDiv);
+    }
+    warningDiv.innerHTML = `
+        <div class="flex items-start">
+            <i class="fas fa-exclamation-triangle text-red-600 mr-2 mt-1"></i>
+            <div>
+                <p class="text-sm font-semibold text-red-800 mb-1">Time Conflict Detected!</p>
+                <p class="text-xs text-red-700">Your selected duration conflicts with:${details}</p>
+            </div>
+        </div>
+    `;
+    warningDiv.classList.remove('hidden');
+}
+
+function hideConflictWarning() {
+    const warningDiv = document.getElementById('conflict-warning');
+    if (warningDiv) {
+        warningDiv.classList.add('hidden');
+    }
+}
+
+// Add event listener to stay duration
+document.getElementById('stay_duration').addEventListener('change', checkTimeConflict);
 
         // Update clock
         function updateClock() {

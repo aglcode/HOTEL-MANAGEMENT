@@ -1085,7 +1085,7 @@ if ($result->num_rows > 0) {
         <div class="modal-content shadow-lg rounded-4 overflow-hidden">
             <!-- Header -->
             <div class="modal-header bg-gradient text-white" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);">
-                <h5 class="modal-title fw-bold" id="bookingModalLabel">
+                <h5 class="modal-title fw-bold text-dark" id="bookingModalLabel">
                     <i class="fas fa-calendar-plus me-2"></i>Reserve Your Room
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -1494,11 +1494,15 @@ document.getElementById("cancelBookingForm").addEventListener("submit", function
   });
 });
 
-// Store booked schedules for each room from BOOKINGS table
+
+// Store booked schedules for each room from BOOKINGS table (including ALL future bookings)
 const roomSchedules = <?php
-    $schedule_query = "SELECT room_number, start_date, end_date 
+    // Get ALL bookings that are not cancelled or already completed
+    // This includes bookings from rebooking process
+    $schedule_query = "SELECT room_number, start_date, end_date, status 
                        FROM bookings 
-                       WHERE status NOT IN ('cancelled', 'completed')";
+                       WHERE status NOT IN ('cancelled', 'completed')
+                       AND end_date > NOW()";
     $schedule_result = $conn->query($schedule_query);
     $schedules = [];
     while ($schedule = $schedule_result->fetch_assoc()) {
@@ -1507,18 +1511,23 @@ const roomSchedules = <?php
             $schedules[$room_num] = [];
         }
         $schedules[$room_num][] = [
-            'start_date' => $schedule['start_date'],  // ✅ Changed from check_in
-            'end_date' => $schedule['end_date']        // ✅ Changed from check_out
+            'start_date' => $schedule['start_date'],
+            'end_date' => $schedule['end_date'],
+            'status' => $schedule['status']
         ];
     }
     echo json_encode($schedules);
 ?>;
 
-// Also include check-ins that are scheduled or currently checked in
+// Include ALL check-ins (scheduled, checked_in, AND checked_out with is_rebooked flag)
 const checkinSchedules = <?php
-    $checkin_query = "SELECT room_number, check_in_date, check_out_date 
+    // Include checked_out records that might be rebooked
+    // AND future scheduled check-ins
+    $checkin_query = "SELECT room_number, check_in_date, check_out_date, status, is_rebooked
                       FROM checkins 
-                      WHERE status IN ('scheduled', 'checked_in')";
+                      WHERE (status IN ('scheduled', 'checked_in'))
+                      OR (status = 'checked_out' AND is_rebooked = 1)
+                      AND check_out_date > NOW()";
     $checkin_result = $conn->query($checkin_query);
     $checkin_data = [];
     while ($checkin = $checkin_result->fetch_assoc()) {
@@ -1527,8 +1536,10 @@ const checkinSchedules = <?php
             $checkin_data[$room_num] = [];
         }
         $checkin_data[$room_num][] = [
-            'start_date' => $checkin['check_in_date'],   // ✅ Using check_in_date
-            'end_date' => $checkin['check_out_date']     // ✅ Using check_out_date
+            'start_date' => $checkin['check_in_date'],
+            'end_date' => $checkin['check_out_date'],
+            'status' => $checkin['status'],
+            'is_rebooked' => $checkin['is_rebooked']
         ];
     }
     echo json_encode($checkin_data);
