@@ -300,6 +300,16 @@ $result = $conn->query($sql);
     padding-right: 15px; 
     padding-bottom: 1rem;
 }
+.notification-badge {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  background: red;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 7px;
+  font-size: 12px;
+}
 
     </style>
 </head>
@@ -314,9 +324,18 @@ $result = $conn->query($sql);
     <h6>Receptionist</h6>
   </div>
 
+   <?php include __DIR__ . '/includes/get-notifications.php'; ?>
+
   <div class="nav-links">
     <a href="receptionist-dash.php"><i class="fa-solid fa-gauge"></i> Dashboard</a>
-    <a href="receptionist-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
+        <a href="receptionist-room.php" class="position-relative">
+  <i class="fa-solid fa-bed"></i> Rooms
+  <?php if (!empty($totalNotifications) && $totalNotifications > 0): ?>
+    <span class="notification-badge">
+      <?= $totalNotifications ?>
+    </span>
+  <?php endif; ?>
+</a>
     <a href="receptionist-guest.php"><i class="fa-solid fa-users"></i> Guests</a>
     <a href="receptionist-booking.php"><i class="fa-solid fa-calendar-check"></i> Booking</a>
     <a href="receptionist-payment.php" class="active"><i class="fa-solid fa-money-check"></i> Payment</a>

@@ -820,6 +820,17 @@ error_log("=============================");
   color: #dc2626;
 }
 
+.notification-badge {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  background: red;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 7px;
+  font-size: 12px;
+}
+
 /* === Main Content Offset === */
 .content {
   margin-left: 270px;
@@ -848,13 +859,21 @@ error_log("=============================");
     <h6>Receptionist</h6>
   </div>
 
+  <?php include __DIR__ . '/includes/get-notifications.php'; ?>
+
   <div class="nav-links">
     <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active' : ''; ?>">
       <i class="fa-solid fa-gauge"></i> Dashboard
     </a>
-    <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
-      <i class="fa-solid fa-bed"></i> Rooms
-    </a>
+<a href="receptionist-room.php" 
+   class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?> position-relative">
+  <i class="fa-solid fa-bed"></i> Rooms
+  <?php if (!empty($totalNotifications) && $totalNotifications > 0): ?>
+    <span class="notification-badge">
+      <?= $totalNotifications ?>
+    </span>
+  <?php endif; ?>
+</a>
     <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
       <i class="fa-solid fa-users"></i> Guests
     </a>
@@ -1158,7 +1177,7 @@ error_log("=============================");
 
       <!-- Header -->
       <div class="modal-header bg-gradient text-white" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);">
-        <h5 class="modal-title fw-bold" id="rebookModalLabel">
+        <h5 class="modal-title fw-bold text-dark" id="rebookModalLabel">
           <i class="fas fa-redo me-2"></i>Rebook Guest
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -2491,10 +2510,6 @@ if (data.success) {
                         <i class="fas fa-info-circle me-2"></i>
                         <strong>Separate Booking Created</strong>
                     </div>
-                    <p class="text-start mt-3">
-                        ✅ <strong>Current stay (ID #${data.current_booking_id}):</strong> Remains active until natural checkout<br>
-                        ✅ <strong>New booking (ID #${data.guest_id}):</strong> Scheduled for ${data.new_start_time}
-                    </p>
                     <p class="text-muted small">
                         <i class="fas fa-clock me-1"></i>
                         The current booking will automatically check out at its scheduled time.<br>
@@ -2516,8 +2531,8 @@ if (data.success) {
                         <i class="fas fa-check-circle me-2"></i>
                         <strong>Booking Successfully Extended</strong>
                     </div>
-                    <p class="text-start mt-3">
-                        ✅ ${data.message || 'Stay extended successfully'}
+                    <p class="mt-3">
+                        ${data.message || 'Stay extended successfully'}
                     </p>
                 `,
                 icon: 'success',

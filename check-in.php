@@ -9,8 +9,8 @@ date_default_timezone_set('Asia/Manila');
 $checkInDate = date("Y-m-d H:i:s");
 $checkInDisplay = date("F j, Y h:i A");
 
-// ✅ Detect if coming from booking summary (has guest_name in URL)
-$from_booking = !empty($_GET['guest_name']);
+// ✅ IMPROVED: Check both GET and POST for booking flag
+$from_booking = !empty($_GET['guest_name']) || (!empty($_POST['from_booking']) && $_POST['from_booking'] === 'yes');
 $guest_name = $_GET['guest_name'] ?? '';
 $checkin = $_GET['checkin'] ?? '';
 $checkout = $_GET['checkout'] ?? '';
@@ -205,9 +205,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $payment_mode = htmlspecialchars(trim($_POST['payment_mode']));
     $gcash_reference = htmlspecialchars(trim($_POST['gcash_ref_id'] ?? ''));
     $user_id = $_SESSION['user_id'] ?? null;
-    
-    // ✅ Check if this is from a booking (hidden field)
-    $from_booking_post = !empty($_POST['from_booking']) && $_POST['from_booking'] === 'yes';
 
     if (
         empty($guest_name_submitted) || empty($address) || empty($telephone) ||
@@ -248,7 +245,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // ============================
     // ✅ CONFLICT CHECKS (ONLY IF NOT FROM BOOKING)
     // ============================
-    if (!$from_booking_post) {
+    if (!$from_booking) {
         // Check for overlapping check-ins
         $overlapCheckinQuery = "
             SELECT guest_name, check_in_date, check_out_date
@@ -346,7 +343,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $updateStmt->close();
 
         // ✅ Update booking status to completed if from booking
-        if ($from_booking_post) {
+        if ($from_booking) {
             $updateBookingQuery = "
                 UPDATE bookings 
                 SET status = 'completed' 
@@ -483,7 +480,8 @@ $conn->close();
         </div>
         <div class="p-5">
             <div class="space-y-3">
-                <?php foreach ($upcomingSchedules as $schedule): 
+                <?php 
+                foreach ($upcomingSchedules as $schedule): 
                     $checkInTime = strtotime($schedule['check_in_date']);
                     $checkOutTime = strtotime($schedule['check_out_date']);
                     $currentTime = time();
@@ -561,12 +559,21 @@ $conn->close();
                 <?php endforeach; ?>
             </div>
             
-            <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p class="text-sm text-blue-800 flex items-start">
-                    <i class="fas fa-info-circle mr-2 mt-1"></i>
-                    <span><strong>Important:</strong> Please select a check-in time and duration that doesn't conflict with the occupied slots above. The system will automatically validate your selection.</span>
-                </p>
-            </div>
+            <?php if ($from_booking): ?>
+                <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p class="text-sm text-green-800 flex items-start">
+                        <i class="fas fa-check-circle mr-2 mt-1"></i>
+                        <span><strong>Ready to Check In:</strong> You're checking in a guest from their reservation. The booking details are pre-filled for convenience. Please verify the information and complete the check-in process.</span>
+                    </p>
+                </div>
+            <?php else: ?>
+                <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p class="text-sm text-blue-800 flex items-start">
+                        <i class="fas fa-info-circle mr-2 mt-1"></i>
+                        <span><strong>Important:</strong> Please select a check-in time and duration that doesn't conflict with the occupied slots above. The system will automatically validate your selection.</span>
+                    </p>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -1039,7 +1046,8 @@ function selectPayment(mode) {
                 return true;
             }
 
-            // Occupied time slots data
+
+// Occupied time slots data
 const occupiedSlots = <?php echo json_encode(array_map(function($schedule) {
     return [
         'guest_name' => $schedule['guest_name'],
@@ -1049,8 +1057,17 @@ const occupiedSlots = <?php echo json_encode(array_map(function($schedule) {
     ];
 }, $upcomingSchedules)); ?>;
 
+// ✅ Check if this is from a booking
+const fromBooking = <?php echo $from_booking ? 'true' : 'false'; ?>;
+
 // Function to check if selected time conflicts with existing schedules
 function checkTimeConflict() {
+    // ✅ Skip conflict check if checking in from booking
+    if (fromBooking) {
+        hideConflictWarning();
+        return;
+    }
+
     const duration = parseInt(document.getElementById("stay_duration").value);
     if (!duration) return;
     
