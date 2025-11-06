@@ -145,63 +145,99 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['delete_booking'])) {
             // Calculate change
             $change = $amount_paid - $total_price;
 
-              $conflict_stmt = $conn->prepare("
-                  SELECT 1 
-                  FROM bookings 
-                  WHERE room_number = ? 
-                    AND status NOT IN ('cancelled', 'completed') 
-                    AND (
-                        (? < end_date AND ? > start_date)
-                      OR (start_date < ? AND end_date > ?)
-                      OR (? BETWEEN start_date AND end_date)
-                      OR (? BETWEEN start_date AND end_date)
-                    )
-                  LIMIT 1
-              ");
+$conflict_stmt = $conn->prepare("
+    SELECT 1 
+    FROM bookings 
+    WHERE room_number = ? 
+      AND status NOT IN ('cancelled', 'completed') 
+      AND (
+          (? < end_date AND ? > start_date)
+        OR (start_date < ? AND end_date > ?)
+        OR (? BETWEEN start_date AND end_date)
+        OR (? BETWEEN start_date AND end_date)
+      )
+    LIMIT 1
+");
 
-              $conflict_stmt->bind_param(
-                  "sssssss", // ✅ 7 parameters
-                  $room_number,
-                  $start_date, $start_date,
-                  $end_date, $end_date,
-                  $start_date, $end_date
-              );
+$conflict_stmt->bind_param(
+    "sssssss",
+    $room_number,
+    $start_date, $start_date,
+    $end_date, $end_date,
+    $start_date, $end_date
+);
 
-            $conflict_stmt->execute();
-            $conflict_result = $conflict_stmt->get_result();
+$conflict_stmt->execute();
+$conflict_result = $conflict_stmt->get_result();
 
-            if ($conflict_result->num_rows > 0) {
-                $_SESSION['error_msg'] = '❌ Room is already booked during the selected time. Please choose a start time after the previous checkout.';
-            } else {
-                // ✅ Safe to insert booking
-                $insert = $conn->prepare("INSERT INTO bookings 
-                    (guest_name, email, address, telephone, age, num_people, room_number, duration, payment_mode, reference_number, amount_paid, change_amount, total_price, start_date, end_date, booking_token, status, created_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'upcoming', NOW())");
-                $insert->bind_param("ssssiissssddssss",
-                    $guest_name, $email, $address, $telephone, $age, $num_people, $room_number,
-                    $duration, $payment_mode, $reference, $amount_paid, $change,
-                    $total_price, $start_date, $end_date, $booking_token
-                );
-                
-                if ($insert->execute()) {
-                    // Send email if email is provided
-                    if (!empty($email)) {
-                        $bookingDetails = [
-                            'room' => $room_number,
-                            'duration' => $duration,
-                            'start_date' => $start_date,
-                            'total_price' => number_format($total_price, 2)
-                        ];
-                        sendBookingEmail($email, $guest_name, $booking_token, $bookingDetails);
-                    }
-                    
-                    $_SESSION['success_msg'] = "Booking successful! Token: $booking_token";
-                    header('Location: receptionist-booking.php');
-                    exit();
-                } else {
-                    $_SESSION['error_msg'] = 'Error creating booking.';
-                }
-            }
+// ✅ NEW: Also check for rebooking conflicts in checkins table
+$rebooking_conflict_stmt = $conn->prepare("
+    SELECT guest_name, check_in_date, check_out_date 
+    FROM checkins 
+    WHERE room_number = ? 
+      AND is_rebooked = 1
+      AND (
+          (? < check_out_date AND ? > check_in_date)
+        OR (check_in_date < ? AND check_out_date > ?)
+        OR (? BETWEEN check_in_date AND check_out_date)
+        OR (? BETWEEN check_in_date AND check_out_date)
+      )
+    LIMIT 1
+");
+
+$rebooking_conflict_stmt->bind_param(
+    "sssssss",
+    $room_number,
+    $start_date, $start_date,
+    $end_date, $end_date,
+    $start_date, $end_date
+);
+
+$rebooking_conflict_stmt->execute();
+$rebooking_result = $rebooking_conflict_stmt->get_result();
+
+if ($conflict_result->num_rows > 0) {
+    $_SESSION['error_msg'] = '❌ Room is already booked during the selected time. Please choose a start time after the previous checkout.';
+} elseif ($rebooking_result->num_rows > 0) {
+    $rebooking_data = $rebooking_result->fetch_assoc();
+    $rebook_checkin = date('M d, Y h:i A', strtotime($rebooking_data['check_in_date']));
+    $rebook_checkout = date('M d, Y h:i A', strtotime($rebooking_data['check_out_date']));
+    
+    $_SESSION['error_msg'] = "❌ Room has a rebooking by " . htmlspecialchars($rebooking_data['guest_name']) . 
+                            " from {$rebook_checkin} to {$rebook_checkout}. Please select a different time.";
+} else {
+    // ✅ Safe to insert booking
+    $insert = $conn->prepare("INSERT INTO bookings 
+        (guest_name, email, address, telephone, age, num_people, room_number, duration, payment_mode, reference_number, amount_paid, change_amount, total_price, start_date, end_date, booking_token, status, created_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'upcoming', NOW())");
+    $insert->bind_param("ssssiissssddssss",
+        $guest_name, $email, $address, $telephone, $age, $num_people, $room_number,
+        $duration, $payment_mode, $reference, $amount_paid, $change,
+        $total_price, $start_date, $end_date, $booking_token
+    );
+    
+    if ($insert->execute()) {
+        // Send email if email is provided
+        if (!empty($email)) {
+            $bookingDetails = [
+                'room' => $room_number,
+                'duration' => $duration,
+                'start_date' => $start_date,
+                'total_price' => number_format($total_price, 2)
+            ];
+            sendBookingEmail($email, $guest_name, $booking_token, $bookingDetails);
+        }
+        
+        $_SESSION['success_msg'] = "Booking successful! Token: $booking_token";
+        header('Location: receptionist-booking.php');
+        exit();
+    } else {
+        $_SESSION['error_msg'] = 'Error creating booking.';
+    }
+}
+
+$conflict_stmt->close();
+$rebooking_conflict_stmt->close();
 
         }
     }
@@ -693,6 +729,26 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
   margin-right: 0;
 }
 
+/* Notification Badge Styles */
+.notification-badge {
+  position: absolute;
+  top: 2px;     /* move higher up */
+  right: 10px;  /* slightly tighter alignment */
+  background: #dc3545;
+  color: white;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 5px;
+  animation: pulse-badge 2s infinite;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.4);
+}
+
 #availability-message .alert {
     animation: slideIn 0.3s ease-out;
 }
@@ -748,13 +804,21 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
     <h6>Receptionist</h6>
   </div>
 
+  <?php include __DIR__ . '/includes/get-notifications.php'; ?>
+
   <div class="nav-links">
     <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active' : ''; ?>">
       <i class="fa-solid fa-gauge"></i> Dashboard
     </a>
-    <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
-      <i class="fa-solid fa-bed"></i> Rooms
-    </a>
+<a href="receptionist-room.php" 
+   class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?> position-relative">
+  <i class="fa-solid fa-bed"></i> Rooms
+  <?php if (!empty($totalNotifications) && $totalNotifications > 0): ?>
+    <span class="notification-badge">
+      <?= $totalNotifications ?>
+    </span>
+  <?php endif; ?>
+</a>
     <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
       <i class="fa-solid fa-users"></i> Guests
     </a>
@@ -1085,14 +1149,14 @@ if ($result->num_rows > 0) {
         <div class="modal-content shadow-lg rounded-4 overflow-hidden">
             <!-- Header -->
             <div class="modal-header bg-gradient text-white" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);">
-                <h5 class="modal-title fw-bold" id="bookingModalLabel">
+                <h5 class="modal-title fw-bold text-dark" id="bookingModalLabel">
                     <i class="fas fa-calendar-plus me-2"></i>Reserve Your Room
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
             <!-- Form -->
-            <form method="POST" onsubmit="return validateBookingForm();">
+            <form method="POST" onsubmit="return handleBookingForm(event);">
                 <div class="modal-body p-4" style="background: #f9faff;">
                     <div class="container-fluid">
                         <div class="row g-4">
@@ -1439,6 +1503,50 @@ if ($result->num_rows > 0) {
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script>
 
+    let previousNotifCount = 0;
+
+// 🔔 Check pending orders count
+async function checkOrderNotifications() {
+  const notifBadge = document.getElementById("orderNotifCount");
+  if (!notifBadge) return;
+
+  try {
+    const res = await fetch("fetch_pending_orders.php");
+    const data = await res.json();
+
+    let pendingCount = 0;
+    if (data && Object.keys(data).length > 0) {
+      for (const orders of Object.values(data)) {
+        pendingCount += orders.filter(o => o.status === "pending").length;
+      }
+    }
+
+    // 🔴 Update the badge
+    if (pendingCount > 0) {
+      notifBadge.textContent = pendingCount;
+      notifBadge.classList.remove("d-none");
+
+      // 🌀 Animate if the number increased
+      if (pendingCount > previousNotifCount) {
+        notifBadge.classList.add("animate__animated", "animate__bounceIn");
+        setTimeout(() => notifBadge.classList.remove("animate__animated", "animate__bounceIn"), 1000);
+      }
+
+    } else {
+      notifBadge.classList.add("d-none");
+    }
+
+    previousNotifCount = pendingCount;
+
+  } catch (error) {
+    console.error("Failed to fetch order notifications:", error);
+  }
+}
+
+// Run every 10 seconds
+checkOrderNotifications();
+setInterval(checkOrderNotifications, 10000);
+
 // Initialize and show all toasts
 document.addEventListener("DOMContentLoaded", function () {
   // Show all toasts with appropriate delays
@@ -1494,11 +1602,13 @@ document.getElementById("cancelBookingForm").addEventListener("submit", function
   });
 });
 
-// Store booked schedules for each room from BOOKINGS table
+
+// Store booked schedules for each room from BOOKINGS table (including ALL future bookings)
 const roomSchedules = <?php
-    $schedule_query = "SELECT room_number, start_date, end_date 
+    $schedule_query = "SELECT room_number, start_date, end_date, status 
                        FROM bookings 
-                       WHERE status NOT IN ('cancelled', 'completed')";
+                       WHERE status NOT IN ('cancelled', 'completed')
+                       AND end_date > NOW()";
     $schedule_result = $conn->query($schedule_query);
     $schedules = [];
     while ($schedule = $schedule_result->fetch_assoc()) {
@@ -1507,18 +1617,21 @@ const roomSchedules = <?php
             $schedules[$room_num] = [];
         }
         $schedules[$room_num][] = [
-            'start_date' => $schedule['start_date'],  // ✅ Changed from check_in
-            'end_date' => $schedule['end_date']        // ✅ Changed from check_out
+            'start_date' => $schedule['start_date'],
+            'end_date' => $schedule['end_date'],
+            'status' => $schedule['status']
         ];
     }
     echo json_encode($schedules);
 ?>;
 
-// Also include check-ins that are scheduled or currently checked in
+// ✅ UPDATED: Include ALL check-ins including rebookings (checked_out with is_rebooked = 1)
 const checkinSchedules = <?php
-    $checkin_query = "SELECT room_number, check_in_date, check_out_date 
+    $checkin_query = "SELECT room_number, check_in_date, check_out_date, status, is_rebooked, guest_name
                       FROM checkins 
-                      WHERE status IN ('scheduled', 'checked_in')";
+                      WHERE (status IN ('scheduled', 'checked_in'))
+                      OR (status = 'checked_out' AND is_rebooked = 1)
+                      AND check_out_date > NOW()";
     $checkin_result = $conn->query($checkin_query);
     $checkin_data = [];
     while ($checkin = $checkin_result->fetch_assoc()) {
@@ -1527,8 +1640,11 @@ const checkinSchedules = <?php
             $checkin_data[$room_num] = [];
         }
         $checkin_data[$room_num][] = [
-            'start_date' => $checkin['check_in_date'],   // ✅ Using check_in_date
-            'end_date' => $checkin['check_out_date']     // ✅ Using check_out_date
+            'start_date' => $checkin['check_in_date'],
+            'end_date' => $checkin['check_out_date'],
+            'status' => $checkin['status'],
+            'is_rebooked' => $checkin['is_rebooked'],
+            'guest_name' => $checkin['guest_name']
         ];
     }
     echo json_encode($checkin_data);
@@ -1550,30 +1666,29 @@ function checkRoomAvailability() {
         return true;
     }
     
-    // Parse duration
     const duration = parseInt(durationValue);
-    
-    // Calculate checkout time
     const selectedCheckin = new Date(checkinTime);
     const selectedCheckout = new Date(selectedCheckin.getTime() + duration * 60 * 60 * 1000);
     
-    // Combine both bookings and check-ins schedules
+    // ✅ Combine both bookings and check-ins schedules (including rebookings)
     const bookingsList = roomSchedules[roomNumber] || [];
     const checkinsList = checkinSchedules[roomNumber] || [];
     const allSchedules = [...bookingsList, ...checkinsList];
     
-    // Check for conflicts
     let isAvailable = true;
     let conflictSchedule = null;
+    let conflictType = null;
     
     for (let schedule of allSchedules) {
-        const bookedCheckin = new Date(schedule.start_date);   // ✅ Changed from check_in
-        const bookedCheckout = new Date(schedule.end_date);    // ✅ Changed from check_out
+        const bookedCheckin = new Date(schedule.start_date);
+        const bookedCheckout = new Date(schedule.end_date);
         
-        // Check for overlap: (start1 < end2) AND (end1 > start2)
+        // Check for overlap
         if (selectedCheckin < bookedCheckout && selectedCheckout > bookedCheckin) {
             isAvailable = false;
             conflictSchedule = schedule;
+            // ✅ Determine if it's a rebooking conflict
+            conflictType = schedule.is_rebooked ? 'rebooking' : 'booking';
             break;
         }
     }
@@ -1583,14 +1698,14 @@ function checkRoomAvailability() {
             <div class="alert alert-success border-0 shadow-sm" style="background-color: #d4edda; border-radius: 12px;">
                 <div class="d-flex align-items-center">
                     <i class="bi bi-check-circle-fill text-success me-2" style="font-size: 1.2rem;"></i>
-                    <span class="text-success fw-medium">Room is available for selected time period</span>
+                    <span class="text-success fw-medium">✅ Room is available for selected time period</span>
                 </div>
             </div>`;
         if (checkinInput) checkinInput.setCustomValidity('');
         return true;
     } else {
-        const bookedCheckin = new Date(conflictSchedule.start_date);   // ✅ Changed
-        const bookedCheckout = new Date(conflictSchedule.end_date);    // ✅ Changed
+        const bookedCheckin = new Date(conflictSchedule.start_date);
+        const bookedCheckout = new Date(conflictSchedule.end_date);
         
         const formatOptions = {
             month: 'short',
@@ -1603,18 +1718,23 @@ function checkRoomAvailability() {
         const formattedCheckin = bookedCheckin.toLocaleString('en-US', formatOptions);
         const formattedCheckout = bookedCheckout.toLocaleString('en-US', formatOptions);
         
+        // ✅ Different message for rebooking conflicts
+        const conflictMessage = conflictType === 'rebooking' 
+            ? `This room has a <strong>rebooking</strong> by <strong>${conflictSchedule.guest_name || 'a guest'}</strong>`
+            : 'This room is booked';
+        
         messageDiv.innerHTML = `
             <div class="alert alert-danger border-0 shadow-sm" style="background-color: #f8d7da; border-radius: 12px;">
                 <div class="mb-2">
-                    <strong class="text-danger" style="font-size: 1.1rem;">Room Not Available</strong>
+                    <strong class="text-danger" style="font-size: 1.1rem;">❌ Room Not Available</strong>
                 </div>
                 <p class="mb-0 text-danger">
-                    This room is booked from <strong>${formattedCheckin}</strong> to <strong>${formattedCheckout}</strong>.<br>
+                    ${conflictMessage} from <strong>${formattedCheckin}</strong> to <strong>${formattedCheckout}</strong>.<br>
                     Please select a different time or room.
                 </p>
             </div>`;
         
-        if (checkinInput) checkinInput.setCustomValidity('This time slot conflicts with an existing booking');
+        if (checkinInput) checkinInput.setCustomValidity('This time slot conflicts with an existing booking or rebooking');
         return false;
     }
 }
@@ -1626,7 +1746,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const durationSelect = document.getElementById('duration');
     const bookingModal = document.getElementById('bookingModal');
     
-    // Check availability when any field changes
     if (roomSelect) roomSelect.addEventListener('change', checkRoomAvailability);
     if (checkinInput) checkinInput.addEventListener('change', checkRoomAvailability);
     if (durationSelect) durationSelect.addEventListener('change', checkRoomAvailability);
@@ -1642,15 +1761,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     e.preventDefault();
                     e.stopPropagation();
                     
-                    // Scroll to the error message
                     const messageDiv = document.getElementById('availability-message');
                     if (messageDiv) {
                         messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                     
-                    // Show additional alert
                     setTimeout(() => {
-                        alert('⚠️ Cannot proceed with booking!\n\nThis room is not available for the selected time period. Please choose a different time or room.');
+                        alert('⚠️ Cannot proceed with booking!\n\nThis room is not available for the selected time period (including rebookings). Please choose a different time or room.');
                     }, 300);
                     
                     return false;
@@ -1917,6 +2034,21 @@ if (ageInput) {
     }
     document.getElementById("roomNumber").addEventListener("change", updateRoomAvailability);
 
+    document.addEventListener('DOMContentLoaded', function() {
+  const roomSelect = document.getElementById('roomNumber');
+  if (!roomSelect) return;
+
+  // Loop through each room option
+  for (let option of roomSelect.options) {
+    const isOccupied = option.dataset.occupied === '1' || option.dataset.status === 'booked';
+    if (isOccupied) {
+      // Optional: Add a visual indicator (different color/style)
+      option.style.color = '#dc3545'; // Red color for occupied rooms
+      option.style.fontWeight = '500';
+    }
+  }
+});
+
 
     // --- NEW: Auto update estimated checkout ---
     function updateCheckoutTime() {
@@ -2007,31 +2139,81 @@ if (ageInput) {
         calculateChange();
     }
 
-    // --- Form validation ---
-    function validateForm() {
-        const age = parseInt(document.querySelector('input[name="age"]').value);
-        const paymentMode = document.querySelector('select[name="payment_mode"]').value;
-        const reference = document.querySelector('input[name="reference_number"]').value;
-        const amountPaid = parseFloat(document.querySelector('input[name="amount_paid"]').value);
-        const totalPrice = parseFloat(document.getElementById('totalPrice').value);
-        
-        if (age < 18) {
-            alert('Guest must be at least 18 years old.');
-            return false;
-        }
-        
-        if (paymentMode === 'GCash' && !reference.trim()) {
-            alert('GCash reference number is required.');
-            return false;
-        }
-        
-        if (amountPaid < totalPrice) {
-            alert('Amount paid cannot be less than total price.');
-            return false;
-        }
-        
-        return true;
+async function handleBookingForm(event) {
+    event.preventDefault(); // 🛑 Stop automatic submit first
+    const form = event.target;
+
+    const isValid = await validateBookingForm(); // Wait for SweetAlert checks
+
+    if (isValid) {
+        form.submit(); // ✅ Only submit after confirmation
     }
+}
+
+async function validateBookingForm() {
+    const age = parseInt(document.querySelector('input[name="age"]').value);
+    const paymentMode = document.querySelector('select[name="payment_mode"]').value;
+    const reference = document.querySelector('input[name="reference_number"]').value.trim();
+    const amountPaid = parseFloat(document.querySelector('input[name="amount_paid"]').value);
+    const totalPrice = parseFloat(document.getElementById('totalPrice').value);
+
+    // --- Basic validation ---
+    if (age < 18) {
+        await Swal.fire({
+            icon: 'error',
+            title: 'Invalid Age',
+            text: 'Guest must be at least 18 years old.',
+        });
+        return false;
+    }
+
+    // --- GCash specific validation ---
+    if (paymentMode === 'GCash') {
+        if (!validateReferenceNumber()) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Invalid Reference Number',
+                text: 'Please enter a valid 13-digit GCash reference number before proceeding.',
+            });
+            return false;
+        }
+
+        // 🔹 SweetAlert confirmation prompt
+        const result = await Swal.fire({
+            title: 'Confirm GCash Reference Number',
+            html: `<p>Please confirm your 13-digit GCash reference number:</p>
+                   <h3 style="color:#0d6efd; font-weight:bold;">${reference}</h3>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, confirm',
+            cancelButtonText: 'Review',
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+        });
+
+        if (!result.isConfirmed) {
+            await Swal.fire({
+                icon: 'info',
+                title: 'Review Needed',
+                text: 'Please double-check your GCash reference number.',
+            });
+            return false;
+        }
+    }
+
+    // --- Payment validation ---
+    if (amountPaid < totalPrice) {
+        await Swal.fire({
+            icon: 'error',
+            title: 'Insufficient Payment',
+            text: 'Amount paid cannot be less than the total price.',
+        });
+        return false;
+    }
+
+    // ✅ Everything validated and confirmed
+    return true;
+}
 
     // --- Show cancelled bookings ---
     function showCancelledBookings() {

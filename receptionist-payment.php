@@ -300,6 +300,25 @@ $result = $conn->query($sql);
     padding-right: 15px; 
     padding-bottom: 1rem;
 }
+/* Notification Badge Styles */
+.notification-badge {
+  position: absolute;
+  top: 2px;     /* move higher up */
+  right: 10px;  /* slightly tighter alignment */
+  background: #dc3545;
+  color: white;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 5px;
+  animation: pulse-badge 2s infinite;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.4);
+}
 
     </style>
 </head>
@@ -314,9 +333,18 @@ $result = $conn->query($sql);
     <h6>Receptionist</h6>
   </div>
 
+   <?php include __DIR__ . '/includes/get-notifications.php'; ?>
+
   <div class="nav-links">
     <a href="receptionist-dash.php"><i class="fa-solid fa-gauge"></i> Dashboard</a>
-    <a href="receptionist-room.php"><i class="fa-solid fa-bed"></i> Rooms</a>
+        <a href="receptionist-room.php" class="position-relative">
+  <i class="fa-solid fa-bed"></i> Rooms
+  <?php if (!empty($totalNotifications) && $totalNotifications > 0): ?>
+    <span class="notification-badge">
+      <?= $totalNotifications ?>
+    </span>
+  <?php endif; ?>
+</a>
     <a href="receptionist-guest.php"><i class="fa-solid fa-users"></i> Guests</a>
     <a href="receptionist-booking.php"><i class="fa-solid fa-calendar-check"></i> Booking</a>
     <a href="receptionist-payment.php" class="active"><i class="fa-solid fa-money-check"></i> Payment</a>
@@ -490,6 +518,49 @@ $result = $conn->query($sql);
 
   <script>
 
+let previousNotifCount = 0;
+
+// 🔔 Check pending orders count
+async function checkOrderNotifications() {
+  const notifBadge = document.getElementById("orderNotifCount");
+  if (!notifBadge) return;
+
+  try {
+    const res = await fetch("fetch_pending_orders.php");
+    const data = await res.json();
+
+    let pendingCount = 0;
+    if (data && Object.keys(data).length > 0) {
+      for (const orders of Object.values(data)) {
+        pendingCount += orders.filter(o => o.status === "pending").length;
+      }
+    }
+
+    // 🔴 Update the badge
+    if (pendingCount > 0) {
+      notifBadge.textContent = pendingCount;
+      notifBadge.classList.remove("d-none");
+
+      // 🌀 Animate if the number increased
+      if (pendingCount > previousNotifCount) {
+        notifBadge.classList.add("animate__animated", "animate__bounceIn");
+        setTimeout(() => notifBadge.classList.remove("animate__animated", "animate__bounceIn"), 1000);
+      }
+
+    } else {
+      notifBadge.classList.add("d-none");
+    }
+
+    previousNotifCount = pendingCount;
+
+  } catch (error) {
+    console.error("Failed to fetch order notifications:", error);
+  }
+}
+
+// Run every 10 seconds
+checkOrderNotifications();
+setInterval(checkOrderNotifications, 10000);
     // Data tables
   $(document).ready(function() {
   var paymentTable = $('#paymentTable').DataTable({

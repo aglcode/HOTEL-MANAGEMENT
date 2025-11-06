@@ -10,12 +10,10 @@ $room  = $_GET['room'] ?? ($_SESSION['room_number'] ?? null);
 $token = $_GET['token'] ?? ($_SESSION['qr_token'] ?? null);
 
 if (empty($room) || empty($token)) {
-    die('
-        <div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
-            <h3>❌ Access Denied</h3>
-            <p>Missing or invalid access token. Please scan your room QR code again.</p>
-        </div>
-    ');
+    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+        <h3>❌ Access Denied</h3>
+        <p>Missing or invalid access token. Please scan your room QR code again.</p>
+    </div>');
 }
 
 // =========================
@@ -23,38 +21,34 @@ if (empty($room) || empty($token)) {
 // =========================
 $stmt = $conn->prepare("
     SELECT 
-        k.id AS key_id, 
-        k.status AS key_status, 
+        k.id AS key_id,
+        k.status AS key_status,
         r.status AS room_status
-    FROM keycards k 
-    JOIN rooms r ON k.room_number = r.room_number 
-    WHERE k.room_number = ? AND k.qr_code = ? 
+    FROM keycards k
+    JOIN rooms r ON k.room_number = r.room_number
+    WHERE k.room_number = ? AND k.qr_code = ?
     LIMIT 1
 ");
 $stmt->bind_param("is", $room, $token);
 $stmt->execute();
-$res  = $stmt->get_result();
+$res = $stmt->get_result();
 $info = $res->fetch_assoc();
 $stmt->close();
 
 if (!$info) {
-    die('
-        <div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
-            <h3>❌ Invalid QR</h3>
-            <p>Invalid or missing keycard record. Please contact the front desk.</p>
-        </div>
-    ');
+    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+        <h3>❌ Invalid QR</h3>
+        <p>Invalid or missing keycard record. Please contact the front desk.</p>
+    </div>');
 }
 
 // If room is available → block access
 if ($info['room_status'] === 'available') {
     session_destroy();
-    die('
-        <div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
-            <h3>❌ Access Denied</h3>
-            <p>This room has been checked out. Please contact the front desk.</p>
-        </div>
-    ');
+    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+        <h3>❌ Access Denied</h3>
+        <p>This room has been checked out. Please contact the front desk.</p>
+    </div>');
 }
 
 // If room is occupied but keycard expired → reactivate automatically
@@ -66,21 +60,21 @@ if ($info['room_status'] !== 'available' && $info['key_status'] !== 'active') {
 }
 
 // =========================
-// Validate QR token in DB
+// Validate QR token in DB (fetch guest info from checkins)
 // =========================
 $stmt = $conn->prepare("
     SELECT 
         k.*, 
-        g.name AS guest_name, 
-        b.start_date, 
-        b.end_date, 
-        r.room_type, 
-        b.status AS booking_status
+        c.guest_name, 
+        c.check_in_date, 
+        c.check_out_date, 
+        r.room_type,
+        c.status AS checkin_status
     FROM keycards k
-    LEFT JOIN guests g ON k.guest_id = g.id
-    LEFT JOIN bookings b ON k.room_number = b.room_number
+    LEFT JOIN checkins c ON k.room_number = c.room_number AND c.status = 'checked_in'
     LEFT JOIN rooms r ON k.room_number = r.room_number
-    WHERE k.room_number = ? AND k.qr_code = ?
+    WHERE k.room_number = ? 
+      AND k.qr_code = ?
     LIMIT 1
 ");
 $stmt->bind_param("is", $room, $token);
@@ -89,34 +83,27 @@ $guestInfo = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$guestInfo) {
-    die('
-        <div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
-            <h3>❌ Invalid or Expired QR Code</h3>
-            <p>Your session has expired. Please contact the front desk.</p>
-        </div>
-    ');
+    die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
+        <h3>❌ Invalid or Expired QR Code</h3>
+        <p>Your session has expired. Please contact the front desk.</p>
+    </div>');
 }
 
 // Save session for continuity
 $_SESSION['room_number'] = $guestInfo['room_number'];
-$_SESSION['qr_token']    = $guestInfo['qr_code'];
+$_SESSION['qr_token'] = $guestInfo['qr_code'];
 
 // Extract guest info
 $guest_name = $guestInfo['guest_name'] ?? 'Guest';
 $room_type  = $guestInfo['room_type'] ?? 'Standard Room';
-$check_in   = !empty($guestInfo['start_date']) 
-    ? date('F j, Y g:i A', strtotime($guestInfo['start_date'])) 
-    : 'N/A';
-$check_out  = !empty($guestInfo['end_date']) 
-    ? date('F j, Y g:i A', strtotime($guestInfo['end_date'])) 
-    : 'N/A';
-$status     = ucfirst($guestInfo['booking_status'] ?? 'Pending');
+$check_in   = !empty($guestInfo['check_in_date']) ? date('F j, Y g:i A', strtotime($guestInfo['check_in_date'])) : 'N/A';
+$check_out  = !empty($guestInfo['check_out_date']) ? date('F j, Y g:i A', strtotime($guestInfo['check_out_date'])) : 'N/A';
+$status     = ucfirst($guestInfo['checkin_status'] ?? 'Pending');
 
 // =========================
 // Auto-cancel overdue bookings (simplified)
 // =========================
-function autoCancelOverdueBookings($conn)
-{
+function autoCancelOverdueBookings($conn) {
     try {
         $cutoffTime = date('Y-m-d H:i:s', strtotime('-30 minutes'));
         $conn->query("
@@ -144,14 +131,15 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gitarra Apartelle - Guest Order</title>
-      <!-- Favicon -->
-<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
 
   <!-- ========== FONTS & ICONS ========== -->
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <!-- Bootstrap Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <!-- Font Awesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
   <!-- ========== CSS FRAMEWORK ========== -->
@@ -167,8 +155,8 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
     
     <style>
         :root {
-          --maroon: #800000;
-          --maroon-dark: #5a0000;
+          --maroon: #871D2B;
+          --maroon-dark: #800000;
           --matte-black: #1c1c1c;
           --text-gray: #6c757d;
           --card-bg: #f8f8f8ff;
@@ -177,6 +165,11 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
 
         .text-maroon {
           color: var(--maroon) !important; /* Classic maroon */
+        }
+
+        .badge.bg-maroon {
+          background-color: var(--maroon); /* Classic maroon */
+          color: #fff;
         }
 
         .text-black {
@@ -730,6 +723,57 @@ body.scrolled .sticky-filter-bar {
   color: var(--matte-black);
 }
 
+/* === Scroll to Top Button Style === */
+#scrollTopBtn {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  background-color: #9c2b27;
+  border: none;
+  outline: none;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+  z-index: 999;
+}
+
+/* SVG icon */
+#scrollTopBtn svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Show button */
+#scrollTopBtn.show {
+  opacity: 1;
+  visibility: visible;
+  animation: floatUp 1.8s ease-in-out infinite;
+}
+
+/* Hover effect */
+#scrollTopBtn:hover {
+  background-color: #b93731;
+  transform: scale(1.1);
+}
+
+/* Floating Up Animation */
+@keyframes floatUp {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
 /* ---------- Pulse Animation ---------- */
 .pulse {
   position: relative;
@@ -936,15 +980,15 @@ body.scrolled .sticky-filter-bar {
           <ul class="dropdown-menu shadow-sm border-0 p-2" aria-labelledby="filterMenuButton">
             <li><button class="dropdown-item filter-btn active" data-filter="all"><i class="bi bi-grid me-2"></i>All</button></li>
             <li><hr class="dropdown-divider"></li>
-            <li><button class="dropdown-item filter-btn" data-filter="food"><i class="bi bi-egg-fried me-2"></i>Food</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="food"><i class="bi bi-box-seam me-2"></i>Food</button></li>
             <li><button class="dropdown-item filter-btn" data-filter="noodles"><i class="bi bi-cup-hot me-2"></i>Noodles</button></li>
-            <li><button class="dropdown-item filter-btn" data-filter="ricemeals"><i class="bi bi-bowl-rice me-2"></i>Rice Meals</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="ricemeals"><i class="bi bi-egg-fried me-2"></i>Rice Meals</button></li>
             <li><button class="dropdown-item filter-btn" data-filter="lumpia"><i class="bi bi-bag-fill me-2"></i>Lumpia</button></li>
             <li><button class="dropdown-item filter-btn" data-filter="snacks"><i class="bi bi-cookie me-2"></i>Snacks</button></li>
             <li><button class="dropdown-item filter-btn" data-filter="drinks"><i class="bi bi-cup-straw me-2"></i>Drinks</button></li>
             <li><hr class="dropdown-divider"></li>
             <li><button class="dropdown-item filter-btn" data-filter="non-food"><i class="bi bi-box-seam me-2"></i>Non-Food</button></li>
-            <li><button class="dropdown-item filter-btn" data-filter="dental-care"><i class="bi bi-tooth me-2"></i>Dental Care</button></li>
+            <li><button class="dropdown-item filter-btn" data-filter="dental-care"><i class="bi bi-heart-pulse me-2"></i>Dental Care</button></li>
             <li><button class="dropdown-item filter-btn" data-filter="shampoo"><i class="bi bi-droplet-half me-2"></i>Shampoo</button></li>
             <li><button class="dropdown-item filter-btn" data-filter="conditioner"><i class="bi bi-bucket me-2"></i>Conditioner</button></li>
             <li><button class="dropdown-item filter-btn" data-filter="utensils"><i class="bi bi-cup me-2"></i>Disposable Utensils</button></li>
@@ -1006,6 +1050,12 @@ body.scrolled .sticky-filter-bar {
           <button class="btn btn-view pulse" id="viewOrderBtn">
             <i class="bi bi-eye me-1"></i> View Order
           </button>
+
+          <button id="scrollTopBtn" title="Go to top" aria-label="Scroll to top">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="18 15 12 9 6 15" />
+            </svg>
+          </button>
         </div>
   </div>
 
@@ -1014,1101 +1064,1226 @@ body.scrolled .sticky-filter-bar {
     <div class="card-body" id="menuContainer">
 
       <!-- ==================== FOOD MENU ==================== -->
-      <div class="menu-category food">
+      <div class="menu-category food" id="category-food">
         <div class="container my-4">
           <h3 class="text-center text-maroon mb-4 fw-bold text-uppercase">Food Menu</h3>
 
           <!-- ==================== NOODLES ==================== -->
-          <div class="menu-type noodles">
+          <div class="menu-type noodles" id="type-noodles">
             <h5 class="fw-bold mt-5 mb-3 text-maroon">Noodles</h5>
             <div class="row g-4 mb-4">
 
-              <!-- Mami -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Noodle</span>
-                  <img src="image/Mami.png" class="card-img-top" alt="Mami">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Mami</h6>
-                    <p class="text-muted small mb-4">Warm comforting soup</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱70</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <?php
+              // Database connection
+              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              if ($conn->connect_error) {
+                die("<p class='text-danger text-center'>Database connection failed.</p>");
+              }
 
-              <!-- Nissin Cup (Beef) -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Instant Noodle</span>
-                  <img src="image/Nissin Beef.png" class="card-img-top" alt="Nissin Cup Beef">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Nissin Cup (Beef)</h6>
-                    <p class="text-muted small mb-4">Rich beef-flavored noodles</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱40</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              // Fetch all Food items of type 'Noodles'
+              $query = "SELECT * FROM supplies WHERE category='Food' AND type='Noodles' AND is_archived = 0 ORDER BY id ASC";
+              $result = $conn->query($query);
 
-              <!-- Nissin Cup (Chicken) -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Instant Noodle</span>
-                  <img src="image/Nissin Chicken.png" class="card-img-top" alt="Nissin Cup Chicken">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Nissin Cup (Chicken)</h6>
-                    <p class="text-muted small mb-4">Classic chicken broth flavor</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱40</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              if ($result && $result->num_rows > 0):
+                while ($row = $result->fetch_assoc()):
+                  $status = strtolower($row['status']);
+                  $isAvailable = $status === 'available' && $row['quantity'] > 0;
 
-              <!-- Nissin Cup (Spicy Seafood) -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Instant Noodle</span>
-                  <img src="image/Nissin Spicy Seafood.png" class="card-img-top" alt="Nissin Cup Spicy Seafood">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Nissin Cup (Spicy Seafood)</h6>
-                    <p class="text-muted small mb-4">A bold mix of seafood goodness</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱40</p>
-                      <button class="btn btn-add">Add</button>
+                  // Add grayscale filter for unavailable images
+                  $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+              ?>
+                  <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                    <div class="card menu-card position-relative">
+                      <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                      <img src="<?= htmlspecialchars($row['image']) ?>" 
+                        class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                      style="<?= $imageStyle ?>">
+
+                      <div class="card-body">
+                        <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                        <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                          <?php if ($isAvailable): ?>
+                            <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                          <?php else: ?>
+                            <span class="text-danger small">Out of Stock</span>
+                          <?php endif; ?>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+
+              <?php
+                endwhile;
+              else:
+                echo "<p class='text-center text-muted'>No Noodle items found.</p>";
+              endif;
+
+              $conn->close();
+              ?>
+
             </div>
           </div>
 
           <!-- ==================== RICE MEALS ==================== -->
-          <div class="menu-type ricemeals">
+          <div class="menu-type ricemeals" id="type-riceMeals">
             <h5 class="fw-bold mt-5 mb-3 text-maroon">Rice Meals</h5>
             <div class="row g-4 mb-4">
 
-              <!-- Longganisa -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Rice Meal</span>
-                  <img src="image/Longganisa.jpg" class="card-img-top" alt="Longganisa">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Longganisa</h6>
-                    <p class="text-muted small mb-4">Savory Filipino sausage</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱100</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <?php
+              // Database connection
+              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              if ($conn->connect_error) {
+                die("<p class='text-danger text-center'>Database connection failed.</p>");
+              }
 
-              <!-- Sisig -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Rice Meal</span>
-                  <img src="image/Sisig.jpg" class="card-img-top" alt="Sisig">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Sisig</h6>
-                    <p class="text-muted small mb-4">Crispy pork bits chili and egg</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱100</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              // Fetch all Food items of type 'Rice Meals'
+              $query = "SELECT * FROM supplies WHERE category='Food' AND type='Rice Meals' AND is_archived = 0 ORDER BY id ASC";
+              $result = $conn->query($query);
 
-              <!-- Bopis -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Rice Meal</span>
-                  <img src="image/Bopis.jpg" class="card-img-top" alt="Bopis">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Bopis</h6>
-                    <p class="text-muted small mb-4">Spicy pork lungs</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱100</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              if ($result && $result->num_rows > 0):
+                while ($row = $result->fetch_assoc()):
+                  $status = strtolower($row['status']);
+                  $isAvailable = $status === 'available' && $row['quantity'] > 0;
 
-              <!-- Tocino -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Rice Meal</span>
-                  <img src="image/Tocino.jpg" class="card-img-top" alt="Tocino">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Tocino</h6>
-                    <p class="text-muted small mb-4">Sweet cured pork</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱100</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                  // Add grayscale filter for unavailable images
+                  $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+              ?>
+                  <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                    <div class="card menu-card position-relative">
+                      <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
 
-              <!-- Tapa -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Rice Meal</span>
-                  <img src="image/Tapa.jpg" class="card-img-top" alt="Tapa">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Tapa</h6>
-                    <p class="text-muted small mb-4">Marinated beef slices</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱100</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                      <img src="<?= htmlspecialchars($row['image']) ?>" 
+                        class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                      style="<?= $imageStyle ?>">
 
-              <!-- Hotdog -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Rice Meal</span>
-                  <img src="image/Hotdog.jpg" class="card-img-top" alt="Hotdog">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Hotdog</h6>
-                    <p class="text-muted small mb-4">Grilled hotdog</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱100</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                      <div class="card-body">
+                        <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
 
-              <!-- Dinuguan -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Rice Meal</span>
-                  <img src="image/Dinuguan.jpg" class="card-img-top" alt="Dinuguan">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Dinuguan</h6>
-                    <p class="text-muted small mb-4">Pork blood stew</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱115</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                        <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                          <?php if ($isAvailable): ?>
+                            <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                          <?php else: ?>
+                            <span class="text-danger small">Out of Stock</span>
+                          <?php endif; ?>
+                        </div>
 
-              <!-- Chicken Adobo -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Rice Meal</span>
-                  <img src="image/Chicken Adobo.jpg" class="card-img-top" alt="Chicken Adobo">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Chicken Adobo</h6>
-                    <p class="text-muted small mb-4">Filipino chicken stew</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱120</p>
-                      <button class="btn btn-add">Add</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              <!-- Bicol Express -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Rice Meal</span>
-                  <img src="image/Bicol Express.jpg" class="card-img-top" alt="Bicol Express">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Bicol Express</h6>
-                    <p class="text-muted small mb-4">Spicy pork with coconut milk</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱125</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <?php
+                endwhile;
+              else:
+                echo "<p class='text-center text-muted'>No Rice Meals items found.</p>";
+              endif;
 
-              <!-- ==================== ADD-ONS ==================== -->
-              <!-- Chicharon -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Add-On</span>
-                  <img src="image/Chicharon.jpg" class="card-img-top" alt="Chicharon">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Chicharon</h6>
-                    <p class="text-muted small mb-4">Crispy fried pork</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱60</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              $conn->close();
+              ?>
 
-              <!-- Chicken Skin -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Add-On</span>
-                  <img src="image/Chicken Skin.jpg" class="card-img-top" alt="Chicken Skin">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Chicken Skin</h6>
-                    <p class="text-muted small mb-4">Crispy golden bites</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱60</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
           <!-- ==================== LUMPIA ==================== -->
-          <div class="menu-type lumpia">
+          <div class="menu-type lumpia" id="type-lumpia">
             <h5 class="fw-bold mt-5 mb-3 text-maroon">Lumpia</h5>
             <div class="row g-4 mb-4">
-              <!-- Shanghai -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Lumpia</span>
-                  <img src="image/Lumpia Shanghai.jpg" class="card-img-top" alt="Shanghai">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Shanghai (3pcs)</h6>
-                    <p class="text-muted small mb-4">Crispy savory rolls</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱40</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              
+              <?php
+              // Database connection
+              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              if ($conn->connect_error) {
+                die("<p class='text-danger text-center'>Database connection failed.</p>");
+              }
 
-              <!-- Gulay -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Lumpia</span>
-                  <img src="image/Lumpia Gulay.jpg" class="card-img-top" alt="Gulay">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Gulay (3pcs)</h6>
-                    <p class="text-muted small mb-4">Fresh veggie rolls</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱40</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              // Fetch all Food items of type 'Lumpia'
+              $query = "SELECT * FROM supplies WHERE category='Food' AND type='Lumpia' AND is_archived = 0 ORDER BY id ASC";
+              $result = $conn->query($query);
 
-              <!-- Toge -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Lumpia</span>
-                  <img src="image/Lumpia Toge.jpg" class="card-img-top" alt="Toge">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Toge (4pcs)</h6>
-                    <p class="text-muted small mb-4">Crispy bean delight</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱40</p>
-                      <button class="btn btn-add">Add</button>
+              if ($result && $result->num_rows > 0):
+                while ($row = $result->fetch_assoc()):
+                  $status = strtolower($row['status']);
+                  $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                  // Add grayscale filter for unavailable images
+                  $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+              ?>
+                  <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                    <div class="card menu-card position-relative">
+                      <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                      <img src="<?= htmlspecialchars($row['image']) ?>" 
+                        class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                      style="<?= $imageStyle ?>">
+
+                      <div class="card-body">
+                        <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                        <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                          <?php if ($isAvailable): ?>
+                            <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                          <?php else: ?>
+                            <span class="text-danger small">Out of Stock</span>
+                          <?php endif; ?>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+
+              <?php
+                endwhile;
+              else:
+                echo "<p class='text-center text-muted'>No Lumpia items found.</p>";
+              endif;
+
+              $conn->close();
+              ?>
+
             </div>
           </div>
 
           <!-- ==================== SNACKS ==================== -->
-          <div class="menu-type snacks">
+          <div class="menu-type snacks" id="type-snacks">
             <h5 class="fw-bold mt-5 mb-3 text-maroon">Snacks</h5>
             <div class="row g-4 mb-4">
 
-              <!-- French Fries (BBQ) -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Snack</span>
-                  <img src="image/French Fries BBQ.jpg" class="card-img-top" alt="French Fries BBQ">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">French Fries (BBQ)</h6>
-                    <p class="text-muted small mb-4">Savory barbecue flavor</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱40</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <?php
+              // Database connection
+              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              if ($conn->connect_error) {
+                die("<p class='text-danger text-center'>Database connection failed.</p>");
+              }
 
-              <!-- French Fries (Sour Cream) -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Snack</span>
-                  <img src="image/French Fries Sour Cream.jpg" class="card-img-top" alt="French Fries Sour Cream">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">French Fries (Sour Cream)</h6>
-                    <p class="text-muted small mb-4">Creamy tangy taste</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱40</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              // Fetch all Food items of type 'Snacks'
+              $query = "SELECT * FROM supplies WHERE category='Food' AND type='Snacks' AND is_archived = 0 ORDER BY id ASC";
+              $result = $conn->query($query);
 
-              <!-- French Fries (Cheese) -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Snack</span>
-                  <img src="image/French Fries Cheese.jpg" class="card-img-top" alt="French Fries Cheese">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">French Fries (Cheese)</h6>
-                    <p class="text-muted small mb-4">Cheesy salty goodness</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱40</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              if ($result && $result->num_rows > 0):
+                while ($row = $result->fetch_assoc()):
+                  $status = strtolower($row['status']);
+                  $isAvailable = $status === 'available' && $row['quantity'] > 0;
 
-              <!-- Cheese Sticks (12pcs) -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Snack</span>
-                  <img src="image/Cheese Sticks 12pcs.jpg" class="card-img-top" alt="Cheese Sticks">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Cheese Sticks (12pcs)</h6>
-                    <p class="text-muted small mb-4">Crispy cheesy delight</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱30</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                  // Add grayscale filter for unavailable images
+                  $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+              ?>
+                  <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                    <div class="card menu-card position-relative">
+                      <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
 
-              <!-- Tinapay (3pcs) -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Snack</span>
-                  <img src="image/Tinapay 3pcs.jpg" class="card-img-top" alt="Tinapay">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Tinapay (3pcs)</h6>
-                    <p class="text-muted small mb-4">Soft fresh bread</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱20</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                      <img src="<?= htmlspecialchars($row['image']) ?>" 
+                        class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                      style="<?= $imageStyle ?>">
 
-              <!-- Tinapay with Spread (3pcs) -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Snack</span>
-                  <img src="image/Tinapay with Spread 3pcs.jpg" class="card-img-top" alt="Tinapay with Spread">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Tinapay with Spread (3pcs)</h6>
-                    <p class="text-muted small mb-4">Sweet buttery bread</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱30</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                      <div class="card-body">
+                        <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
 
-              <!-- Burger Regular -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Snack</span>
-                  <img src="image/Burger Regular.jpg" class="card-img-top" alt="Burger Regular">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Burger Regular</h6>
-                    <p class="text-muted small mb-4">Juicy classic patty</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱35</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                        <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                          <?php if ($isAvailable): ?>
+                            <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                          <?php else: ?>
+                            <span class="text-danger small">Out of Stock</span>
+                          <?php endif; ?>
+                        </div>
 
-              <!-- Burger with Cheese -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Snack</span>
-                  <img src="image/Burger with Cheese.jpg" class="card-img-top" alt="Burger with Cheese">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Burger with Cheese</h6>
-                    <p class="text-muted small mb-4">Melty cheesy burger</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱40</p>
-                      <button class="btn btn-add">Add</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              <!-- Nagaraya Butter Yellow (Small) -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Snack</span>
-                  <img src="image/Nagaraya Butter Yellow Small.jpg" class="card-img-top" alt="Nagaraya Butter Yellow">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Nagaraya Butter Yellow (Small)</h6>
-                    <p class="text-muted small mb-4">Crunchy butter nuts</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱20</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <?php
+                endwhile;
+              else:
+                echo "<p class='text-center text-muted'>No Snacks items found.</p>";
+              endif;
 
-              <!-- Nova Country Cheddar (Small) -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Snack</span>
-                  <img src="image/Nova Country Cheddar Small.jpg" class="card-img-top" alt="Nova Country Cheddar">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Nova Country Cheddar (Small)</h6>
-                    <p class="text-muted small mb-4">Cheesy crunchy chips</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱25</p>
-                      <button class="btn btn-add">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              $conn->close();
+              ?>
 
             </div>
           </div>
 
           <!-- ==================== DRINKS ==================== -->
-          <div class="menu-type drinks">
-            <h5 class="fw-bold mt-5 mb-3 text-maroon">Water</h5>
-            <div class="row g-4">
-              <!-- Bottled Water -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Water</span>
-                  <img src="image/Bottled Water.jpg" class="card-img-top" alt="Bottled Water">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Bottled Water (500ml)</h6>
-                    <p class="text-muted small mb-4">Refreshing purified water</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱25</p>
-                      <button class="btn btn-add">Add</button>
+          <div class="menu-type drinks" id="type-drinks">
+
+            <!-- ==================== WATER ==================== -->
+            <div class="menu-type water" id="type-water">
+              <h5 class="fw-bold mt-5 mb-3 text-maroon">Water</h5>
+              <div class="row g-4">
+
+                <?php
+                // Database connection
+                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                if ($conn->connect_error) {
+                  die("<p class='text-danger text-center'>Database connection failed.</p>");
+                }
+
+                // Fetch all Food items of type 'Water'
+                $query = "SELECT * FROM supplies WHERE category='Food' AND type='Water' AND is_archived = 0 ORDER BY id ASC";
+                $result = $conn->query($query);
+
+                if ($result && $result->num_rows > 0):
+                  while ($row = $result->fetch_assoc()):
+                    $status = strtolower($row['status']);
+                    $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                    // Add grayscale filter for unavailable images
+                    $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+                ?>
+                    <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                      <div class="card menu-card position-relative">
+                        <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                        <img src="<?= htmlspecialchars($row['image']) ?>" 
+                          class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                        style="<?= $imageStyle ?>">
+
+                        <div class="card-body">
+                          <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                          <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                            <?php if ($isAvailable): ?>
+                              <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                            <?php else: ?>
+                              <span class="text-danger small">Out of Stock</span>
+                            <?php endif; ?>
+                          </div>
+
+                          <div class="d-flex justify-content-between align-items-center">
+                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </div>
 
-              <!-- Purified Hot Water -->
-              <div class="col-md-4 col-lg-4">
-                <div class="card menu-card position-relative">
-                  <span class="category-badge">Water</span>
-                  <img src="image/Purified Hot Water Mug.jpg" class="card-img-top" alt="Purified Hot Water">
-                  <div class="card-body">
-                    <h6 class="fw-bold mb-1">Purified Hot Water Only (Mug)</h6>
-                    <p class="text-muted small mb-4">Served hot and ready to sip</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <p class="price mb-0">₱10</p>
-                      <button class="btn btn-add">Add</button>
+                <?php
+                  endwhile;
+                else:
+                  echo "<p class='text-center text-muted'>No Water items found.</p>";
+                endif;
+
+                $conn->close();
+                ?>
+
+              </div>
+            </div>
+
+            <!-- ==================== ICE ==================== -->
+            <div class="menu-type ice" id="type-ice">
+              <h5 class="fw-bold mt-5 mb-3 text-maroon">Ice</h5>
+              <div class="row g-4">
+
+                <?php
+                // Database connection
+                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                if ($conn->connect_error) {
+                  die("<p class='text-danger text-center'>Database connection failed.</p>");
+                }
+
+                // Fetch all Food items of type 'Ice'
+                $query = "SELECT * FROM supplies WHERE category='Food' AND type='Ice' AND is_archived = 0 ORDER BY id ASC";
+                $result = $conn->query($query);
+
+                if ($result && $result->num_rows > 0):
+                  while ($row = $result->fetch_assoc()):
+                    $status = strtolower($row['status']);
+                    $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                    // Add grayscale filter for unavailable images
+                    $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+                ?>
+                    <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                      <div class="card menu-card position-relative">
+                        <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                        <img src="<?= htmlspecialchars($row['image']) ?>" 
+                          class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                        style="<?= $imageStyle ?>">
+
+                        <div class="card-body">
+                          <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                          <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                            <?php if ($isAvailable): ?>
+                              <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                            <?php else: ?>
+                              <span class="text-danger small">Out of Stock</span>
+                            <?php endif; ?>
+                          </div>
+
+                          <div class="d-flex justify-content-between align-items-center">
+                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+
+                <?php
+                  endwhile;
+                else:
+                  echo "<p class='text-center text-muted'>No Ice items found.</p>";
+                endif;
+
+                $conn->close();
+                ?>
+
               </div>
             </div>
 
-        <!-- ICE -->
-        <h5 class="fw-bold mt-5 mb-3 text-maroon">Ice</h5>
-        <div class="row g-4">
-          <!-- Ice Bucket -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Ice</span>
-              <img src="image/Ice Bucket.jpg" class="card-img-top" alt="Ice Bucket">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Ice Bucket</h6>
-                <p class="text-muted small mb-4">Cold refreshing ice</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱40</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+            <!-- ==================== SOFTDRINKS ==================== -->
+            <div class="menu-type softdrinks" id="type-softdrinks">
+              <h5 class="fw-bold mt-5 mb-3 text-maroon">Softdrinks</h5>
+              <div class="row g-4">
 
-        <!-- SOFTDRINKS -->
-        <h5 class="fw-bold mt-5 mb-3 text-maroon">Softdrinks</h5>
-        <div class="row g-4">
-          <!-- Coke Mismo -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Softdrink</span>
-              <img src="image/Coke Mismo.jpg" class="card-img-top" alt="Coke Mismo">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Coke Mismo</h6>
-                <p class="text-muted small mb-4">Classic fizzy cola</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱25</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
+                <?php
+                // Database connection
+                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                if ($conn->connect_error) {
+                  die("<p class='text-danger text-center'>Database connection failed.</p>");
+                }
 
-          <!-- Royal Mismo -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Softdrink</span>
-              <img src="image/Royal Mismo.jpg" class="card-img-top" alt="Royal Mismo">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Royal Mismo</h6>
-                <p class="text-muted small mb-4">Sweet orange soda</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱25</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
+                // Fetch all Food items of type 'Softdrinks'
+                $query = "SELECT * FROM supplies WHERE category='Food' AND type='Softdrinks' AND is_archived = 0 ORDER BY id ASC";
+                $result = $conn->query($query);
 
-          <!-- Sting Energy Drink -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Softdrink</span>
-              <img src="image/Sting Energy Drink.jpg" class="card-img-top" alt="Sting Energy Drink">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Sting Energy Drink</h6>
-                <p class="text-muted small mb-4">Bold energizing flavor</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱30</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+                if ($result && $result->num_rows > 0):
+                  while ($row = $result->fetch_assoc()):
+                    $status = strtolower($row['status']);
+                    $isAvailable = $status === 'available' && $row['quantity'] > 0;
 
-        <!-- SHAKES -->
-        <h5 class="fw-bold mt-5 mb-3 text-maroon">Shakes</h5>
-        <div class="row g-4">
-          <!-- Dragon Fruit -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Shake</span>
-              <img src="image/Dragon Fruit Shake.jpg" class="card-img-top" alt="Dragon Fruit Shake">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Dragon Fruit</h6>
-                <p class="text-muted small mb-4">Fresh tropical blend</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱70</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
+                    // Add grayscale filter for unavailable images
+                    $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+                ?>
+                    <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                      <div class="card menu-card position-relative">
+                        <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
 
-          <!-- Mango -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Shake</span>
-              <img src="image/Mango Shake.jpg" class="card-img-top" alt="Mango Shake">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Mango</h6>
-                <p class="text-muted small mb-4">Sweet creamy delight</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱70</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
+                        <img src="<?= htmlspecialchars($row['image']) ?>" 
+                          class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                        style="<?= $imageStyle ?>">
 
-          <!-- Cucumber -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Shake</span>
-              <img src="image/Cucumber Shake.jpg" class="card-img-top" alt="Cucumber Shake">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Cucumber</h6>
-                <p class="text-muted small mb-4">Cool refreshing mix</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱70</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
+                        <div class="card-body">
+                          <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
 
-          <!-- Avocado -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Shake</span>
-              <img src="image/Avocado Shake.jpg" class="card-img-top" alt="Avocado Shake">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Avocado</h6>
-                <p class="text-muted small mb-4">Rich creamy flavor</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱70</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
+                          <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                            <?php if ($isAvailable): ?>
+                              <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                            <?php else: ?>
+                              <span class="text-danger small">Out of Stock</span>
+                            <?php endif; ?>
+                          </div>
 
-          <!-- Chocolate -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Shake</span>
-              <img src="image/Chocolate Shake.jpg" class="card-img-top" alt="Chocolate Shake">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Chocolate</h6>
-                <p class="text-muted small mb-4">Smooth cocoa blend</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱40</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
+                          <div class="d-flex justify-content-between align-items-center">
+                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-          <!-- Taro -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Shake</span>
-              <img src="image/Taro Shake.jpg" class="card-img-top" alt="Taro Shake">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Taro</h6>
-                <p class="text-muted small mb-4">Sweet nutty taste</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱40</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
+                <?php
+                  endwhile;
+                else:
+                  echo "<p class='text-center text-muted'>No Softdrinks items found.</p>";
+                endif;
 
-          <!-- Ube -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Shake</span>
-              <img src="image/Ube Shake.jpg" class="card-img-top" alt="Ube Shake">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Ube</h6>
-                <p class="text-muted small mb-4">Creamy purple blend</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱40</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
+                $conn->close();
+                ?>
 
-          <!-- Strawberry -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Shake</span>
-              <img src="image/Strawberry Shake.jpg" class="card-img-top" alt="Strawberry Shake">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Strawberry</h6>
-                <p class="text-muted small mb-4">Sweet berry flavor</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱40</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        <!-- JUICE -->
-        <h5 class="fw-bold mt-5 mb-3 text-maroon">Juice</h5>
-        <div class="row g-4">
-          <!-- Del Monte Pineapple Juice -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Juice</span>
-              <img src="image/Pineapple Juice.jpg" class="card-img-top" alt="Del Monte Pineapple Juice">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Pineapple Juice</h6>
-                <p class="text-muted small mb-4">Fresh tangy flavor</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱60</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+            <!-- ==================== SHAKES ==================== -->
+            <div class="menu-type shakes" id="type-shakes">
+              <h5 class="fw-bold mt-5 mb-3 text-maroon">Shakes</h5>
+              <div class="row g-4">
 
-        <!-- COFFEE -->
-        <h5 class="fw-bold mt-5 mb-3 text-maroon">Coffee</h5>
-        <div class="row g-4">
-          <!-- Instant Coffee -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Coffee</span>
-              <img src="image/Instant Coffee.jpg" class="card-img-top" alt="Instant Coffee">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Instant Coffee</h6>
-                <p class="text-muted small mb-4">Quick hot brew</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱25</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
+                <?php
+                // Database connection
+                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                if ($conn->connect_error) {
+                  die("<p class='text-danger text-center'>Database connection failed.</p>");
+                }
 
-          <!-- Brewed Coffee -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Coffee</span>
-              <img src="image/Brewed Coffee.jpg" class="card-img-top" alt="Brewed Coffee">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Brewed Coffee</h6>
-                <p class="text-muted small mb-4">Rich aroma flavor</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱45</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+                // Fetch all Food items of type 'Shakes'
+                $query = "SELECT * FROM supplies WHERE category='Food' AND type='Shakes' AND is_archived = 0 ORDER BY id ASC";
+                $result = $conn->query($query);
 
-        <!-- TEA -->
-        <h5 class="fw-bold mt-5 mb-3 text-maroon">Teas</h5>
-        <div class="row g-4">
-          <!-- Hot Tea (Green) -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Tea</span>
-              <img src="image/Hot Tea Green.jpg" class="card-img-top" alt="Hot Tea Green">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Hot Tea (Green)</h6>
-                <p class="text-muted small mb-4">Soothing herbal warmth</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱25</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
+                if ($result && $result->num_rows > 0):
+                  while ($row = $result->fetch_assoc()):
+                    $status = strtolower($row['status']);
+                    $isAvailable = $status === 'available' && $row['quantity'] > 0;
 
-          <!-- Hot Tea (Black) -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Tea</span>
-              <img src="image/Hot Tea Black.jpg" class="card-img-top" alt="Hot Tea Black">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Hot Tea (Black)</h6>
-                <p class="text-muted small mb-4">Bold smooth flavor</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱25</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+                    // Add grayscale filter for unavailable images
+                    $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+                ?>
+                    <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                      <div class="card menu-card position-relative">
+                        <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
 
-        <!-- MILO -->
-        <h5 class="fw-bold mt-5 mb-3 text-maroon">Other Drinks</h5>
-        <div class="row g-4">
-          <!-- Milo Hot Chocolate Drink -->
-          <div class="col-md-4 col-lg-4">
-            <div class="card menu-card position-relative">
-              <span class="category-badge">Milo</span>
-              <img src="image/Milo Hot Chocolate.jpg" class="card-img-top" alt="Milo Hot Chocolate Drink">
-              <div class="card-body">
-                <h6 class="fw-bold mb-1">Milo Hot Chocolate Drink</h6>
-                <p class="text-muted small mb-4">Creamy chocolate energy</p>
-                <div class="d-flex justify-content-between align-items-center">
-                  <p class="price mb-0">₱25</p>
-                  <button class="btn btn-add">Add</button>
-                </div>
+                        <img src="<?= htmlspecialchars($row['image']) ?>" 
+                          class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                        style="<?= $imageStyle ?>">
+
+                        <div class="card-body">
+                          <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                          <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                            <?php if ($isAvailable): ?>
+                              <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                            <?php else: ?>
+                              <span class="text-danger small">Out of Stock</span>
+                            <?php endif; ?>
+                          </div>
+
+                          <div class="d-flex justify-content-between align-items-center">
+                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                <?php
+                  endwhile;
+                else:
+                  echo "<p class='text-center text-muted'>No Shakes items found.</p>";
+                endif;
+
+                $conn->close();
+                ?>
+
               </div>
             </div>
+
+            <!-- ==================== JUICE ==================== -->
+            <div class="menu-type juice" id="type-juice">
+              <h5 class="fw-bold mt-5 mb-3 text-maroon">Juice</h5>
+              <div class="row g-4">
+
+                <?php
+                // Database connection
+                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                if ($conn->connect_error) {
+                  die("<p class='text-danger text-center'>Database connection failed.</p>");
+                }
+
+                // Fetch all Food items of type 'Juice'
+                $query = "SELECT * FROM supplies WHERE category='Food' AND type='Juice' AND is_archived = 0 ORDER BY id ASC";
+                $result = $conn->query($query);
+
+                if ($result && $result->num_rows > 0):
+                  while ($row = $result->fetch_assoc()):
+                    $status = strtolower($row['status']);
+                    $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                    // Add grayscale filter for unavailable images
+                    $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+                ?>
+                    <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                      <div class="card menu-card position-relative">
+                        <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                        <img src="<?= htmlspecialchars($row['image']) ?>" 
+                          class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                        style="<?= $imageStyle ?>">
+
+                        <div class="card-body">
+                          <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                          <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                            <?php if ($isAvailable): ?>
+                              <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                            <?php else: ?>
+                              <span class="text-danger small">Out of Stock</span>
+                            <?php endif; ?>
+                          </div>
+
+                          <div class="d-flex justify-content-between align-items-center">
+                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                <?php
+                  endwhile;
+                else:
+                  echo "<p class='text-center text-muted'>No Juice items found.</p>";
+                endif;
+
+                $conn->close();
+                ?>
+
+              </div>
+            </div>
+
+            <!-- ==================== COFFEE ==================== -->
+            <div class="menu-type coffee" id="type-coffee">
+              <h5 class="fw-bold mt-5 mb-3 text-maroon">Coffee</h5>
+              <div class="row g-4">
+
+                <?php
+                // Database connection
+                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                if ($conn->connect_error) {
+                  die("<p class='text-danger text-center'>Database connection failed.</p>");
+                }
+
+                // Fetch all Food items of type 'Coffee'
+                $query = "SELECT * FROM supplies WHERE category='Food' AND type='Coffee' AND is_archived = 0 ORDER BY id ASC";
+                $result = $conn->query($query);
+
+                if ($result && $result->num_rows > 0):
+                  while ($row = $result->fetch_assoc()):
+                    $status = strtolower($row['status']);
+                    $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                    // Add grayscale filter for unavailable images
+                    $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+                ?>
+                    <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                      <div class="card menu-card position-relative">
+                        <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                        <img src="<?= htmlspecialchars($row['image']) ?>" 
+                          class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                        style="<?= $imageStyle ?>">
+
+                        <div class="card-body">
+                          <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                          <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                            <?php if ($isAvailable): ?>
+                              <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                            <?php else: ?>
+                              <span class="text-danger small">Out of Stock</span>
+                            <?php endif; ?>
+                          </div>
+
+                          <div class="d-flex justify-content-between align-items-center">
+                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                <?php
+                  endwhile;
+                else:
+                  echo "<p class='text-center text-muted'>No Coffee items found.</p>";
+                endif;
+
+                $conn->close();
+                ?>
+
+              </div>
+            </div>
+
+            <!-- ==================== TEAS ==================== -->
+            <div class="menu-type teas" id="type-teas">
+              <h5 class="fw-bold mt-5 mb-3 text-maroon">Teas</h5>
+              <div class="row g-4">
+
+                <?php
+                // Database connection
+                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                if ($conn->connect_error) {
+                  die("<p class='text-danger text-center'>Database connection failed.</p>");
+                }
+
+                // Fetch all Food items of type 'Teas'
+                $query = "SELECT * FROM supplies WHERE category='Food' AND type='Teas' AND is_archived = 0 ORDER BY id ASC";
+                $result = $conn->query($query);
+
+                if ($result && $result->num_rows > 0):
+                  while ($row = $result->fetch_assoc()):
+                    $status = strtolower($row['status']);
+                    $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                    // Add grayscale filter for unavailable images
+                    $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+                ?>
+                    <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                      <div class="card menu-card position-relative">
+                        <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                        <img src="<?= htmlspecialchars($row['image']) ?>" 
+                          class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                        style="<?= $imageStyle ?>">
+
+                        <div class="card-body">
+                          <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                          <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                            <?php if ($isAvailable): ?>
+                              <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                            <?php else: ?>
+                              <span class="text-danger small">Out of Stock</span>
+                            <?php endif; ?>
+                          </div>
+
+                          <div class="d-flex justify-content-between align-items-center">
+                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                <?php
+                  endwhile;
+                else:
+                  echo "<p class='text-center text-muted'>No Teas items found.</p>";
+                endif;
+
+                $conn->close();
+                ?>
+
+              </div>
+            </div>
+
+            <!-- ==================== OTHER DRINKS ==================== -->
+            <div class="menu-type other-drinks" id="type-otherDrinks">
+              <h5 class="fw-bold mt-5 mb-3 text-maroon">Other Drinks</h5>
+              <div class="row g-4">
+
+                <?php
+                // Database connection
+                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                if ($conn->connect_error) {
+                  die("<p class='text-danger text-center'>Database connection failed.</p>");
+                }
+
+                // Fetch all Food items of type 'Other Drinks'
+                $query = "SELECT * FROM supplies WHERE category='Food' AND type='Other Drinks' AND is_archived = 0 ORDER BY id ASC";
+                $result = $conn->query($query);
+
+                if ($result && $result->num_rows > 0):
+                  while ($row = $result->fetch_assoc()):
+                    $status = strtolower($row['status']);
+                    $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                    // Add grayscale filter for unavailable images
+                    $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+                ?>
+                    <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                      <div class="card menu-card position-relative">
+                        <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                        <img src="<?= htmlspecialchars($row['image']) ?>" 
+                          class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                        style="<?= $imageStyle ?>">
+
+                        <div class="card-body">
+                          <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                          <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                            <?php if ($isAvailable): ?>
+                              <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                            <?php else: ?>
+                              <span class="text-danger small">Out of Stock</span>
+                            <?php endif; ?>
+                          </div>
+
+                          <div class="d-flex justify-content-between align-items-center">
+                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                <?php
+                  endwhile;
+                else:
+                  echo "<p class='text-center text-muted'>No Other Drinks items found.</p>";
+                endif;
+
+                $conn->close();
+                ?>
+
+              </div>
+            </div>
+
           </div>
-        </div>
-        </div>
         </div>
       </div>
 
-    <!-- ==================== NON FOOD ==================== -->
-    <div class="menu-category non-food">
-      <div class="container my-4">
-        <h3 class="text-center mb-4 fw-bold text-uppercase">Non-Food Menu</h3>
+      <!-- ==================== NON FOOD ==================== -->
+      <div class="menu-category non-food" id="category-nonfood">
+        <div class="container my-4">
+          <h3 class="text-center mb-4 fw-bold text-uppercase">Non-Food Menu</h3>
 
-        <!-- Essentials -->
-        <div class="menu-type essentials">
-          <h5 class="fw-bold mt-5 mb-3 text-black">Essentials</h5>
-          <div class="row g-4">
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Essentials</span>
-                <img src="image/Face Mask Disposable.jpg" class="card-img-top" alt="Face Mask Disposable">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Face Mask Disposable</h6>
-                  <p class="text-muted small mb-4">Protective daily wear</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱5</p>
-                    <button class="btn btn-add">Add</button>
+          <!-- Essentials -->
+          <div class="menu-type essentials" id="type-essentials">
+            <h5 class="fw-bold mt-5 mb-3 text-black">Essentials</h5>
+            <div class="row g-4">
+                
+              <?php
+              // Database connection
+              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              if ($conn->connect_error) {
+                die("<p class='text-danger text-center'>Database connection failed.</p>");
+              }
+
+              // Fetch all Food items of type 'Essentials'
+              $query = "SELECT * FROM supplies WHERE category='Non-Food' AND type='Essentials' AND is_archived = 0 ORDER BY id ASC";
+              $result = $conn->query($query);
+
+              if ($result && $result->num_rows > 0):
+                while ($row = $result->fetch_assoc()):
+                  $status = strtolower($row['status']);
+                  $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                  // Add grayscale filter for unavailable images
+                  $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+              ?>
+                  <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                    <div class="card menu-card position-relative">
+                      <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                      <img src="<?= htmlspecialchars($row['image']) ?>" 
+                        class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                      style="<?= $imageStyle ?>">
+
+                      <div class="card-body">
+                        <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                        <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                          <?php if ($isAvailable): ?>
+                            <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                          <?php else: ?>
+                            <span class="text-danger small">Out of Stock</span>
+                          <?php endif; ?>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+
+              <?php
+                endwhile;
+              else:
+                echo "<p class='text-center text-muted'>No Essentials items found.</p>";
+              endif;
+
+              $conn->close();
+              ?>
+
+            </div>
+          </div>
+
+          <!-- Dental Care -->
+          <div class="menu-type dental-care" id="type-dentalCare">
+            <h5 class="fw-bold mt-5 mb-3 text-black">Dental Care</h5>
+            <div class="row g-4">
+
+              <?php
+              // Database connection
+              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              if ($conn->connect_error) {
+                die("<p class='text-danger text-center'>Database connection failed.</p>");
+              }
+
+              // Fetch all Food items of type 'Dental Care'
+              $query = "SELECT * FROM supplies WHERE category='Non-Food' AND type='Dental Care' AND is_archived = 0 ORDER BY id ASC";
+              $result = $conn->query($query);
+
+              if ($result && $result->num_rows > 0):
+                while ($row = $result->fetch_assoc()):
+                  $status = strtolower($row['status']);
+                  $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                  // Add grayscale filter for unavailable images
+                  $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+              ?>
+                  <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                    <div class="card menu-card position-relative">
+                      <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                      <img src="<?= htmlspecialchars($row['image']) ?>" 
+                        class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                      style="<?= $imageStyle ?>">
+
+                      <div class="card-body">
+                        <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                        <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                          <?php if ($isAvailable): ?>
+                            <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                          <?php else: ?>
+                            <span class="text-danger small">Out of Stock</span>
+                          <?php endif; ?>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+              <?php
+                endwhile;
+              else:
+                echo "<p class='text-center text-muted'>No Dental Care items found.</p>";
+              endif;
+
+              $conn->close();
+              ?>
+
+            </div>
+          </div>
+
+          <!-- Feminine Hygiene -->
+          <div class="menu-type feminine-hygiene" id="type-feminineHygiene">
+            <h5 class="fw-bold mt-5 mb-3 text-black">Feminine Hygiene</h5>
+            <div class="row g-4">
+
+              <?php
+              // Database connection
+              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              if ($conn->connect_error) {
+                die("<p class='text-danger text-center'>Database connection failed.</p>");
+              }
+
+              // Fetch all Food items of type 'Feminine Hygiene'
+              $query = "SELECT * FROM supplies WHERE category='Non-Food' AND type='Feminine Hygiene' AND is_archived = 0 ORDER BY id ASC";
+              $result = $conn->query($query);
+
+              if ($result && $result->num_rows > 0):
+                while ($row = $result->fetch_assoc()):
+                  $status = strtolower($row['status']);
+                  $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                  // Add grayscale filter for unavailable images
+                  $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+              ?>
+                  <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                    <div class="card menu-card position-relative">
+                      <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                      <img src="<?= htmlspecialchars($row['image']) ?>" 
+                        class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                      style="<?= $imageStyle ?>">
+
+                      <div class="card-body">
+                        <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                        <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                          <?php if ($isAvailable): ?>
+                            <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                          <?php else: ?>
+                            <span class="text-danger small">Out of Stock</span>
+                          <?php endif; ?>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+              <?php
+                endwhile;
+              else:
+                echo "<p class='text-center text-muted'>No Feminine Hygiene items found.</p>";
+              endif;
+
+              $conn->close();
+              ?>
+
+            </div>
+          </div>
+
+          <!-- Shampoo -->
+          <div class="menu-type shampoo" id="type-shampoo">
+            <h5 class="fw-bold mt-5 mb-3 text-black">Shampoo</h5>
+            <div class="row g-4">
+
+              <?php
+              // Database connection
+              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              if ($conn->connect_error) {
+                die("<p class='text-danger text-center'>Database connection failed.</p>");
+              }
+
+              // Fetch all Food items of type 'Shampoo'
+              $query = "SELECT * FROM supplies WHERE category='Non-Food' AND type='Shampoo' AND is_archived = 0 ORDER BY id ASC";
+              $result = $conn->query($query);
+
+              if ($result && $result->num_rows > 0):
+                while ($row = $result->fetch_assoc()):
+                  $status = strtolower($row['status']);
+                  $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                  // Add grayscale filter for unavailable images
+                  $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+              ?>
+                  <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                    <div class="card menu-card position-relative">
+                      <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                      <img src="<?= htmlspecialchars($row['image']) ?>" 
+                        class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                      style="<?= $imageStyle ?>">
+
+                      <div class="card-body">
+                        <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                        <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                          <?php if ($isAvailable): ?>
+                            <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                          <?php else: ?>
+                            <span class="text-danger small">Out of Stock</span>
+                          <?php endif; ?>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+              <?php
+                endwhile;
+              else:
+                echo "<p class='text-center text-muted'>No Shampoo items found.</p>";
+              endif;
+
+              $conn->close();
+              ?>
+
+            </div>
+          </div>
+
+          <!-- Conditioner -->
+          <div class="menu-type conditioner" id="type-conditioner">
+            <h5 class="fw-bold mt-5 mb-3 text-black">Conditioner</h5>
+            <div class="row g-4">
+
+              <?php
+              // Database connection
+              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              if ($conn->connect_error) {
+                die("<p class='text-danger text-center'>Database connection failed.</p>");
+              }
+
+              // Fetch all Food items of type 'Conditioner'
+              $query = "SELECT * FROM supplies WHERE category='Non-Food' AND type='Conditioner' AND is_archived = 0 ORDER BY id ASC";
+              $result = $conn->query($query);
+
+              if ($result && $result->num_rows > 0):
+                while ($row = $result->fetch_assoc()):
+                  $status = strtolower($row['status']);
+                  $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                  // Add grayscale filter for unavailable images
+                  $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+              ?>
+                  <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                    <div class="card menu-card position-relative">
+                      <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                      <img src="<?= htmlspecialchars($row['image']) ?>" 
+                        class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                      style="<?= $imageStyle ?>">
+
+                      <div class="card-body">
+                        <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                        <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                          <?php if ($isAvailable): ?>
+                            <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                          <?php else: ?>
+                            <span class="text-danger small">Out of Stock</span>
+                          <?php endif; ?>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+              <?php
+                endwhile;
+              else:
+                echo "<p class='text-center text-muted'>No Conditioner items found.</p>";
+              endif;
+
+              $conn->close();
+              ?>
+
+            </div>
+          </div>
+
+          <!-- Trust Condom -->
+          <div class="menu-type personal-protection" id="type-personalProtection">
+            <h5 class="fw-bold mt-5 mb-3 text-black">Personal Protection</h5>
+            <div class="row g-4">
+
+              <?php
+              // Database connection
+              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              if ($conn->connect_error) {
+                die("<p class='text-danger text-center'>Database connection failed.</p>");
+              }
+
+              // Fetch all Food items of type 'Personal Protection'
+              $query = "SELECT * FROM supplies WHERE category='Non-Food' AND type='Personal Protection' AND is_archived = 0 ORDER BY id ASC";
+              $result = $conn->query($query);
+
+              if ($result && $result->num_rows > 0):
+                while ($row = $result->fetch_assoc()):
+                  $status = strtolower($row['status']);
+                  $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                  // Add grayscale filter for unavailable images
+                  $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+              ?>
+                  <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                    <div class="card menu-card position-relative">
+                      <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                      <img src="<?= htmlspecialchars($row['image']) ?>" 
+                        class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                      style="<?= $imageStyle ?>">
+
+                      <div class="card-body">
+                        <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                        <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                          <?php if ($isAvailable): ?>
+                            <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                          <?php else: ?>
+                            <span class="text-danger small">Out of Stock</span>
+                          <?php endif; ?>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+              <?php
+                endwhile;
+              else:
+                echo "<p class='text-center text-muted'>No Personal Protection items found.</p>";
+              endif;
+
+              $conn->close();
+              ?>
+
+            </div>
+          </div>
+
+          <!-- Disposable Utensils -->
+          <div class="menu-type utensils" id="type-utensils">
+            <h5 class="fw-bold mt-5 mb-3 text-black">Disposable Utensils</h5>
+            <div class="row g-4">
+
+              <?php
+              // Database connection
+              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              if ($conn->connect_error) {
+                die("<p class='text-danger text-center'>Database connection failed.</p>");
+              }
+
+              // Fetch all Food items of type 'Disposable Utensils'
+              $query = "SELECT * FROM supplies WHERE category='Non-Food' AND type='Disposable Utensils' AND is_archived = 0 ORDER BY id ASC";
+              $result = $conn->query($query);
+
+              if ($result && $result->num_rows > 0):
+                while ($row = $result->fetch_assoc()):
+                  $status = strtolower($row['status']);
+                  $isAvailable = $status === 'available' && $row['quantity'] > 0;
+
+                  // Add grayscale filter for unavailable images
+                  $imageStyle = $isAvailable ? '' : 'filter: grayscale(100%) brightness(70%);';
+              ?>
+                  <div class="col-md-4 col-lg-4" id="item-<?= htmlspecialchars(strtolower(str_replace(' ', '-', $row['name']))) ?>">
+                    <div class="card menu-card position-relative">
+                      <span class="category-badge"><?= htmlspecialchars($row['type']) ?></span>
+
+                      <img src="<?= htmlspecialchars($row['image']) ?>" 
+                        class="card-img-top" alt="<?= htmlspecialchars($row['name']) ?>"
+                      style="<?= $imageStyle ?>">
+
+                      <div class="card-body">
+                        <h6 class="fw-bold mb-1"><?= htmlspecialchars($row['name']) ?></h6>
+
+                        <div class="stock-badge mt-2 mb-4 d-flex justify-content-between align-items-center">
+                          <?php if ($isAvailable): ?>
+                            <span class="text-success small">In Stock (<?= $row['quantity'] ?>)</span>
+                          <?php else: ?>
+                            <span class="text-danger small">Out of Stock</span>
+                          <?php endif; ?>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+              <?php
+                endwhile;
+              else:
+                echo "<p class='text-center text-muted'>No Disposable Utensils items found.</p>";
+              endif;
+
+              $conn->close();
+              ?>
+
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Dental Care -->
-        <div class="menu-type dental-care">
-          <h5 class="fw-bold mt-5 mb-3 text-black">Dental Care</h5>
-          <div class="row g-4">
-            <!-- Toothbrush with Toothpaste -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Dental</span>
-                <img src="image/Toothbrush with Toothpaste.jpg" class="card-img-top" alt="Toothbrush with Toothpaste">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Toothbrush with Toothpaste</h6>
-                  <p class="text-muted small mb-4">Fresh morning care</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱25</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Colgate Toothpaste -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Dental</span>
-                <img src="image/Colgate Toothpaste.jpg" class="card-img-top" alt="Colgate Toothpaste">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Colgate Toothpaste</h6>
-                  <p class="text-muted small mb-4">Minty clean smile</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱20</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Feminine Hygiene -->
-        <div class="menu-type feminine-hygiene">
-          <h5 class="fw-bold mt-5 mb-3 text-black">Feminine Hygiene</h5>
-          <div class="row g-4">
-            <!-- Modess All Night Extra Long Pad -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Hygiene</span>
-                <img src="image/Modess All Night Extra Long Pad.jpg" class="card-img-top" alt="Modess All Night Extra Long Pad">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Modess All Night Extra Long Pad</h6>
-                  <p class="text-muted small mb-4">Comfort overnight protection</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱20</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Shampoo -->
-        <div class="menu-type shampoo">
-          <h5 class="fw-bold mt-5 mb-3 text-black">Shampoo</h5>
-          <div class="row g-4">
-            <!-- Sunsilk -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Shampoo</span>
-                <img src="image/Sunsilk Shampoo.jpg" class="card-img-top" alt="Sunsilk">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Sunsilk</h6>
-                  <p class="text-muted small mb-4">Smooth daily shine</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱15</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Creamsilk -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Shampoo</span>
-                <img src="image/Creamsilk Shampoo.jpg" class="card-img-top" alt="Creamsilk">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Creamsilk Shampoo</h6>
-                  <p class="text-muted small mb-4">Soft silky finish</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱15</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Palmolive Anti-Dandruff -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Shampoo</span>
-                <img src="image/Palmolive Anti-Dandruff Shampoo.jpg" class="card-img-top" alt="Palmolive Anti-Dandruff">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Palmolive Anti-Dandruff</h6>
-                  <p class="text-muted small mb-4">Fresh scalp care</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱15</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Dove -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Shampoo</span>
-                <img src="image/Dove Shampoo.jpg" class="card-img-top" alt="Dove">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Dove</h6>
-                  <p class="text-muted small mb-4">Gentle moisture care</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱15</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Conditioner -->
-         <div class="menu-type conditioner">
-          <h5 class="fw-bold mt-5 mb-3 text-black">Conditioner</h5>
-          <div class="row g-4">
-            <!-- Empress Keratin -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Conditioner</span>
-                <img src="image/Empress Keratin Conditioner.jpg" class="card-img-top" alt="Empress Keratin">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Empress Keratin</h6>
-                  <p class="text-muted small mb-4">Smooth frizz control</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱15</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Creamsilk -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Conditioner</span>
-                <img src="image/Creamsilk Conditioner.jpg" class="card-img-top" alt="Creamsilk">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Creamsilk Conditioner</h6>
-                  <p class="text-muted small mb-4">Soft silky finish</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱15</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-         </div>
-
-        <!-- Trust Condom -->
-         <div class="menu-type personal-protection">
-          <h5 class="fw-bold mt-5 mb-3 text-black">Personal Protection</h5>
-          <div class="row g-4">
-            <!-- Trust Condom (3pcs) -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Personal Care</span>
-                <img src="image/Trust Condom Boxed 3pcs.jpg" class="card-img-top" alt="Trust Condom (3pcs)">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Trust Condom (3pcs)</h6>
-                  <p class="text-muted small mb-4">Safe reliable protection</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱60</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-         </div>
-
-        <!-- Disposable Utensils -->
-         <div class="menu-type utensils">
-          <h5 class="fw-bold mt-5 mb-3 text-black">Disposable Utensils</h5>
-          <div class="row g-4">
-            <!-- Disposable Spoon -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Utensils</span>
-                <img src="image/Disposable Spoon.jpg" class="card-img-top" alt="Disposable Spoon">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Disposable Spoon</h6>
-                  <p class="text-muted small mb-4">Light easy serve</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱2.50</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Disposable Fork -->
-            <div class="col-md-4 col-lg-4">
-              <div class="card menu-card position-relative">
-                <span class="category-badge">Utensils</span>
-                <img src="image/Disposable Fork.jpg" class="card-img-top" alt="Disposable Fork">
-                <div class="card-body">
-                  <h6 class="fw-bold mb-1">Disposable Fork</h6>
-                  <p class="text-muted small mb-4">Durable plastic use</p>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <p class="price mb-0">₱2.50</p>
-                    <button class="btn btn-add">Add</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-         </div>
-        </div>
-       </div>
     </div>
   </div>
 </div>
 
+<!-- ==== ADD 'SCROLLED' CLASS TO BODY WHEN PAGE IS SCROLLED ==== -->
 <script>
 document.addEventListener("scroll", () => {
   if (window.scrollY > 10) {
@@ -2119,6 +2294,50 @@ document.addEventListener("scroll", () => {
 });
 </script>
 
+<!-- ====== SCROLL-TO-TOP BUTTON WITH SMOOTH WHOOSH EFFECT ====== -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const scrollTopBtn = document.getElementById("scrollTopBtn");
+
+  // Show/hide button on scroll
+  window.addEventListener("scroll", () => {
+    if (window.scrollY > 300) {
+      scrollTopBtn.classList.add("show");
+    } else {
+      scrollTopBtn.classList.remove("show");
+    }
+  });
+
+  // === Custom Smooth Scroll Up (Fun "Whoosh" Effect) ===
+  function scrollToTop() {
+    const start = window.scrollY;
+    const duration = 800; // ms
+    const startTime = performance.now();
+
+    // Easing function: easeOutCubic (fast then slow)
+    function easeOutCubic(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    function animateScroll(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const ease = easeOutCubic(progress);
+      window.scrollTo(0, start * (1 - ease));
+
+      if (elapsed < duration) {
+        requestAnimationFrame(animateScroll);
+      }
+    }
+
+    requestAnimationFrame(animateScroll);
+  }
+
+  scrollTopBtn.addEventListener("click", scrollToTop);
+});
+</script>
+
+<!-- ============== CLOCK & FILTER MENU SCRIPT ================== -->
 <script>
   // ==================== CLOCK SCRIPT ====================
   function updateClock() {
@@ -2230,10 +2449,28 @@ document.addEventListener("scroll", () => {
           case "instant-noodles":
           case "ricemeals":
           case "snacks":
-          case "drinks":
           case "lumpia":
             if (foodMenu) foodMenu.style.display = "block";
             showType(`.menu-type.${filter}`);
+            break;
+
+          // ✅ IMPROVED DRINKS LOGIC
+          case "drinks":
+            if (foodMenu) foodMenu.style.display = "block";
+            // Show the drinks section and all its subcategories
+            const drinksSection = document.querySelector(".menu-type.drinks");
+            if (drinksSection) drinksSection.style.display = "block";
+
+            // Show all drink subtypes dynamically (water, ice, softdrinks, shakes)
+            const drinkSubtypes = drinksSection.querySelectorAll(".menu-type");
+            if (drinkSubtypes.length > 0) {
+              drinkSubtypes.forEach((sub) => (sub.style.display = "block"));
+            } else {
+              // Fallback in case subtypes are direct children
+              document.querySelectorAll(".menu-type.drinks .menu-type").forEach((sub) => {
+                sub.style.display = "block";
+              });
+            }
             break;
 
           // ---- NON-FOOD CATEGORIES ----
@@ -2256,173 +2493,178 @@ document.addEventListener("scroll", () => {
   });
 </script>
 
+<!-- ==================== SEARCH MENU SCRIPT ==================== -->
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("menuSearch");
-  const allCategories = document.querySelectorAll(".menu-category");
-  const menuContainer = document.querySelector("#menuContainer") || document.body;
+  const allItems = document.querySelectorAll(".menu-type .col-md-4, .menu-type .col-lg-4");
+  const menuContainer = document.getElementById("menuContainer");
 
-  // --- Add smooth fade animation ---
-  const fadeOut = (el) => {
-    el.style.transition = "opacity 0.3s ease";
-    el.style.opacity = "0";
-    setTimeout(() => (el.style.display = "none"), 300);
+  // === Utility: Normalize text ===
+  const normalize = (text) => text.toLowerCase().trim();
+
+  // === Utility: Simple Levenshtein distance ===
+  function levenshtein(a, b) {
+    const m = [];
+    for (let i = 0; i <= b.length; i++) m[i] = [i];
+    for (let j = 0; j <= a.length; j++) m[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        m[i][j] = b[i - 1] === a[j - 1]
+          ? m[i - 1][j - 1]
+          : Math.min(m[i - 1][j - 1] + 1, m[i][j - 1] + 1, m[i - 1][j] + 1);
+      }
+    }
+    return m[b.length][a.length];
+  }
+
+  // === Utility: Fuzzy match threshold ===
+  const isFuzzyMatch = (query, text) => {
+    if (!query || !text) return false;
+    query = normalize(query);
+    text = normalize(text);
+    if (text.includes(query)) return true;
+    const distance = levenshtein(query, text);
+    const tolerance = Math.max(1, Math.floor(text.length * 0.25)); // 25% typo tolerance
+    return distance <= tolerance;
   };
 
-  const fadeIn = (el) => {
-    el.style.display = "";
-    el.style.opacity = "0";
-    el.style.transition = "opacity 0.3s ease";
-    setTimeout(() => (el.style.opacity = "1"), 20);
-  };
-
-  searchInput.addEventListener("input", function () {
-    const query = this.value.toLowerCase().trim();
+  // === Main search handler ===
+  searchInput.addEventListener("input", () => {
+    const query = normalize(searchInput.value);
     let anyVisible = false;
 
-    // Remove old "No Results"
-    const oldMsg = document.getElementById("noResults");
-    if (oldMsg) oldMsg.remove();
-
-    // If empty — show everything
+    // === Reset everything if empty ===
     if (!query) {
-      allCategories.forEach(category => {
-        fadeIn(category);
-        category.querySelectorAll(".menu-type").forEach(type => {
-          fadeIn(type);
-          type.querySelectorAll(".card").forEach(card => {
-            const col = card.closest(".col-md-4, .col-lg-3, .col-sm-6");
-            fadeIn(col);
-            fadeIn(card);
-          });
-        });
-      });
-      // ✅ Show all subcategory titles again
-      document.querySelectorAll("h5.fw-bold.mt-5.mb-3.text-maroon").forEach(h5 => fadeIn(h5));
+      document.querySelectorAll(".menu-category, .menu-type, .menu-type h5, .col-md-4, .col-lg-4")
+        .forEach((el) => (el.style.display = "block"));
+      const noResult = document.getElementById("noResults");
+      if (noResult) noResult.remove();
       return;
     }
 
-    // Main search logic
-    allCategories.forEach(category => {
-      const categoryTitle = category.querySelector("h3")?.textContent.toLowerCase() || "";
-      const menuTypes = category.querySelectorAll(".menu-type");
-      let categoryHasMatch = false;
+    // === Filter items ===
+    allItems.forEach((item) => {
+      const itemName = normalize(item.querySelector("h6")?.textContent || "");
+      const typeId = normalize(item.closest(".menu-type")?.id || "");
+      const categoryId = normalize(item.closest(".menu-category")?.id || "");
+      const combinedText = `${itemName} ${typeId} ${categoryId}`;
 
-      // Match "Food" or "Non-Food"
-      if (categoryTitle.includes(query)) {
-        fadeIn(category);
-        menuTypes.forEach(type => {
-          fadeIn(type);
-          type.querySelectorAll(".card").forEach(card => {
-            const col = card.closest(".col-md-4, .col-lg-3, .col-sm-6");
-            fadeIn(col);
-            fadeIn(card);
-          });
-        });
+      if (isFuzzyMatch(query, combinedText)) {
+        item.style.display = "block";
         anyVisible = true;
-        categoryHasMatch = true;
       } else {
-        // Check subcategories and cards
-        menuTypes.forEach(type => {
-          const typeTitle = type.querySelector("h5")?.textContent.toLowerCase() || "";
-          const cards = type.querySelectorAll(".card");
-          let typeHasMatch = false;
-
-          // If subcategory title matches query
-          if (typeTitle.includes(query)) {
-            fadeIn(type);
-            cards.forEach(card => {
-              const col = card.closest(".col-md-4, .col-lg-3, .col-sm-6");
-              fadeIn(col);
-              fadeIn(card);
-            });
-            typeHasMatch = true;
-            categoryHasMatch = true;
-            anyVisible = true;
-          } else {
-            // Otherwise, check individual cards
-            cards.forEach(card => {
-              const name = card.querySelector("h6")?.textContent.toLowerCase() || "";
-              const desc = card.querySelector("p")?.textContent.toLowerCase() || "";
-              const col = card.closest(".col-md-4, .col-lg-3, .col-sm-6");
-
-              if (name.includes(query) || desc.includes(query)) {
-                fadeIn(col);
-                fadeIn(card);
-                typeHasMatch = true;
-                categoryHasMatch = true;
-                anyVisible = true;
-              } else {
-                fadeOut(col);
-                fadeOut(card);
-              }
-            });
-          }
-
-          // ✅ Hide subcategory (like “Instant Noodles”) if no visible cards
-          if (typeHasMatch) fadeIn(type);
-          else fadeOut(type);
-        });
-
-        // ✅ Hide category (like “Food Menu” or “Non-Food Menu”) if no visible types
-        if (categoryHasMatch) fadeIn(category);
-        else fadeOut(category);
+        item.style.display = "none";
       }
     });
 
-    // ✅ Hide "Instant Noodles" and all other subcategory titles if no items under them
-    document.querySelectorAll("h5.fw-bold.mt-5.mb-3.text-maroon").forEach(h5 => {
-      const title = h5.textContent.toLowerCase().trim();
-      let hasVisibleCards = false;
+    // === Update each type block visibility ===
+    document.querySelectorAll(".menu-type").forEach((typeBlock) => {
+      const visibleItems = typeBlock.querySelectorAll(
+        '.col-md-4[style*="display: block"], .col-lg-4[style*="display: block"]'
+      );
+      const sectionTitles = typeBlock.querySelectorAll("h5");
 
-      // Check if there are visible cards under this title
-      const nextType = h5.nextElementSibling;
-      if (nextType && nextType.querySelectorAll(".card").length > 0) {
-        nextType.querySelectorAll(".card").forEach(card => {
-          if (card.offsetParent !== null) hasVisibleCards = true;
-        });
+      if (visibleItems.length > 0) {
+        typeBlock.style.display = "block";
+        sectionTitles.forEach((t) => (t.style.display = "block"));
+      } else {
+        typeBlock.style.display = "none";
+        sectionTitles.forEach((t) => (t.style.display = "none"));
       }
-
-      if (hasVisibleCards) fadeIn(h5);
-      else fadeOut(h5);
     });
 
-    // ✅ Show "No Results" message
+    // === Update category (Food / Non-Food) visibility ===
+    document.querySelectorAll(".menu-category").forEach((catBlock) => {
+      const visibleTypes = catBlock.querySelectorAll('.menu-type[style*="display: block"]');
+      catBlock.style.display = visibleTypes.length ? "block" : "none";
+    });
+
+    // === Handle "No Results" message ===
+    let noResultMsg = document.getElementById("noResults");
     if (!anyVisible) {
-      const msg = document.createElement("div");
-      msg.id = "noResults";
-      msg.innerHTML = `
-        <div style="
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          padding: 60px 20px;
-          background: #f8f8f8;
-          border-radius: 12px;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-          color: #555;
-          font-family: 'Poppins', sans-serif;
-          animation: fadeInMsg 0.3s ease;
-        ">
-          <div style="font-size: 3rem; line-height: 1;">🕵️‍♂️</div>
-          <div style="font-size: 1.3rem; font-weight: 600; margin-top: 10px;">No matching items found.</div>
-        </div>
-      `;
-
-      // Add smooth fade-in
-      msg.style.opacity = "0";
-      msg.style.transition = "opacity 0.3s ease";
-      menuContainer.appendChild(msg);
-      setTimeout(() => (msg.style.opacity = "1"), 50);
+      if (!noResultMsg) {
+        noResultMsg = document.createElement("div");
+        noResultMsg.id = "noResults";
+        noResultMsg.innerHTML = `
+          <div style="
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            width:100%;
+            padding:60px 20px;
+            background:#f8f8f8;
+            border-radius:12px;
+            box-shadow:0 4px 10px rgba(0,0,0,0.05);
+          ">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="#999" viewBox="0 0 24 24">
+              <path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Zm0 18a8 8 0 1 1 8-8 8.009 8.009 0 0 1-8 8Zm0-5a2.996 2.996 0 0 0-2.816 2H8a4 4 0 0 1 8 0h-1.184A2.996 2.996 0 0 0 12 15Zm-3-5a1 1 0 1 1-1-1 1 1 0 0 1 1 1Zm6 0a1 1 0 1 1-1-1 1 1 0 0 1 1 1Z"/>
+            </svg>
+            <p style="color:#777;font-weight:500;margin-top:10px;font-size:1.1rem;">
+              No matching items found.
+            </p>
+          </div>
+        `;
+        menuContainer.appendChild(noResultMsg);
+      }
+    } else if (noResultMsg) {
+      noResultMsg.remove();
     }
   });
 });
 </script>
 
+<!-- ============== FETCH AND DISPLAY STOCK BADGES ============== -->
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    const res = await fetch("guest_fetch_supplies.php");
+    const stockData = await res.json();
+
+    document.querySelectorAll(".menu-card").forEach((card) => {
+      const name = card.querySelector("h5, h6")?.textContent.trim().toLowerCase();
+      if (!name || !stockData[name]) return;
+
+      const { quantity, status } = stockData[name];
+      const badgeContainer = card.querySelector(".stock-badge");
+
+      let qtyBadge = "";
+      let statusBadge = "";
+
+      // ✅ Show maroon quantity badge only if not infinite (999)
+      if (quantity !== 999) {
+        qtyBadge = `<span class="badge bg-maroon">Quantity: ${quantity ?? 0}</span>`;
+      }
+
+      // ✅ Always right-aligned status badge
+      if (status === "unavailable") {
+        statusBadge = `<span class="badge bg-secondary">Unavailable</span>`;
+      } else if (quantity === 0) {
+        statusBadge = `<span class="badge bg-danger">Out of Stock</span>`;
+      } else if (quantity > 0 && quantity <= 5) {
+        statusBadge = `<span class="badge bg-warning text-dark">Low Stock</span>`;
+      } else if (quantity >= 6 || quantity === 999) {
+        statusBadge = `<span class="badge bg-success">Available</span>`;
+      }
+
+      // ✅ Align quantity on the left, status on the right
+      badgeContainer.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center w-100">
+          <div>${qtyBadge}</div>
+          <div>${statusBadge}</div>
+        </div>
+      `;
+    });
+  } catch (err) {
+    console.error("Error fetching supplies:", err);
+  }
+});
+</script>
+
+<!-- ================ CART FUNCTIONALITY SCRIPT ================ -->
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
   const addButtons = document.querySelectorAll(".btn-add");
   const cartButton = document.getElementById("cartButton");
   const cartSidebar = document.getElementById("cartSidebar");
@@ -2436,8 +2678,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const confirmOrderBtn = document.getElementById("confirmOrderBtn");
 
   let cart = JSON.parse(localStorage.getItem("cartData")) || [];
+  let stockData = {};
 
-  // === SIDEBAR TOGGLE ===
+  // ✅ Fetch item quantity + status from PHP
+  try {
+    const res = await fetch("guest_fetch_supplies.php");
+    stockData = await res.json(); // { "Mami": { quantity: 5, status: "available" }, ... }
+  } catch (e) {
+    console.error("Error fetching stock data:", e);
+    stockData = {};
+  }
+
   const toggleCart = (show) => {
     if (show) {
       cartSidebar.classList.add("active");
@@ -2447,11 +2698,12 @@ document.addEventListener("DOMContentLoaded", () => {
       cartOverlay.classList.remove("active");
     }
   };
+
   cartButton.addEventListener("click", () => toggleCart(true));
   closeCart.addEventListener("click", () => toggleCart(false));
   cartOverlay.addEventListener("click", () => toggleCart(false));
 
-  // === ADD TO CART ===
+  // ✅ Add button event
   addButtons.forEach((btn) => {
     btn.addEventListener("click", (e) => {
       const card = e.target.closest(".card");
@@ -2461,24 +2713,89 @@ document.addEventListener("DOMContentLoaded", () => {
       const img = card.querySelector("img")?.src || "";
       const priceText = card.querySelector(".price")?.textContent.trim() || "₱0";
       const price = parseFloat(priceText.replace(/[^\d.]/g, "")) || 0;
+      const key = name.toLowerCase().trim();
 
+      // ✅ Get stock data
+      const itemData = stockData[name] || stockData[key];
+      const quantity = itemData?.quantity;
+      const status = itemData?.status ?? "available";
+
+      // ✅ Handle unavailable cases
+      if (status === "unavailable") {
+        if (quantity == 999) {
+          Swal.fire({
+            icon: "error",
+            title: "Unavailable",
+            text: `"${name}" is currently unavailable.`,
+            confirmButtonColor: "#9c2b27"
+          });
+          return;
+        } else if (quantity == 0) {
+          Swal.fire({
+            icon: "error",
+            title: "Out of Stock",
+            text: `"${name}" is currently out of stock.`,
+            confirmButtonColor: "#9c2b27"
+          });
+          return;
+        }
+      }
+
+      // ✅ Infinite stock condition
+      const isInfinite = quantity == 999;
+
+      // ✅ Validate stock only if not infinite
+      if (!isInfinite && quantity !== null && quantity !== undefined) {
+        const stock = parseInt(quantity, 10);
+
+        if (stock <= 0) {
+          Swal.fire({
+            icon: "error",
+            title: "Out of Stock",
+            text: `"${name}" is currently out of stock.`,
+            confirmButtonColor: "#9c2b27"
+          });
+          return;
+        }
+
+        // ✅ Check if cart already reached stock limit
+        const existing = cart.find((i) => i.name === name);
+        if (existing && existing.qty >= stock) {
+          Swal.fire({
+            icon: "warning",
+            title: "Stock Limit Reached",
+            text: `You can only order up to ${stock} of "${name}".`,
+            confirmButtonColor: "#9c2b27"
+          });
+          return;
+        }
+      }
+
+      // ✅ Passed validation — Add or increment item in cart
       const existing = cart.find((i) => i.name === name);
-      if (existing) existing.qty++;
-      else cart.push({ name, price, qty: 1, img });
+      if (existing) {
+        existing.qty++;
+      } else {
+        cart.push({
+          name,
+          price,
+          qty: 1,
+          img,
+          stock: isInfinite ? Infinity : (quantity ?? 0),
+          limited: !isInfinite
+        });
+      }
 
       updateCart();
     });
   });
 
-  // === UPDATE CART DISPLAY ===
   function updateCart() {
     cartItemsContainer.innerHTML = "";
     let total = 0, totalQty = 0;
-
     cart.forEach((item, index) => {
       total += item.price * item.qty;
       totalQty += item.qty;
-
       const cartItem = document.createElement("div");
       cartItem.classList.add("cart-item");
       cartItem.innerHTML = `
@@ -2496,15 +2813,12 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
       cartItemsContainer.appendChild(cartItem);
     });
-
     totalEl.textContent = `₱${total.toFixed(2)}`;
     cartCount.textContent = totalQty;
-
     const isEmpty = cart.length === 0;
     emptyCartEl.style.display = isEmpty ? "flex" : "none";
     cartFooter.classList.toggle("hidden", isEmpty);
     cartCount.style.display = totalQty > 0 ? "flex" : "none";
-
     localStorage.setItem("cartData", JSON.stringify(cart));
 
     document.querySelectorAll(".btn-minus").forEach((btn) => {
@@ -2515,10 +2829,20 @@ document.addEventListener("DOMContentLoaded", () => {
         updateCart();
       });
     });
-
     document.querySelectorAll(".btn-plus").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const i = e.target.dataset.index;
+        const key = cart[i].name.toLowerCase().trim();
+        const stock = stockData[cart[i].name]?.quantity ?? stockData[key]?.quantity ?? 999;
+        if (cart[i].qty >= stock) {
+          Swal.fire({
+            icon: "warning",
+            title: "Stock Limit Reached",
+            text: `You can only order up to ${stock} of "${cart[i].name}".`,
+            confirmButtonColor: "#9c2b27"
+          });
+          return;
+        }
         cart[i].qty++;
         updateCart();
       });
@@ -2527,14 +2851,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateCart();
 
-  // === CONFIRM ORDER FLOW (NO PAYMENT OPTION, WITH LOADING SPINNER) ===
   confirmOrderBtn.addEventListener("click", async () => {
     if (cart.length === 0) {
       Swal.fire("Empty Cart", "Please add items before confirming.", "warning");
       return;
     }
 
-    // Step 1: Review Order
     let summaryHtml = `
       <div style="
         font-family:'Poppins',sans-serif;
@@ -2554,7 +2876,6 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <ul style="list-style:none;padding-left:0;margin:0;">
     `;
-
     cart.forEach((i) => {
       summaryHtml += `
         <li style="
@@ -2571,7 +2892,6 @@ document.addEventListener("DOMContentLoaded", () => {
         </li>
       `;
     });
-
     const total = cart.reduce((a,b)=>a+b.price*b.qty,0);
     summaryHtml += `
         </ul>
@@ -2586,7 +2906,6 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       </div>
     `;
-
     const confirmRes = await Swal.fire({
       title: "🧾 Confirm Add Order?",
       html: summaryHtml,
@@ -2599,10 +2918,7 @@ document.addEventListener("DOMContentLoaded", () => {
       background: "#fff",
       allowOutsideClick: false
     });
-
     if (!confirmRes.isConfirmed) return;
-
-    // Step 2: Show Loading Spinner
     Swal.fire({
       title: "Saving Order...",
       text: "Please wait a moment",
@@ -2611,9 +2927,7 @@ document.addEventListener("DOMContentLoaded", () => {
         Swal.showLoading();
       }
     });
-
     try {
-      // Post each item to PHP backend
       await Promise.all(cart.map(item =>
         fetch("guest_add_order.php", {
           method: "POST",
@@ -2626,8 +2940,6 @@ document.addEventListener("DOMContentLoaded", () => {
           })
         })
       ));
-
-      // Success toast
       Swal.fire({
         toast: true,
         position: "top-end",
@@ -2637,7 +2949,6 @@ document.addEventListener("DOMContentLoaded", () => {
         timer: 2000,
         timerProgressBar: true
       });
-
       setTimeout(() => {
         localStorage.removeItem("cartData");
         window.location.reload();
@@ -2647,7 +2958,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 🕒 Format Date and Time
   function formatDateTime(date) {
     const options = { month: "long", day: "numeric", year: "numeric" };
     const formattedDate = date.toLocaleDateString("en-US", options);
@@ -2655,12 +2965,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const minutes = date.getMinutes().toString().padStart(2, "0");
     const ampm = hours >= 12 ? "PM" : "AM";
     const hour12 = hours % 12 || 12;
-    const formattedTime = `${hour12}:${minutes} ${ampm}`;
-    return `${formattedDate} | ${formattedTime}`;
+    return `${formattedDate} | ${hour12}:${minutes} ${ampm}`;
   }
 });
 </script>
 
+<!-- ============ VIEW ORDERS AND DOWNLOAD RECEIPT ============= -->
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const viewBtn = document.getElementById("viewOrderBtn");
@@ -2698,11 +3008,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const grandTotal = mergedOrders.reduce((sum, o) => sum + o.price, 0);
 
-    // ✅ Show order summary
+    // ✅ Fetch existing remarks (if any)
+    let remarksText = "";
+    try {
+      const remarksRes = await fetch("guest_fetch_remarks.php");
+      const remarksData = await remarksRes.json();
+      if (remarksData.success && remarksData.notes?.trim()) {
+        remarksText = remarksData.notes.trim();
+      }
+    } catch (err) {
+      console.warn("Remarks fetch failed:", err);
+    }
+
+    // ✅ Show order summary (with remarks displayed only if not blank)
     Swal.fire({
       title: "🧾 Order Summary",
       html: `
-        <div id="orderSummaryWrapper" style="overflow-x:auto;max-height:300px;">
+        <div id="orderSummaryWrapper" style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-family:'Poppins',sans-serif;font-size:0.9em;">
             <thead>
               <tr style="background:#222;color:#fff;">
@@ -2727,26 +3049,86 @@ document.addEventListener("DOMContentLoaded", () => {
               </tr>
             </tfoot>
           </table>
+
+          ${
+            remarksText
+              ? `
+                <div id="remarksSection" style="margin-top:10px;padding:8px;border-radius:6px;background:#f8f8f8;border:1px solid #ddd;">
+                  <strong>📝 Remarks:</strong>
+                  <p style="margin:4px 0 0 0;white-space:pre-wrap;">${escapeHtml(remarksText)}</p>
+                </div>
+              `
+              : ""
+          }
         </div>
       `,
       width: "550px",
-      confirmButtonText: "Download Receipt",
-      confirmButtonColor: "#9c2b27",
       showCancelButton: true,
+      showDenyButton: true,
+      confirmButtonText: "Download Receipt",
+      denyButtonText: "Add Remarks",
       cancelButtonText: "Close",
+      confirmButtonColor: "#9c2b27",
+      denyButtonColor: "#444"
     }).then(async result => {
-      if (result.isConfirmed) {
-        const swalContent = Swal.getHtmlContainer();
-        const summary = swalContent.querySelector("#orderSummaryWrapper");
+      const swalContent = Swal.getHtmlContainer();
+      const summary = swalContent.querySelector("#orderSummaryWrapper");
 
-        if (!summary) {
-          Swal.fire("Error", "Receipt content not found.", "error");
-          return;
-        }
-
+      if (result.isConfirmed && summary) {
         await generatePOSPDF(summary);
+      } else if (result.isDenied) {
+        openRemarksModal();
       }
     });
+
+    // ✅ Remarks modal logic
+    async function openRemarksModal() {
+      try {
+        const fetchRes = await fetch("guest_fetch_remarks.php");
+        const remarksData = await fetchRes.json();
+        const existingNotes = remarksData.success ? remarksData.notes : "";
+
+        const { value: notes } = await Swal.fire({
+          title: "📝 Add / Edit Remarks",
+          input: "textarea",
+          inputLabel: "Enter remarks for your order",
+          inputPlaceholder: "Write your remarks here...",
+          inputValue: existingNotes,
+          inputAttributes: { maxlength: 300 },
+          showCancelButton: true,
+          confirmButtonText: "Save",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: "#9c2b27",
+          preConfirm: async (value) => {
+            try {
+              const res = await fetch("guest_add_remarks.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ notes: value.trim() })
+              });
+              const result = await res.json();
+              if (!result.success) throw new Error(result.message);
+              return result.message;
+            } catch (err) {
+              Swal.showValidationMessage(`Error: ${err.message}`);
+              return false;
+            }
+          }
+        });
+
+        if (notes !== undefined) {
+          Swal.fire({
+            icon: "success",
+            title: "Success",
+            text: "Your remarks have been updated.",
+            timer: 1500,
+            showConfirmButton: false
+          });
+        }
+      } catch (err) {
+        Swal.fire("Error", "Failed to load or save remarks.", "error");
+      }
+    }
 
     // ✅ Generate POS receipt style PDF
     async function generatePOSPDF(summaryElement) {
@@ -2759,12 +3141,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       try {
         const clone = summaryElement.cloneNode(true);
+        clone.style.maxHeight = "none";
+        clone.style.overflow = "visible";
         const wrapper = document.createElement("div");
         wrapper.style.position = "absolute";
         wrapper.style.left = "-9999px";
         wrapper.style.background = "#fff";
         wrapper.style.color = "#000";
-        wrapper.style.width = "80mm"; /* ✅ Typical POS width */
+        wrapper.style.width = "80mm";
         wrapper.style.fontFamily = "monospace";
         wrapper.style.fontSize = "12px";
         wrapper.style.lineHeight = "1.3";
@@ -2787,20 +3171,16 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
 
         document.body.appendChild(wrapper);
-
         const canvas = await html2canvas(wrapper, { scale: 3 });
         const imgData = canvas.toDataURL("image/png");
-
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({
           orientation: "p",
           unit: "mm",
-          format: [80, (canvas.height * 80) / canvas.width], // ✅ auto height
+          format: [80, (canvas.height * 80) / canvas.width],
         });
-
         pdf.addImage(imgData, "PNG", 0, 0, 80, (canvas.height * 80) / canvas.width);
         pdf.save(`Receipt_${new Date().toISOString().split("T")[0]}.pdf`);
-
         document.body.removeChild(wrapper);
 
         Swal.fire({

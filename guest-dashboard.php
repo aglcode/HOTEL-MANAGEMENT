@@ -131,8 +131,10 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Guest Dashboard - Room <?= htmlspecialchars($room) ?></title>
-        <!-- Favicon -->
-<link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="Image/logo/gitarra_apartelle_logo.png">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -140,8 +142,8 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
     <style>
 
         :root {
-          --maroon: #800000;
-          --maroon-dark: #5a0000;
+          --maroon: #871D2B;
+          --maroon-dark: #800000;
           --matte-black: #1c1c1c;
           --text-gray: #6c757d;
           --card-bg: #f8f8f8ff;
@@ -281,33 +283,98 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
   max-width: 1400px;
 }
         
-        .stat-card {
-            text-align: center;
-            border: none;
-            border-top-left-radius: 28%;
-            border-top-right-radius: 20%;
-            border-bottom-left-radius: 20%;
-            border-bottom-right-radius: 28%;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            transition: all 0.3s ease-in-out;
-        }
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-        }
-        .stat-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 150px;
-            height: 90px;
-            border-top-left-radius: 45%;
-            border-top-right-radius: 20%;
-            border-bottom-left-radius: 20%;
-            border-bottom-right-radius: 45%;
-            font-size: 2rem;
-            margin-bottom: 10px;
-        }
+/* ===== GENERAL CARD STYLE ===== */
+  /* ===== GLOBAL STYLES ===== */
+  .stat-card {
+    height: 195px;
+    border: none;
+    border-radius: 18px;
+    padding: 20px;
+    color: #fff;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.35s ease;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  .stat-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .stat-icon {
+    font-size: 2rem;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .stat-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    opacity: 0.9;
+    margin: 0;
+  }
+
+  .stat-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1.3;
+    word-wrap: break-word;
+    margin-top: 15px;
+    margin-bottom: 5px;
+  }
+
+  small {
+    opacity: 0.8;
+    font-size: 0.9rem;
+  }
+
+  /* ===== GRADIENT THEMES ===== */
+  .card-room { background: linear-gradient(135deg, #007bff, #00c6ff); }
+  .card-checkin { background: linear-gradient(135deg, #28a745, #8fd19e); }
+  .card-checkout { background: linear-gradient(135deg, #dc3545, #ff6b81); }
+  .card-time { background: linear-gradient(135deg, #ff6b6b, #feca57); }
+  .card-info { background: linear-gradient(135deg, #6c757d, #adb5bd); }
+  .card-payment { background: linear-gradient(135deg, #f39c12, #f1c40f); }
+  .card-orders { background: linear-gradient(135deg, #20c997, #02aab0); }
+
+  /* ===== TIME CARD SPECIAL EFFECT ===== */
+  .card-time {
+    animation: glowPulse 2s infinite;
+  }
+
+  @keyframes glowPulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.5); }
+    70% { box-shadow: 0 0 25px 10px rgba(255, 107, 107, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0); }
+  }
+
+  /* ===== EQUAL HEIGHT ROW ===== */
+  .equal-row > [class*='col-'] {
+    display: flex;
+  }
+  .equal-row .card {
+    flex: 1 1 auto;
+  }
+
+  @media (max-width: 768px) {
+    .stat-value { font-size: 1.2rem; }
+  }
+  
         .announcement-item {
             border-bottom: 1px solid #eee;
             padding: 10px 0;
@@ -362,55 +429,131 @@ $announcements_result = $conn->query("SELECT * FROM announcements ORDER BY creat
       </div>
   </div>
 
-<!-- Statistics Cards -->
-<div class="row mb-4">
-    <!-- Room Type -->
-    <div class="col-md-3 mb-3">
-        <div class="card stat-card h-100 p-3">
-            <div class="card-body">
-                <div class="stat-icon bg-primary bg-opacity-10 text-primary mx-auto mb-3">
-                    <i class="fa-solid fa-door-open"></i>&nbsp;<h6>Room Type</h6>
-                </div>
-                <h6 class="fw-bold mb-0"><?= htmlspecialchars($room_type) ?></h6>
-            </div>
+<div class="container mt-4">
+
+  <!-- TOP INFO CARDS -->
+  <div class="row mb-4 g-3 equal-row">
+
+    <div class="col-md-3">
+      <div class="card stat-card card-room">
+        <div class="stat-header">
+          <div class="stat-icon"><i class="fa-solid fa-door-open"></i></div>
+          <h6 class="stat-title">Room Type</h6>
         </div>
+        <div class="stat-value">
+          <?php
+            switch ($room_type) {
+              case 'standard_room':
+                echo 'Standard Room';
+                break;
+              case 'twin_room':
+                echo 'Twin Room';
+                break;
+              case 'single':
+                echo 'Single Room';
+                break;
+              case 'executive_room':
+                echo 'Executive Room';
+                break;
+              default:
+                echo htmlspecialchars($room_type);
+            }
+          ?>
+        </div>
+      </div>
     </div>
 
-    <!-- Check-In -->
-    <div class="col-md-3 mb-3">
-        <div class="card stat-card h-100 p-2">
-            <div class="card-body">
-                <div class="stat-icon bg-success bg-opacity-10 text-success mx-auto mb-3">
-                    <i class="fas fa-calendar-check"></i>&nbsp;<h6>Check-In<br>Date</h6>
-                </div>
-                <h6 class="fw-bold mb-0"><?= $check_in ?></h6>
-            </div>
+    <div class="col-md-3">
+      <div class="card stat-card card-checkin">
+        <div class="stat-header">
+          <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+          <h6 class="stat-title">Check-In</h6>
         </div>
+        <div class="stat-value"><?= nl2br(htmlspecialchars($check_in)) ?></div>
+      </div>
     </div>
 
-    <!-- Check-Out -->
-    <div class="col-md-3 mb-3">
-        <div class="card stat-card h-100 p-2">
-            <div class="card-body">
-                <div class="stat-icon bg-danger bg-opacity-10 text-danger mx-auto mb-3">
-                    <i class="fas fa-calendar-day"></i>&nbsp;<h6>Check-Out<br>Date</h6>
-                </div>
-                <h6 class="fw-bold mb-0"><?= $check_out ?></h6>
-            </div>
+    <div class="col-md-3">
+      <div class="card stat-card card-checkout">
+        <div class="stat-header">
+          <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+          <h6 class="stat-title">Check-Out</h6>
         </div>
+        <div class="stat-value"><?= nl2br(htmlspecialchars($check_out)) ?></div>
+      </div>
     </div>
 
-    <!-- Status -->
-    <div class="col-md-3 mb-3">
-        <div class="card stat-card h-100 p-3">
-            <div class="card-body">
-                <div class="stat-icon bg-warning bg-opacity-10 text-warning mx-auto mb-3">
-                    <i class="fa-solid fa-circle-info"></i>&nbsp;<h6>Status</h6>
-                </div>
-                <h6 class="fw-bold mb-0"><?= htmlspecialchars($status) ?></h6>
-            </div>
+    <div class="col-md-3">
+      <div class="card stat-card card-time">
+        <div class="stat-header">
+          <div class="stat-icon"><i class="fa-regular fa-clock"></i></div>
+          <h6 class="stat-title">Time Left</h6>
         </div>
+        <div class="stat-value" id="timeLeftDisplay">Calculating...</div>
+        <small>until check-out</small>
+      </div>
     </div>
+
+  </div>
+
+  <!-- BOTTOM INFO CARDS -->
+  <div class="row mb-4 g-3 equal-row">
+
+    <div class="col-md-4">
+      <div class="card stat-card card-info">
+        <div class="stat-header">
+          <div class="stat-icon"><i class="fa-solid fa-user"></i></div>
+          <h6 class="stat-title">My Information</h6>
+        </div>
+        <div class="stat-value"><?= htmlspecialchars($guest_name) ?></div>
+        <small>Room <?= htmlspecialchars($guestInfo['room_number']) ?></small>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card stat-card card-payment">
+        <div class="stat-header">
+          <div class="stat-icon"><i class="fa-solid fa-wallet"></i></div>
+          <h6 class="stat-title">Payment Info</h6>
+        </div>
+        <?php
+          $stmt = $conn->prepare("SELECT payment_mode, gcash_reference FROM checkins WHERE room_number = ? AND status = 'checked_in' LIMIT 1");
+          $stmt->bind_param("i", $guestInfo['room_number']);
+          $stmt->execute();
+          $payment = $stmt->get_result()->fetch_assoc();
+          $stmt->close();
+        ?>
+        <div class="stat-value"><?= htmlspecialchars(ucfirst($payment['payment_mode'] ?? 'N/A')) ?></div>
+        <?php if (!empty($payment['gcash_reference'])): ?>
+          <small>Reference Number: <?= htmlspecialchars($payment['gcash_reference']) ?></small>
+        <?php endif; ?>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="card stat-card card-orders text-center">
+        <div class="stat-header">
+          <div class="stat-icon" style="font-size:2rem; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <i class="fa-solid fa-receipt"></i>
+          </div>
+          <h6 class="stat-title" style="font-size:0.95rem; font-weight:600; text-transform:uppercase; opacity:0.9; margin:0;">Total Orders</h6>
+        </div>
+
+        <?php
+          $stmt = $conn->prepare("SELECT COUNT(*) AS total FROM orders WHERE checkin_id = (SELECT id FROM checkins WHERE room_number = ? AND status = 'checked_in' LIMIT 1)");
+          $stmt->bind_param("i", $guestInfo['room_number']);
+          $stmt->execute();
+          $result = $stmt->get_result()->fetch_assoc();
+          $stmt->close();
+        ?>
+
+        <div class="stat-value" style="text-align:center; font-size:2.3rem; font-weight:900; margin-top:10px;">
+          <?= (int)($result['total'] ?? 0) ?>
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 
@@ -427,6 +570,48 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 </script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const timeLeftDisplay = document.getElementById("timeLeftDisplay");
+    const checkoutTime = new Date("<?= $guestInfo['check_out_date'] ?>").getTime();
+    const now = new Date().getTime();
+
+    if (!checkoutTime || isNaN(checkoutTime)) {
+        timeLeftDisplay.textContent = "Invalid date";
+        return;
+    }
+
+    function updateTimeLeft() {
+        const currentTime = new Date().getTime();
+        const diff = checkoutTime - currentTime;
+
+        if (diff <= 0) {
+            timeLeftDisplay.textContent = "Checked Out";
+            timeLeftDisplay.classList.add("text-danger", "fw-bold");
+            clearInterval(timer);
+            return;
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        let display = "";
+        if (days > 0) display += `${days}d `;
+        if (hours >= 0) display += `${hours}h `;
+        if (minutes >= 0) display += `${minutes}m `;
+        if (seconds >= 0) display += `${seconds}s`;
+
+        timeLeftDisplay.textContent = display.trim();
+    }
+
+    updateTimeLeft(); // initial call
+    const timer = setInterval(updateTimeLeft, 1000);
+});
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

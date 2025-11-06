@@ -1,0 +1,333 @@
+INSERT INTO supplies (name, price, quantity, category, image) VALUES
+-- FOOD ITEMS
+('Mami', 70.00, NULL, 'Food', 'uploads/supplies/Mami.png'),
+('Nissin Cup (Beef)', 40.00, 12, 'Food', 'uploads/supplies/Nissin Beef.png'),
+('Nissin Cup (Chicken)', 40.00, 12, 'Food', 'uploads/supplies/Nissin Chicken.png'),
+('Nissin Cup (Spicy Seafood)', 40.00, 12, 'Food', 'uploads/supplies/Nissin Spicy Seafood.png'),
+('Longganisa', 100.00, NULL, 'Food', 'uploads/supplies/Longganisa.jpg'),
+('Sisig', 100.00, NULL, 'Food', 'uploads/supplies/Sisig.jpg'),
+('Bopis', 100.00, NULL, 'Food', 'uploads/supplies/Bopis.jpg'),
+('Tocino', 100.00, NULL, 'Food', 'uploads/supplies/Tocino.jpg'),
+('Tapa', 100.00, NULL, 'Food', 'uploads/supplies/Tapa.jpg'),
+('Hotdog', 100.00, NULL, 'Food', 'uploads/supplies/Hotdog.jpg'),
+('Dinuguan', 115.00, NULL, 'Food', 'uploads/supplies/Dinuguan.jpg'),
+('Chicken Adobo', 120.00, NULL, 'Food', 'uploads/supplies/Chicken Adobo.jpg'),
+('Bicol Express', 125.00, NULL, 'Food', 'uploads/supplies/Bicol Express.jpg'),
+('Chicharon', 60.00, NULL, 'Food', 'uploads/supplies/Chicharon.jpg'),
+('Chicken Skin', 60.00, NULL, 'Food', 'uploads/supplies/Chicken Skin.jpg'),
+('Shanghai (3pcs)', 40.00, NULL, 'Food', 'uploads/supplies/Lumpia Shanghai.jpg'),
+('Gulay (3pcs)', 40.00, NULL, 'Food', 'uploads/supplies/Lumpia Gulay.jpg'),
+('Toge (4pcs)', 40.00, NULL, 'Food', 'uploads/supplies/Lumpia Toge.jpg'),
+('French Fries (BBQ)', 40.00, NULL, 'Food', 'uploads/supplies/French Fries BBQ.jpg'),
+('French Fries (Sour Cream)', 40.00, NULL, 'Food', 'uploads/supplies/French Fries Sour Cream.jpg'),
+('French Fries (Cheese)', 40.00, NULL, 'Food', 'uploads/supplies/French Fries Cheese.jpg'),
+('Cheese Sticks (12pcs)', 30.00, NULL, 'Food', 'uploads/supplies/Cheese Sticks 12pcs.jpg'),
+('Tinapay (3pcs)', 20.00, NULL, 'Food', 'uploads/supplies/Tinapay 3pcs.jpg'),
+('Tinapay with Spread (3pcs)', 30.00, NULL, 'Food', 'uploads/supplies/Tinapay with Spread 3pcs.jpg'),
+('Burger Regular', 35.00, NULL, 'Food', 'uploads/supplies/Burger Regular.jpg'),
+('Burger with Cheese', 40.00, NULL, 'Food', 'uploads/supplies/Burger with Cheese.jpg'),
+('Nagaraya Butter Yellow (Small)', 20.00, 12, 'Food', 'uploads/supplies/Nagaraya Butter Yellow Small.jpg'),
+('Nova Country Cheddar (Small)', 25.00, 12, 'Food', 'uploads/supplies/Nova Country Cheddar Small.jpg'),
+('Tortillos BBQ (100g)', 40.00, 12, 'Food', 'uploads/supplies/Tortillos BBQ.jpg'),
+('Bottled Water (500ml)', 25.00, 12, 'Food', 'uploads/supplies/Bottled Water.jpg'),
+('Purified Hot Water Only (Mug)', 10.00, 12, 'Food', 'uploads/supplies/Purified Hot Water Mug.jpg'),
+('Ice Bucket', 40.00, 12, 'Food', 'uploads/supplies/Ice Bucket.jpg'),
+('Coke Mismo', 25.00, 12, 'Food', 'uploads/supplies/Coke Mismo.jpg'),
+('Royal Mismo', 25.00, 12, 'Food', 'uploads/supplies/Royal Mismo.jpg'),
+('Dragon Fruit', 70.00, NULL, 'Food', 'uploads/supplies/Dragon Fruit Shake.jpg'),
+('Mango', 70.00, NULL, 'Food', 'uploads/supplies/Mango Shake.jpg'),
+('Cucumber', 70.00, NULL, 'Food', 'uploads/supplies/Cucumber Shake.jpg'),
+('Avocado', 70.00, NULL, 'Food', 'uploads/supplies/Avocado Shake.jpg'),
+('Chocolate', 40.00, NULL, 'Food', 'uploads/supplies/Chocolate Shake.jpg'),
+('Taro', 40.00, NULL, 'Food', 'uploads/supplies/Taro Shake.jpg'),
+('Ube', 40.00, NULL, 'Food', 'uploads/supplies/Ube Shake.jpg'),
+('Strawberry', 40.00, NULL, 'Food', 'uploads/supplies/Strawberry Shake.jpg'),
+('Pineapple Juice', 60.00, 12, 'Food', 'uploads/supplies/Pineapple Juice.jpg'),
+('Instant Coffee', 25.00, 12, 'Food', 'uploads/supplies/Instant Coffee.jpg'),
+('Brewed Coffee', 45.00, 12, 'Food', 'uploads/supplies/Brewed Coffee.jpg'),
+('Hot Tea (Green)', 25.00, 12, 'Food', 'uploads/supplies/Hot Tea Green.jpg'),
+('Hot Tea (Black)', 25.00, 12, 'Food', 'uploads/supplies/Hot Tea Black.jpg'),
+('Milo Hot Chocolate Drink', 25.00, 12, 'Food', 'uploads/supplies/Milo Hot Chocolate.jpg'),
+
+
+-- NON-FOOD ITEMS
+('Face Mask Disposable', 5.00, 12, 'Non-Food', 'uploads/supplies/Face Mask Disposable.jpg'),
+('Toothbrush with Toothpaste', 25.00, 12, 'Non-Food', 'uploads/supplies/Toothbrush with Toothpaste.jpg'),
+('Colgate Toothpaste', 20.00, 12, 'Non-Food', 'uploads/supplies/Colgate Toothpaste.jpg'),
+('Modess All Night Extra Long Pad', 20.00, 12, 'Non-Food', 'uploads/supplies/Modess All Night Extra Long Pad.jpg'),
+('Sunsilk', 15.00, 12, 'Non-Food', 'uploads/supplies/Sunsilk Shampoo.jpg'),
+('Creamsilk', 15.00, 12, 'Non-Food', 'uploads/supplies/Creamsilk Shampoo.jpg'),
+('Palmolive Anti-Dandruff', 15.00, 12, 'Non-Food', 'uploads/supplies/Palmolive Anti-Dandruff Shampoo.jpg'),
+('Dove', 15.00, 12, 'Non-Food', 'uploads/supplies/Dove Shampoo.jpg'),
+('Empress Keratin', 15.00, 12, 'Non-Food', 'uploads/supplies/Empress Keratin Conditioner.jpg'),
+('Creamsilk Conditioner', 15.00, 12, 'Non-Food', 'uploads/supplies/Creamsilk Conditioner.jpg'),
+('Trust Condom (3pcs)', 60.00, 12, 'Non-Food', 'uploads/supplies/Trust Condom Boxed 3pcs.jpg'),
+('Disposable Spoon', 2.50, 12, 'Non-Food', 'uploads/supplies/Disposable Spoon.jpg'),
+('Disposable Fork', 2.50, 12, 'Non-Food', 'uploads/supplies/Disposable Fork.jpg');
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const addButtons = document.querySelectorAll(".btn-add");
+  const cartButton = document.getElementById("cartButton");
+  const cartSidebar = document.getElementById("cartSidebar");
+  const cartOverlay = document.getElementById("cartOverlay");
+  const closeCart = document.getElementById("closeCart");
+  const cartCount = document.getElementById("cartCount");
+  const cartItemsContainer = document.getElementById("cartItems");
+  const totalEl = document.getElementById("total");
+  const emptyCartEl = document.getElementById("emptyCart");
+  const cartFooter = document.querySelector(".cart-footer");
+  const confirmOrderBtn = document.getElementById("confirmOrderBtn");
+
+  let cart = JSON.parse(localStorage.getItem("cartData")) || [];
+
+  // === SIDEBAR TOGGLE ===
+  const toggleCart = (show) => {
+    if (show) {
+      cartSidebar.classList.add("active");
+      cartOverlay.classList.add("active");
+    } else {
+      cartSidebar.classList.remove("active");
+      cartOverlay.classList.remove("active");
+    }
+  };
+  cartButton.addEventListener("click", () => toggleCart(true));
+  closeCart.addEventListener("click", () => toggleCart(false));
+  cartOverlay.addEventListener("click", () => toggleCart(false));
+
+  // === ADD TO CART ===
+  addButtons.forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const card = e.target.closest(".card");
+      if (!card) return;
+
+      const name = card.querySelector("h5, h6")?.textContent.trim() || "Unnamed";
+      const img = card.querySelector("img")?.src || "";
+      const priceText = card.querySelector(".price")?.textContent.trim() || "₱0";
+      const price = parseFloat(priceText.replace(/[^\d.]/g, "")) || 0;
+
+      // 🆕 Get stock/quantity limit from data attribute
+      const stock = parseInt(card.dataset.stock || "999"); // default high number if not provided
+
+      const existing = cart.find((i) => i.name === name);
+
+      // 🆕 Validation: check if adding exceeds stock limit
+      if (existing && existing.qty >= stock) {
+        Swal.fire({
+          icon: "warning",
+          title: "Stock Limit Reached",
+          text: `You can only order up to ${stock} of "${name}".`,
+          confirmButtonColor: "#9c2b27"
+        });
+        return; // stop adding
+      }
+
+      if (existing) existing.qty++;
+      else cart.push({ name, price, qty: 1, img, stock }); // 🆕 store stock in cart
+
+      updateCart();
+    });
+  });
+
+  // === UPDATE CART DISPLAY ===
+  function updateCart() {
+    cartItemsContainer.innerHTML = "";
+    let total = 0, totalQty = 0;
+
+    cart.forEach((item, index) => {
+      total += item.price * item.qty;
+      totalQty += item.qty;
+
+      const cartItem = document.createElement("div");
+      cartItem.classList.add("cart-item");
+      cartItem.innerHTML = `
+        <img src="${item.img}" alt="${item.name}">
+        <div class="cart-item-info">
+          <h6>${item.name}</h6>
+          <p class="text-muted small mb-1">₱${item.price.toFixed(2)} each</p>
+          <p class="fw-bold mb-1">₱${(item.price * item.qty).toFixed(2)}</p>
+        </div>
+        <div class="qty-control">
+          <button class="btn-minus" data-index="${index}">−</button>
+          <span>${item.qty}</span>
+          <button class="btn-plus" data-index="${index}">+</button>
+        </div>
+      `;
+      cartItemsContainer.appendChild(cartItem);
+    });
+
+    totalEl.textContent = `₱${total.toFixed(2)}`;
+    cartCount.textContent = totalQty;
+
+    const isEmpty = cart.length === 0;
+    emptyCartEl.style.display = isEmpty ? "flex" : "none";
+    cartFooter.classList.toggle("hidden", isEmpty);
+    cartCount.style.display = totalQty > 0 ? "flex" : "none";
+
+    localStorage.setItem("cartData", JSON.stringify(cart));
+
+    document.querySelectorAll(".btn-minus").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const i = e.target.dataset.index;
+        if (cart[i].qty > 1) cart[i].qty--;
+        else cart.splice(i, 1);
+        updateCart();
+      });
+    });
+
+    document.querySelectorAll(".btn-plus").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const i = e.target.dataset.index;
+
+        // 🆕 Stock validation for + button
+        if (cart[i].qty >= (cart[i].stock || 999)) {
+          Swal.fire({
+            icon: "warning",
+            title: "Stock Limit Reached",
+            text: `You can only order up to ${cart[i].stock} of "${cart[i].name}".`,
+            confirmButtonColor: "#9c2b27"
+          });
+          return;
+        }
+
+        cart[i].qty++;
+        updateCart();
+      });
+    });
+  }
+
+  updateCart();
+
+  // === CONFIRM ORDER FLOW ===
+confirmOrderBtn.addEventListener("click", async () => {
+    if (cart.length === 0) {
+      Swal.fire("Empty Cart", "Please add items before confirming.", "warning");
+      return;
+    }
+
+    // Step 1: Review Order
+    let summaryHtml = `
+      <div style="
+        font-family:'Poppins',sans-serif;
+        color:#333;
+        background:#fff;
+        border:2px dashed #9c2b27;
+        border-radius:10px;
+        padding:15px;
+        text-align:left;
+        max-width:360px;
+        margin:0 auto;
+      ">
+        <div style="text-align:center;border-bottom:2px dashed #ccc;padding-bottom:8px;margin-bottom:10px;">
+          <h3 style="margin:0;color:#9c2b27;">Gitarra Apartelle</h3>
+          <p style="margin:0;font-size:0.85em;color:#666;">Order List</p>
+          <p style="margin:3px 0 0 0;font-size:0.8em;">Date: ${formatDateTime(new Date())}</p>
+        </div>
+        <ul style="list-style:none;padding-left:0;margin:0;">
+    `;
+
+    cart.forEach((i) => {
+      summaryHtml += `
+        <li style="
+          padding:6px 0;
+          border-bottom:1px dotted #ccc;
+          display:grid;
+          grid-template-columns: 1fr auto;
+          align-items:flex-start;
+          font-size:0.9em;
+          gap:8px;
+        ">
+          <span><b>${i.name}</b> × ${i.qty}</span>
+          <span style="text-align:right;font-weight:600;">₱${(i.price * i.qty).toFixed(2)}</span>
+        </li>
+      `;
+    });
+
+    const total = cart.reduce((a,b)=>a+b.price*b.qty,0);
+    summaryHtml += `
+        </ul>
+        <div style="border-top:2px dashed #ccc;padding-top:10px;margin-top:10px;">
+          <p style="margin:8px 0 0;font-weight:700;color:#9c2b27;text-align:right;">
+            Total: ₱${total.toFixed(2)}
+          </p>
+        </div>
+        <div style="border-top:2px dashed #ccc;margin-top:10px;text-align:center;padding-top:8px;font-size:0.8em;color:#555;">
+          <p style="margin:0;">Thank you for ordering with ❤️</p>
+          <p style="margin:0;color:#9c2b27;font-weight:600;">Gitarra Apartelle</p>
+        </div>
+      </div>
+    `;
+
+    const confirmRes = await Swal.fire({
+      title: "🧾 Confirm Add Order?",
+      html: summaryHtml,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, Proceed",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#9c2b27",
+      cancelButtonColor: "#555",
+      background: "#fff",
+      allowOutsideClick: false
+    });
+
+    if (!confirmRes.isConfirmed) return;
+
+    // Step 2: Show Loading Spinner
+    Swal.fire({
+      title: "Saving Order...",
+      text: "Please wait a moment",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    try {
+      // Post each item to PHP backend
+      await Promise.all(cart.map(item =>
+        fetch("guest_add_order.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            item_name: item.name,
+            price: item.price,
+            quantity: item.qty,
+            total: item.price * item.qty
+          })
+        })
+      ));
+
+      // Success toast
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: "Order saved successfully!",
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true
+      });
+
+      setTimeout(() => {
+        localStorage.removeItem("cartData");
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      Swal.fire("Error", "Failed to save order. Please try again.", "error");
+    }
+  });
+
+  // 🕒 Format Date and Time
+  function formatDateTime(date) {
+    const options = { month: "long", day: "numeric", year: "numeric" };
+    const formattedDate = date.toLocaleDateString("en-US", options);
+    const hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const hour12 = hours % 12 || 12;
+    const formattedTime = `${hour12}:${minutes} ${ampm}`;
+    return `${formattedDate} | ${formattedTime}`;
+  }
+});
+</script>

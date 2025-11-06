@@ -1,0 +1,36 @@
+[04-Nov-2025 07:44:47 UTC] === REBOOK REQUEST RECEIVED ===
+[04-Nov-2025 07:44:47 UTC] POST data: Array
+(
+    [guest_id] => 189
+    [guest_name] => DWE
+    [telephone] => +639165770821
+    [address] => St 123 Main Street
+    [room_number] => 101
+    [room_type] => standard_room
+    [check_in_date] => 2025-11-04 22:37:00
+    [stay_duration] => 3
+    [payment_mode] => gcash
+    [amount_paid] => 400
+    [gcash_reference] => 2154646546544
+    [action] => rebook
+    [total_price] => 400
+    [change_amount] => 0
+)
+
+[04-Nov-2025 07:44:47 UTC] Validated inputs - Guest ID: 189, Room: 101, Duration: 3 hrs
+[04-Nov-2025 07:44:47 UTC] Current booking: 2025-11-04 15:37:38 to 2025-11-04 18:37:38
+[04-Nov-2025 07:44:47 UTC] Calculated price for 3 hrs: ₱400
+[04-Nov-2025 07:44:47 UTC] === REBOOK TYPE DETECTION ===
+[04-Nov-2025 07:44:47 UTC] Current checkout: 2025-11-04 18:37:38
+[04-Nov-2025 07:44:47 UTC] New checkin requested: 2025-11-04 22:37:00
+[04-Nov-2025 07:44:47 UTC] Time gap: 239.36666666667 minutes
+[04-Nov-2025 07:44:47 UTC] Rebook type: GAP REBOOK (new separate booking)
+[04-Nov-2025 07:44:47 UTC] ============================
+[04-Nov-2025 07:44:47 UTC] === CREATING SEPARATE NEW BOOKING ===
+[04-Nov-2025 07:44:47 UTC] New booking status will be: scheduled
+[04-Nov-2025 07:44:47 UTC] ✅ Closed old booking ID: 189
+[04-Nov-2025 07:44:47 UTC] PHP Fatal error:  Uncaught ArgumentCountError: The number of elements in the type definition string must match the number of bind variables in C:\laragon\www\gitarra_apartelle\process-rebook.php:257
+Stack trace:
+#0 C:\laragon\www\gitarra_apartelle\process-rebook.php(257): mysqli_stmt->bind_param('sssississddssss...', 'DWE', '+639165770821', 'St 123 Main Str...', 101, 'standard_room', '2025-11-04 22:3...', '2025-11-05 01:3...', 3, 400.0, 400.0, 0.0, 'gcash', '2154646546544', 'scheduled', 189)
+#1 {main}
+  thrown in C:\laragon\www\gitarra_apartelle\process-rebook.php on line 257
