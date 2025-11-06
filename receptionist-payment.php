@@ -518,6 +518,49 @@ $result = $conn->query($sql);
 
   <script>
 
+let previousNotifCount = 0;
+
+// 🔔 Check pending orders count
+async function checkOrderNotifications() {
+  const notifBadge = document.getElementById("orderNotifCount");
+  if (!notifBadge) return;
+
+  try {
+    const res = await fetch("fetch_pending_orders.php");
+    const data = await res.json();
+
+    let pendingCount = 0;
+    if (data && Object.keys(data).length > 0) {
+      for (const orders of Object.values(data)) {
+        pendingCount += orders.filter(o => o.status === "pending").length;
+      }
+    }
+
+    // 🔴 Update the badge
+    if (pendingCount > 0) {
+      notifBadge.textContent = pendingCount;
+      notifBadge.classList.remove("d-none");
+
+      // 🌀 Animate if the number increased
+      if (pendingCount > previousNotifCount) {
+        notifBadge.classList.add("animate__animated", "animate__bounceIn");
+        setTimeout(() => notifBadge.classList.remove("animate__animated", "animate__bounceIn"), 1000);
+      }
+
+    } else {
+      notifBadge.classList.add("d-none");
+    }
+
+    previousNotifCount = pendingCount;
+
+  } catch (error) {
+    console.error("Failed to fetch order notifications:", error);
+  }
+}
+
+// Run every 10 seconds
+checkOrderNotifications();
+setInterval(checkOrderNotifications, 10000);
     // Data tables
   $(document).ready(function() {
   var paymentTable = $('#paymentTable').DataTable({

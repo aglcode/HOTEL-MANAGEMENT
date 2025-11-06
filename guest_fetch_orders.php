@@ -69,4 +69,3 @@ echo json_encode(["success" => true, "orders" => $orders]);
 
 $stmt->close();
 $conn->close();
-?>

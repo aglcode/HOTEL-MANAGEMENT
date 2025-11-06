@@ -1156,7 +1156,7 @@ if ($result->num_rows > 0) {
             </div>
 
             <!-- Form -->
-            <form method="POST" onsubmit="return validateBookingForm();">
+            <form method="POST" onsubmit="return handleBookingForm(event);">
                 <div class="modal-body p-4" style="background: #f9faff;">
                     <div class="container-fluid">
                         <div class="row g-4">
@@ -1502,6 +1502,50 @@ if ($result->num_rows > 0) {
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script>
+
+    let previousNotifCount = 0;
+
+// 🔔 Check pending orders count
+async function checkOrderNotifications() {
+  const notifBadge = document.getElementById("orderNotifCount");
+  if (!notifBadge) return;
+
+  try {
+    const res = await fetch("fetch_pending_orders.php");
+    const data = await res.json();
+
+    let pendingCount = 0;
+    if (data && Object.keys(data).length > 0) {
+      for (const orders of Object.values(data)) {
+        pendingCount += orders.filter(o => o.status === "pending").length;
+      }
+    }
+
+    // 🔴 Update the badge
+    if (pendingCount > 0) {
+      notifBadge.textContent = pendingCount;
+      notifBadge.classList.remove("d-none");
+
+      // 🌀 Animate if the number increased
+      if (pendingCount > previousNotifCount) {
+        notifBadge.classList.add("animate__animated", "animate__bounceIn");
+        setTimeout(() => notifBadge.classList.remove("animate__animated", "animate__bounceIn"), 1000);
+      }
+
+    } else {
+      notifBadge.classList.add("d-none");
+    }
+
+    previousNotifCount = pendingCount;
+
+  } catch (error) {
+    console.error("Failed to fetch order notifications:", error);
+  }
+}
+
+// Run every 10 seconds
+checkOrderNotifications();
+setInterval(checkOrderNotifications, 10000);
 
 // Initialize and show all toasts
 document.addEventListener("DOMContentLoaded", function () {
@@ -2095,31 +2139,81 @@ if (ageInput) {
         calculateChange();
     }
 
-    // --- Form validation ---
-    function validateForm() {
-        const age = parseInt(document.querySelector('input[name="age"]').value);
-        const paymentMode = document.querySelector('select[name="payment_mode"]').value;
-        const reference = document.querySelector('input[name="reference_number"]').value;
-        const amountPaid = parseFloat(document.querySelector('input[name="amount_paid"]').value);
-        const totalPrice = parseFloat(document.getElementById('totalPrice').value);
-        
-        if (age < 18) {
-            alert('Guest must be at least 18 years old.');
-            return false;
-        }
-        
-        if (paymentMode === 'GCash' && !reference.trim()) {
-            alert('GCash reference number is required.');
-            return false;
-        }
-        
-        if (amountPaid < totalPrice) {
-            alert('Amount paid cannot be less than total price.');
-            return false;
-        }
-        
-        return true;
+async function handleBookingForm(event) {
+    event.preventDefault(); // 🛑 Stop automatic submit first
+    const form = event.target;
+
+    const isValid = await validateBookingForm(); // Wait for SweetAlert checks
+
+    if (isValid) {
+        form.submit(); // ✅ Only submit after confirmation
     }
+}
+
+async function validateBookingForm() {
+    const age = parseInt(document.querySelector('input[name="age"]').value);
+    const paymentMode = document.querySelector('select[name="payment_mode"]').value;
+    const reference = document.querySelector('input[name="reference_number"]').value.trim();
+    const amountPaid = parseFloat(document.querySelector('input[name="amount_paid"]').value);
+    const totalPrice = parseFloat(document.getElementById('totalPrice').value);
+
+    // --- Basic validation ---
+    if (age < 18) {
+        await Swal.fire({
+            icon: 'error',
+            title: 'Invalid Age',
+            text: 'Guest must be at least 18 years old.',
+        });
+        return false;
+    }
+
+    // --- GCash specific validation ---
+    if (paymentMode === 'GCash') {
+        if (!validateReferenceNumber()) {
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Invalid Reference Number',
+                text: 'Please enter a valid 13-digit GCash reference number before proceeding.',
+            });
+            return false;
+        }
+
+        // 🔹 SweetAlert confirmation prompt
+        const result = await Swal.fire({
+            title: 'Confirm GCash Reference Number',
+            html: `<p>Please confirm your 13-digit GCash reference number:</p>
+                   <h3 style="color:#0d6efd; font-weight:bold;">${reference}</h3>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, confirm',
+            cancelButtonText: 'Review',
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+        });
+
+        if (!result.isConfirmed) {
+            await Swal.fire({
+                icon: 'info',
+                title: 'Review Needed',
+                text: 'Please double-check your GCash reference number.',
+            });
+            return false;
+        }
+    }
+
+    // --- Payment validation ---
+    if (amountPaid < totalPrice) {
+        await Swal.fire({
+            icon: 'error',
+            title: 'Insufficient Payment',
+            text: 'Amount paid cannot be less than the total price.',
+        });
+        return false;
+    }
+
+    // ✅ Everything validated and confirmed
+    return true;
+}
 
     // --- Show cancelled bookings ---
     function showCancelledBookings() {

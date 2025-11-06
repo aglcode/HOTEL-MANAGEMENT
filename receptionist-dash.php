@@ -80,6 +80,15 @@ $upcoming_bookings_result = $conn->query("
   font-family: 'Poppins', sans-serif;
 }
 
+#orderNotifCount {
+  font-size: 0.75rem;
+  padding: 4px 7px;
+  line-height: 1;
+  border-radius: 50%;
+  color: white;
+  background-color: red;
+}
+
 /* === Header === */
 .sidebar h4 {
   text-align: center;
@@ -398,6 +407,30 @@ $upcoming_bookings_result = $conn->query("
                 <p class="stat-change text-muted">Click to view</p>
             </div>
         </div>
+
+      <div class="col-md-3 mb-3" style="cursor: pointer; position: relative;">
+        <div class="card stat-card h-100 p-3 position-relative" 
+            data-bs-toggle="collapse" 
+            data-bs-target="#ordersList"
+            id="ordersCard">
+          <div class="d-flex justify-content-between align-items-center">
+            <p class="stat-title">Orders</p>
+            <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+              <i class="fas fa-utensils"></i>
+            </div>
+          </div>
+          <h3 class="fw-bold mb-1" id="pendingOrdersCount">0</h3>
+          <p class="stat-change text-muted">Click to view</p>
+
+          <!-- 🔴 Notification badge -->
+          <span id="ordersBadge" 
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                style="font-size: 0.7rem; padding: 5px 7px;">
+            ●
+          </span>
+        </div>
+      </div>
+
     </div>
 
 <!-- Current Check-ins List -->
@@ -681,15 +714,15 @@ $upcoming_bookings_result = $conn->query("
     </div>
 
     <!-- ✅ Pending Orders Section -->
-<div class="container mt-5">
-    <div class="card shadow-sm">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Pending Orders</h5>
-        </div>
-        <div class="card-body">
-            <div id="order-list">Loading pending orders...</div>
-        </div>
+<div id="ordersList" class="collapse mt-3">
+  <div class="card shadow-sm">
+    <div class="card-header bg-danger text-white">
+      <h5 class="mb-0"><i class="fas fa-utensils me-2"></i> Pending Orders</h5>
     </div>
+    <div class="card-body">
+      <div id="order-list">Loading pending orders...</div>
+    </div>
+  </div>
 </div>
 
 <!-- Receipt Modal -->
@@ -726,6 +759,9 @@ let orderInterval;
 
 async function fetchOrders(forceUpdate = false) {
   const container = document.getElementById("order-list");
+  const notifBadge = document.getElementById("orderNotifCount"); // 🔴 sidebar badge
+  const orderCountElement = document.getElementById("pendingOrdersCount"); // 🧮 card number
+  const ordersBadge = document.getElementById("ordersBadge"); // 🔴 card badge
 
   try {
     const res = await fetch("fetch_pending_orders.php");
@@ -734,13 +770,44 @@ async function fetchOrders(forceUpdate = false) {
     // 🧩 Compare with previous data
     const dataChanged = JSON.stringify(data) !== JSON.stringify(previousData);
 
-    if (forceUpdate || dataChanged) {
-      console.log("🔄 Data changed, updating UI...");
-      previousData = data; // store new data
-      renderOrders(data);
-    } else {
-      console.log("✅ No change detected, keeping UI as is.");
+    // 🔢 Count pending orders
+    let pendingCount = 0;
+    if (data && Object.keys(data).length > 0) {
+      for (const orders of Object.values(data)) {
+        pendingCount += orders.filter(o => o.status === "pending").length;
+      }
     }
+
+    // 🔴 Sidebar badge (top nav)
+    if (notifBadge) {
+      if (pendingCount > 0) {
+        notifBadge.textContent = pendingCount;
+        notifBadge.classList.remove("d-none");
+      } else {
+        notifBadge.classList.add("d-none");
+      }
+    }
+
+    // 🧮 Update Orders card number
+    if (orderCountElement) {
+      orderCountElement.textContent = pendingCount;
+    }
+
+    // 🔴 Toggle red badge on card
+    if (ordersBadge) {
+      if (pendingCount > 0) {
+        ordersBadge.classList.remove("d-none");
+      } else {
+        ordersBadge.classList.add("d-none");
+      }
+    }
+
+    // 🧱 Re-render UI if changed
+    if (forceUpdate || dataChanged) {
+      previousData = data;
+      renderOrders(data);
+    }
+
   } catch (err) {
     console.error(err);
     container.innerHTML = `
@@ -752,7 +819,8 @@ async function fetchOrders(forceUpdate = false) {
   }
 }
 
-// 🧱 Rendering function
+let roomTimers = {}; // Store active timers by room
+
 function renderOrders(data) {
   const container = document.getElementById("order-list");
 
@@ -772,19 +840,41 @@ function renderOrders(data) {
     const allServed = orders.every(o => o.status === "served");
     const pendingCount = orders.filter(o => o.status === "pending").length;
 
+    // 🔍 Flexible keyword check (case-insensitive)
+    const hasApartelle = orders.some(o =>
+      o.category?.toLowerCase().includes("apartelle") ||
+      o.item_name?.toLowerCase().includes("apartelle")
+    );
+    const hasLomi = orders.some(o =>
+      o.category?.toLowerCase().includes("lomi") ||
+      o.item_name?.toLowerCase().includes("lomi")
+    );
+
+    // 🕒 Determine prep time
+    let prepTime = 0;
+    if (hasApartelle && hasLomi) prepTime = 20;
+    else if (hasLomi) prepTime = 20;
+    else if (hasApartelle) prepTime = 5;
+
+    const prepSeconds = prepTime * 60;
+    const timerDisplay = roomTimers[room]?.remaining ?? prepSeconds;
+
     html += `
       <div class="col-md-6 col-lg-4">
         <div class="card order-card h-100">
           <div class="card-body">
-            <div class="d-flex align-items-center mb-3">
-              <div class="room-avatar me-3">${room}</div>
+            <div class="d-flex align-items-center justify-content-between mb-3">
               <div>
-                <h6 class="mb-0">Room ${room}</h6>
+                <h6 class="mb-0">
+                  Room ${room}
+                  ${prepTime > 0 ? `<span id="timer-${room}" class="badge bg-danger ms-2">${formatTime(timerDisplay)}</span>` : ''}
+                </h6>
                 <small class="text-muted">
                   ${allServed ? "All Orders Served" : `Pending Orders: ${pendingCount}`}
                 </small>
               </div>
             </div>
+
             <div class="accordion" id="accordion-${room}">
     `;
 
@@ -805,6 +895,15 @@ function renderOrders(data) {
               ${o.size ? `<div class="d-flex justify-content-between"><span>Size:</span><span>${o.size}</span></div>` : ''}
               <div class="d-flex justify-content-between"><span>Payment:</span><span class="badge bg-info">${o.mode_payment}</span></div>
               <div class="d-flex justify-content-between mt-2"><span>Price:</span><span class="text-success fw-bold">₱${parseFloat(o.price).toFixed(2)}</span></div>
+
+              <div class="d-flex justify-content-end gap-2 mt-3">
+                <button class="btn btn-sm btn-outline-primary" onclick="editOrder(${o.id}, '${o.item_name}', ${o.quantity})">
+                  <i class="fas fa-edit me-1"></i>Edit
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteOrder(${o.id}, '${room}')">
+                  <i class="fas fa-trash me-1"></i>Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -814,11 +913,15 @@ function renderOrders(data) {
     html += `
             </div>
             <hr>
-            <div class="d-flex flex-column gap-2 mt-3">
+            <div class="d-flex flex-column gap-2 mt-2">
               ${!allServed ? `
                 <button class="btn btn-success w-100" id="serve-btn-${room}" onclick="markAllServed('${room}')">
                   <i class="fas fa-check me-1"></i> Mark All Served
                 </button>
+                ${prepTime > 0 ? `
+                <button class="btn btn-outline-danger w-100" id="start-btn-${room}" onclick="startTimer('${room}', ${prepSeconds})">
+                  <i class="fas fa-hourglass-start me-1"></i> Start Timer
+                </button>` : ''}
                 <button class="btn btn-outline-secondary w-100 d-none" id="print-btn-${room}" onclick="printReceipt('${room}')">
                   <i class="fas fa-print me-1"></i> Print Receipt
                 </button>
@@ -841,9 +944,47 @@ function renderOrders(data) {
   container.innerHTML = html;
 }
 
+
+
 // Initialize
 fetchOrders(true);
 orderInterval = setInterval(fetchOrders, 8000);
+
+function startTimer(roomNumber, duration) {
+  const timerEl = document.getElementById(`timer-${roomNumber}`);
+  const startBtn = document.getElementById(`start-btn-${roomNumber}`);
+
+  if (!timerEl || roomTimers[roomNumber]) return;
+
+  startBtn.disabled = true;
+  startBtn.textContent = "Running...";
+
+  roomTimers[roomNumber] = {
+    remaining: duration,
+    interval: setInterval(() => {
+      const t = roomTimers[roomNumber];
+      if (!t) return;
+      t.remaining -= 1;
+
+      if (t.remaining <= 0) {
+        clearInterval(t.interval);
+        timerEl.classList.remove("bg-danger");
+        timerEl.classList.add("bg-success");
+        timerEl.textContent = "Ready";
+        startBtn.textContent = "Completed";
+        return;
+      }
+
+      timerEl.textContent = formatTime(t.remaining);
+    }, 1000)
+  };
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 
 // mark all orders for a room as served
@@ -938,6 +1079,97 @@ async function markAllServed(roomNumber) {
   }
 }
 
+// ✏️ EDIT ORDER (Quantity only; auto price adjustment handled by backend)
+async function editOrder(orderId, itemName, quantity) {
+  const { value: newQty } = await Swal.fire({
+    title: `Edit Quantity for ${itemName}`,
+    input: 'number',
+    inputLabel: 'Enter new quantity:',
+    inputValue: quantity,
+    inputAttributes: { min: 1 },
+    showCancelButton: true,
+    confirmButtonText: 'Update',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#198754',
+    cancelButtonColor: '#6c757d',
+    inputValidator: (value) => {
+      if (!value || value <= 0) {
+        return 'Quantity must be greater than 0';
+      }
+    }
+  });
+
+  if (!newQty) return; // cancelled
+
+  try {
+    const res = await fetch('guest_update_order.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orderId, quantity: newQty })
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
+      await Swal.fire({
+        icon: 'success',
+        title: 'Updated!',
+        text: `Order updated successfully. New total: ₱${result.new_price}`,
+        timer: 2000,
+        showConfirmButton: false
+      });
+      fetchOrders(true); // refresh orders list
+    } else {
+      throw new Error(result.message || 'Update failed');
+    }
+  } catch (err) {
+    console.error(err);
+    Swal.fire('Error', 'Failed to update order. Please try again.', 'error');
+  }
+}
+
+
+// 🗑 DELETE ORDER (Permanent)
+async function deleteOrder(orderId, roomNumber) {
+  const confirmDelete = await Swal.fire({
+    title: 'Delete this order?',
+    text: `This will permanently remove the order from Room ${roomNumber}.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, delete it',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d'
+  });
+
+  if (!confirmDelete.isConfirmed) return;
+
+  try {
+    const res = await fetch('guest_delete_order.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orderId })
+    });
+
+    const result = await res.json();
+
+    if (result.success) {
+      await Swal.fire({
+        icon: 'success',
+        title: 'Deleted!',
+        text: 'The order has been permanently removed.',
+        timer: 1500,
+        showConfirmButton: false
+      });
+      fetchOrders(true);
+    } else {
+      throw new Error(result.message || 'Delete failed');
+    }
+  } catch (err) {
+    console.error(err);
+    Swal.fire('Error', 'Failed to delete the order. Please try again.', 'error');
+  }
+}
 
 // print receipt for a room
 async function printReceipt(roomNumber) {
