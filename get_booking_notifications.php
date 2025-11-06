@@ -1,36 +1,31 @@
 <?php
 session_start();
 require_once 'database.php';
-
 header('Content-Type: application/json');
 
 try {
-    // ✅ Count new bookings (created in last 24 hours)
-    $newBookingsQuery = $conn->query("
-        SELECT COUNT(*) as new_count 
-        FROM bookings 
-        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-          AND status NOT IN ('cancelled', 'completed')
+    // query to count only bookings that is not yet checked in (not expired/cancelled/completed)
+    $query = $conn->query("
+        SELECT COUNT(DISTINCT b.id) AS total_count
+        FROM bookings b
+        LEFT JOIN checkins c 
+          ON c.room_number = b.room_number
+         AND c.guest_name COLLATE utf8mb4_0900_ai_ci = b.guest_name COLLATE utf8mb4_0900_ai_ci
+        WHERE b.status NOT IN ('cancelled', 'completed')
+          AND b.end_date > NOW()
+          AND (
+              b.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+              OR (b.start_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 24 HOUR))
+          )
+          AND c.id IS NULL
     ");
-    $newBookingsCount = $newBookingsQuery->fetch_assoc()['new_count'] ?? 0;
 
-    // ✅ Count upcoming bookings (check-in within next 24 hours)
-    $upcomingBookingsQuery = $conn->query("
-        SELECT COUNT(*) as upcoming_count 
-        FROM bookings 
-        WHERE start_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 24 HOUR)
-          AND status NOT IN ('cancelled', 'completed')
-    ");
-    $upcomingBookingsCount = $upcomingBookingsQuery->fetch_assoc()['upcoming_count'] ?? 0;
-
-    // ✅ Total notification count
-    $totalNotifications = $newBookingsCount + $upcomingBookingsCount;
+    $row = $query->fetch_assoc();
+    $count = $row['total_count'] ?? 0;
 
     echo json_encode([
         'success' => true,
-        'count' => $totalNotifications,
-        'new_bookings' => $newBookingsCount,
-        'upcoming_bookings' => $upcomingBookingsCount
+        'count' => $count
     ]);
 
 } catch (Exception $e) {

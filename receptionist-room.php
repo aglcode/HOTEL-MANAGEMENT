@@ -3,7 +3,7 @@ session_start();
 
 require_once 'database.php';
 
-// ✅ CRITICAL FIX: Update room status based on current checkins
+// Update room status based on current checkins
 // This ensures rooms with active/scheduled guests show correct status
 $conn->query("
     UPDATE rooms r
@@ -36,7 +36,7 @@ $conn->query("
     WHERE r.status != 'maintenance'
 ");
 
-// ✅ STEP 2: Auto-checkout expired bookings
+//  Auto-checkout expired bookings
 $conn->query("
     UPDATE checkins 
     SET status = 'checked_out'
@@ -53,7 +53,7 @@ $conn->query("
       )
 ");
 
-// ✅ STEP 3: Free rooms with no active bookings
+// Free rooms with no active bookings
 $expiredRooms = $conn->query("
     SELECT r.room_number
     FROM rooms r
@@ -85,7 +85,7 @@ $booking_count = $booking_count_row['total'] ?? 0;
 
 $bookings_result = $conn->query("SELECT * FROM bookings ORDER BY start_date DESC");
 
-// ✅ Get count of new bookings created in last 24 hours
+// Get count of new bookings created in last 24 hours
 $newBookingsQuery = $conn->query("
     SELECT COUNT(*) as new_count 
     FROM bookings 
@@ -94,7 +94,7 @@ $newBookingsQuery = $conn->query("
 ");
 $newBookingsCount = $newBookingsQuery->fetch_assoc()['new_count'] ?? 0;
 
-// ✅ Get count of upcoming bookings (check-in within next 24 hours)
+// Get count of upcoming bookings (check-in within next 24 hours)
 $upcomingBookingsQuery = $conn->query("
     SELECT COUNT(*) as upcoming_count 
     FROM bookings 
@@ -106,7 +106,7 @@ $upcomingBookingsCount = $upcomingBookingsQuery->fetch_assoc()['upcoming_count']
 // Total notification count
 $totalNotifications = $newBookingsCount + $upcomingBookingsCount;
 
-// ✅ STEP 4: Query rooms with ONLY current active booking (not future ones)
+// Query rooms with ONLY current active booking (not future ones)
 // FIXED: Always fetch the latest check_out_date for active bookings
 $allRoomsQuery = "
     SELECT r.room_number, r.room_type, r.status,
@@ -158,9 +158,8 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
-// ============================================
+
 // IMPROVED CHECKOUT ACTION - Handles Gap Rebookings
-// ============================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     $room_number = (int)$_POST['room_number'];
 
@@ -216,7 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         }
     }
 
-    // ✅ IMPROVED CHECKOUT - Only checks out CURRENT active booking
+    // Only checks out CURRENT active booking
     if (isset($_POST['checkout'])) {
         $stmt = $conn->prepare("
             SELECT id, total_price, amount_paid, guest_name 
@@ -244,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                 exit;
             }
 
-            // ✅ Check if there's a future scheduled booking for this room
+            // Check if there's a future scheduled booking for this room
             $futureCheck = $conn->prepare("
                 SELECT COUNT(*) as has_future
                 FROM checkins
@@ -258,7 +257,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $hasFuture = (int)$futureCheck->get_result()->fetch_assoc()['has_future'];
             $futureCheck->close();
 
-            // ✅ Only set room to available if no future bookings
+            // Only set room to available if no future bookings
             if ($hasFuture === 0) {
                 $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
                 $stmt->bind_param('i', $room_number);
@@ -759,11 +758,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active' : ''; ?>">
       <i class="fa-solid fa-gauge"></i> Dashboard
     </a>
-    <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?> position-relative">
+    <a href="receptionist-room.php"
+      class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?> position-relative">
       <i class="fa-solid fa-bed"></i> Rooms
-      <?php if ($totalNotifications > 0): ?>
-        <span class="notification-badge"><?= $totalNotifications ?></span>
-      <?php endif; ?>
+      <span class="notification-badge" style="display: none;">0</span>
     </a>
     <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
       <i class="fa-solid fa-users"></i> Guests
@@ -885,7 +883,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     $orderCount = $orderResult->fetch_assoc()['pending_orders'] ?? 0;
     $orderCountQuery->close();
     
-    // ✅ Use the checkin_status and check_out_date from the JOIN
+    // Use the checkin_status and check_out_date from the JOIN
     $hasActiveCheckin = !empty($room['check_out_date']) && !empty($room['checkin_status']);
 ?>
                     
@@ -998,7 +996,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                 </thead>
 <tbody>
 <?php
-    // ✅ UPDATED QUERY: prioritize active 'Check In' bookings, then latest ones
+    // prioritize active 'Check In' bookings, then latest ones
     $summary_result = $conn->query("
         SELECT 
             b.guest_name, 
@@ -1036,10 +1034,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $booking_finished = $now >= $booking_end_dt;
             $is_cancelled = ($booking_status === 'cancelled');
 
-            // 🕒 Determine if expired (booking time passed, never checked in)
+            // Determine if expired (booking time passed, never checked in)
             $is_expired = false;
 
-            // ✅ Check active occupancy or checkin status
+            // Check active occupancy or checkin status
             $already_checked_in = false;
             $occupied_by_other = false;
             $checked_out_for_booking = false;
@@ -1087,16 +1085,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                 }
             }
 
-            // 🕒 Mark expired only if booking end time has passed and not checked in/out
+            // Mark expired only if booking end time has passed and not checked in/out
             if (!$already_checked_in && !$checked_out_for_booking && !$is_cancelled && $now > $booking_end_dt) {
                 $is_expired = true;
             }
 
-            // ✅ Mark as NEW only if created < 24hrs, not cancelled, not expired
+            // Mark as NEW only if created < 24hrs, not cancelled, not expired
             $hours_since_created = ($now->getTimestamp() - $created_dt->getTimestamp()) / 3600;
             $is_new = ($hours_since_created <= 24 && !$is_cancelled && !$is_expired);
 
-            // ✅ Add row class for new bookings
+            // Add row class for new bookings
             $row_class = $is_new ? 'new-booking-row' : '';
 ?>
 <tr class="<?= $row_class ?>">
@@ -1177,6 +1175,7 @@ function updateRoomNotifications() {
       const badge = document.querySelector('.notification-badge');
       if (!badge) return;
 
+      // Update badge
       if (data.success && data.count > 0) {
         badge.textContent = data.count;
         badge.style.display = 'flex';
@@ -1193,17 +1192,15 @@ updateRoomNotifications();
 // Refresh every 30 seconds
 setInterval(updateRoomNotifications, 30000);
 
-// ✅ Auto-refresh booking table every 60 seconds (only if DataTable exists)
+// Auto-refresh booking table every 60 seconds (only if DataTable exists)
 function refreshBookingTable() {
   if ($.fn.DataTable.isDataTable('#bookingSummaryTable')) {
     $('#bookingSummaryTable').DataTable().ajax.reload(null, false);
   }
 }
 
-// Optional: Uncomment if you want auto-refresh
-// setInterval(refreshBookingTable, 60000);
 
-// ✅ Smooth scroll to new bookings when page loads
+// Smooth scroll to new bookings when page loads
 $(document).ready(function() {
   const newBookingRows = $('.new-booking-row');
   if (newBookingRows.length > 0) {

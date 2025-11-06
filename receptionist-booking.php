@@ -729,15 +729,24 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
   margin-right: 0;
 }
 
+/* Notification Badge Styles */
 .notification-badge {
   position: absolute;
-  top: 5px;
-  right: 10px;
-  background: red;
+  top: 2px;     /* move higher up */
+  right: 10px;  /* slightly tighter alignment */
+  background: #dc3545;
   color: white;
   border-radius: 50%;
-  padding: 2px 7px;
-  font-size: 12px;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 5px;
+  animation: pulse-badge 2s infinite;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.4);
 }
 
 #availability-message .alert {
