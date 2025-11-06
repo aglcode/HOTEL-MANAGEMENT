@@ -3081,7 +3081,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // ✅ Remarks modal logic
+    // Remarks modal logic
     async function openRemarksModal() {
       try {
         const fetchRes = await fetch("guest_fetch_remarks.php");

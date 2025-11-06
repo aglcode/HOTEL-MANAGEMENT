@@ -40,12 +40,15 @@ $low_stock_count = 0;
 $total_value = 0;
 
 foreach ($supplies as $supply) {
-  // Calculate total inventory value
-  $total_value += $supply['price'] * $supply['quantity'];
-  
-  // Count low stock items
-  if ($supply['quantity'] < 5) {
-    $low_stock_count++;
+  // Skip if quantity is 999 (N/A)
+  if ($supply['quantity'] != 999) {
+    // Calculate total inventory value
+    $total_value += $supply['price'] * $supply['quantity'];
+
+    // Count low stock items (less than 5)
+    if ($supply['quantity'] < 5) {
+      $low_stock_count++;
+    }
   }
 }
 
@@ -674,14 +677,21 @@ try {
               </span>
             </td>
 
-              <!-- Price -->
-              <td>₱<?= number_format($s['price'], 2) ?></td>
-
-              <!-- Quantity -->
-              <td><?= (int)$s['quantity'] ?></td>
-
-              <!-- Stock Status -->
-              <td>
+            <!-- Price -->
+            <td>₱<?= number_format($s['price'], 2) ?></td>
+            
+            <!-- Quantity -->
+            <td><?= $s['quantity'] == 999 ? 'N/A' : (int)$s['quantity'] ?></td>
+            
+            <!-- Stock Status -->
+            <td>
+              <?php if ($s['quantity'] == 999): ?>
+                <?php if ($s['status'] == 'available'): ?>
+                  <span class="badge bg-green-100 text-green-800 border-green-200">Available</span>
+                <?php else: ?>
+                  <span class="badge bg-gray-100 text-gray-800 border-gray-200">Unavailable</span>
+                <?php endif; ?>
+              <?php else: ?>
                 <?php if ($s['quantity'] < 5): ?>
                   <span class="badge bg-amber-100 text-amber-800 border-amber-200">Low Stock</span>
                 <?php elseif ($s['quantity'] < 10): ?>
@@ -689,10 +699,17 @@ try {
                 <?php else: ?>
                   <span class="badge bg-green-100 text-green-800 border-green-200">Good Stock</span>
                 <?php endif; ?>
-              </td>
+              <?php endif; ?>
+            </td>
 
-              <!-- Total Value -->
-              <td>₱<?= number_format($s['price'] * $s['quantity'], 2) ?></td>
+            <!-- Total Value -->
+            <td>
+              <?php if ($s['quantity'] == 999): ?>
+                N/A
+              <?php else: ?>
+                ₱<?= number_format($s['price'] * $s['quantity'], 2) ?>
+              <?php endif; ?>
+            </td>
             </tr>
             <?php endforeach; ?>
           <?php else: ?>
@@ -790,7 +807,10 @@ try {
               <select name="supply_id" class="form-select" required>
                 <option value="">Select Supply</option>
                 <?php foreach ($supplies as $s): ?>
-                  <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?> (Qty: <?= $s['quantity'] ?>)</option>
+                  <option value="<?= $s['id'] ?>">
+                    <?= htmlspecialchars($s['name']) ?> 
+                    (Qty: <?= $s['quantity'] == 999 ? 'N/A' : (int)$s['quantity'] ?>)
+                  </option>
                 <?php endforeach; ?>
               </select>
             </div>
