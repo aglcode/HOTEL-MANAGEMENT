@@ -340,7 +340,8 @@ $currently_checked_in = $checkin_count_row['total'];
 
 
 
-// Fetch currently checked-in guests (updated to use status)
+
+// Fetch currently checked-in guests (ONLY checked_in, NOT scheduled)
 $current_guests = $conn->query("SELECT 
     id,
     guest_name, 
@@ -362,7 +363,7 @@ $current_guests = $conn->query("SELECT
     is_rebooked,
     rebooked_from
 FROM checkins
-WHERE status IN ('checked_in', 'scheduled')
+WHERE status = 'checked_in'
 ORDER BY check_in_date DESC");
 
 $search = isset($_GET['search']) ? trim($conn->real_escape_string($_GET['search'])) : '';
@@ -817,6 +818,26 @@ error_log("=============================");
   color: #dc2626;
 }
 
+/* Notification Badge Styles */
+.notification-badge {
+  position: absolute;
+  top: 2px;     /* move higher up */
+  right: 10px;  /* slightly tighter alignment */
+  background: #dc3545;
+  color: white;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 5px;
+  animation: pulse-badge 2s infinite;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.4);
+}
+
 /* === Main Content Offset === */
 .content {
   margin-left: 270px;
@@ -845,28 +866,31 @@ error_log("=============================");
     <h6>Receptionist</h6>
   </div>
 
-<div class="nav-links">
-  <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active position-relative' : 'position-relative'; ?>" id="notif-dashboard">
-    <i class="fa-solid fa-gauge"></i> Dashboard
-    <span id="orderNotifCount"
-          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
-          style="font-size: 0.7rem; padding: 4px 6px;">0</span>
-  </a>
+  <?php include __DIR__ . '/includes/get-notifications.php'; ?>
 
-  <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-bed"></i> Rooms
-  </a>
-  <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-users"></i> Guests
-  </a>
-  <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-calendar-check"></i> Booking
-  </a>
-  <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-money-check"></i> Payment
-  </a>
-</div>
-
+  <div class="nav-links">
+    <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-gauge"></i> Dashboard
+    </a>
+<a href="receptionist-room.php" 
+   class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?> position-relative">
+  <i class="fa-solid fa-bed"></i> Rooms
+  <?php if (!empty($totalNotifications) && $totalNotifications > 0): ?>
+    <span class="notification-badge">
+      <?= $totalNotifications ?>
+    </span>
+  <?php endif; ?>
+</a>
+    <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-users"></i> Guests
+    </a>
+    <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-calendar-check"></i> Booking
+    </a>
+    <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-money-check"></i> Payment
+    </a>
+  </div>
 
   <div class="signout">
     <a href="signin.php"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
@@ -1180,7 +1204,7 @@ error_log("=============================");
 
       <!-- Header -->
       <div class="modal-header bg-gradient text-white" style="background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);">
-        <h5 class="modal-title fw-bold" id="rebookModalLabel">
+        <h5 class="modal-title fw-bold text-dark" id="rebookModalLabel">
           <i class="fas fa-redo me-2"></i>Rebook Guest
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -2545,28 +2569,61 @@ function submitRebook() {
         
         Swal.close();
         
-        if (data.success) {
+if (data.success) {
+        Swal.close();
+        
+        if (data.is_gap_rebook) {
+            // Gap rebook: separate bookings
             Swal.fire({
-                title: 'Success!',
-                text: data.message || 'Guest has been rebooked successfully',
+                title: 'New Booking Created!',
+                html: `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Separate Booking Created</strong>
+                    </div>
+                    <p class="text-muted small">
+                        <i class="fas fa-clock me-1"></i>
+                        The current booking will automatically check out at its scheduled time.<br>
+                        The new booking will then automatically check in.
+                    </p>
+                `,
                 icon: 'success',
-                confirmButtonColor: '#8b1d2d'
+                confirmButtonColor: '#8b1d2d',
+                confirmButtonText: 'Got it!'
             }).then(() => {
-                // ✅ FIX: Reload page to show updated duration
                 location.reload();
             });
         } else {
+            // Continuous extension
             Swal.fire({
-                title: 'Error',
-                text: data.message || 'Failed to rebook guest',
-                icon: 'error',
-                confirmButtonColor: '#8b1d2d'
+                title: 'Stay Extended!',
+                html: `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Booking Successfully Extended</strong>
+                    </div>
+                    <p class="mt-3">
+                        ${data.message || 'Stay extended successfully'}
+                    </p>
+                `,
+                icon: 'success',
+                confirmButtonColor: '#8b1d2d',
+                confirmButtonText: 'Got it!'
+            }).then(() => {
+                location.reload();
             });
         }
+    } else {
+        Swal.fire({
+            title: 'Error',
+            text: data.message || 'Failed to process rebook',
+            icon: 'error',
+            confirmButtonColor: '#8b1d2d'
+        });
+    }
     })
     .catch(error => {
         console.error('❌ Fetch Error:', error);
-        
         Swal.close();
         
         Swal.fire({
@@ -3087,6 +3144,7 @@ function printReceipt(guestId) {
             console.log('Is Rebooked:', guest.is_rebooked);
             console.log('Orders Total:', guest.orders_total);
             console.log('Grand Total:', guest.grand_total);
+            console.log('Extension Info:', guest.extension_info);
             console.log('===================');
             
             const roomCharge = parseFloat(guest.total_price || 0);
@@ -3094,6 +3152,7 @@ function printReceipt(guestId) {
             const previousCharges = parseFloat(guest.previous_charges || 0);
             const newCharges = parseFloat(guest.new_charges || 0);
             const isRebooked = guest.is_rebooked || previousCharges > 0;
+            const hasExtension = guest.extension_info && guest.extension_info.total_extensions > 0;
             
             // Grand total calculation
             const grandTotal = parseFloat(guest.grand_total || 0);
@@ -3125,20 +3184,95 @@ function printReceipt(guestId) {
                 });
             }
 
-            // Build rebooking info section
+            // ✅ NEW: Build extension info section with enhanced UI
+            let extensionSection = '';
+            if (hasExtension) {
+                const ext = guest.extension_info;
+                extensionSection = `
+                    <div class="extension-notice">
+                        <div class="alert alert-success" style="background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); border: 2px solid #28a745; border-radius: 12px; padding: 15px; margin: 15px 0; box-shadow: 0 4px 6px rgba(40, 167, 69, 0.15);">
+                            <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                                <div style="width: 40px; height: 40px; background: #28a745; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
+                                    <i class="fas fa-clock" style="color: white; font-size: 20px;"></i>
+                                </div>
+                                <div>
+                                    <strong style="color: #155724; font-size: 1.1rem; display: block;">Extended Stay</strong>
+                                    <small style="color: #155724; opacity: 0.8;">Booking modified ${ext.total_extensions} time(s)</small>
+                                </div>
+                            </div>
+                            <div style="background: white; border-radius: 8px; padding: 12px; border-left: 4px solid #28a745;">
+                                <div style="font-size: 0.9rem; color: #333; line-height: 1.8;">
+                                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #dee2e6;">
+                                        <span><i class="fas fa-hourglass-start" style="color: #28a745; margin-right: 8px;"></i><strong>Original Duration:</strong></span>
+                                        <span style="font-weight: 600;">${ext.original_duration} hours</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #dee2e6;">
+                                        <span><i class="fas fa-plus-circle" style="color: #28a745; margin-right: 8px;"></i><strong>Extended By:</strong></span>
+                                        <span style="font-weight: 600; color: #28a745;">+${ext.extended_hours} hours</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; padding: 6px 0;">
+                                        <span><i class="fas fa-hourglass-end" style="color: #28a745; margin-right: 8px;"></i><strong>Total Duration:</strong></span>
+                                        <span style="font-weight: 700; color: #155724; font-size: 1.05rem;">${ext.total_duration} hours</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(40, 167, 69, 0.2);">
+                                <small style="color: #155724; display: flex; align-items: center;">
+                                    <i class="fas fa-calendar-check" style="margin-right: 6px;"></i>
+                                    <span><strong>Original Checkout:</strong> ${ext.original_checkout}</span>
+                                </small>
+                                <small style="color: #155724; display: flex; align-items: center; margin-top: 4px;">
+                                    <i class="fas fa-calendar-plus" style="margin-right: 6px;"></i>
+                                    <span><strong>Extended Checkout:</strong> ${ext.extended_checkout}</span>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Build rebooking info section (for gap rebooking)
             let rebookSection = '';
-            if (isRebooked && guest.rebook_info) {
+            if (isRebooked && guest.rebook_info && !hasExtension) {
                 const oldInfo = guest.rebook_info;
+                const hasGap = oldInfo.has_gap || false;
+                
                 rebookSection = `
                     <div class="rebook-notice">
-                        <div class="alert alert-info" style="background: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px; padding: 12px; margin: 15px 0;">
-                            <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                                <i class="fas fa-redo" style="color: #2196f3; margin-right: 8px;"></i>
-                                <strong style="color: #1976d2;">Rebooked Guest</strong>
+                        <div class="alert alert-info" style="background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); border: 2px solid #17a2b8; border-radius: 12px; padding: 15px; margin: 15px 0; box-shadow: 0 4px 6px rgba(23, 162, 184, 0.15);">
+                            <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                                <div style="width: 40px; height: 40px; background: #17a2b8; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
+                                    <i class="fas fa-redo" style="color: white; font-size: 20px;"></i>
+                                </div>
+                                <div>
+                                    <strong style="color: #0c5460; font-size: 1.1rem; display: block;">Rebooked Guest</strong>
+                                    <small style="color: #0c5460; opacity: 0.8;">${hasGap ? 'New booking after checkout' : 'Continuous stay'}</small>
+                                </div>
                             </div>
-                            <div style="font-size: 0.85rem; color: #555; line-height: 1.6;">
-                                <div>Previous Stay: Room ${oldInfo.old_room} (${oldInfo.old_duration} hrs)</div>
-                                <div>Previous Period: ${new Date(oldInfo.old_checkin).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} - ${new Date(oldInfo.old_checkout).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+                            <div style="background: white; border-radius: 8px; padding: 12px; border-left: 4px solid #17a2b8;">
+                                <div style="font-size: 0.9rem; color: #333; line-height: 1.8;">
+                                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #dee2e6;">
+                                        <span><i class="fas fa-door-open" style="color: #17a2b8; margin-right: 8px;"></i><strong>Previous Room:</strong></span>
+                                        <span style="font-weight: 600;">Room ${oldInfo.old_room}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #dee2e6;">
+                                        <span><i class="fas fa-clock" style="color: #17a2b8; margin-right: 8px;"></i><strong>Previous Duration:</strong></span>
+                                        <span style="font-weight: 600;">${oldInfo.old_duration} hours</span>
+                                    </div>
+                                    ${hasGap ? `
+                                    <div style="display: flex; justify-content: space-between; padding: 6px 0; background: #fff3cd; margin: 8px -12px; padding-left: 12px; padding-right: 12px;">
+                                        <span><i class="fas fa-hourglass-half" style="color: #856404; margin-right: 8px;"></i><strong>Gap Between Stays:</strong></span>
+                                        <span style="font-weight: 600; color: #856404;">${oldInfo.gap_hours}h ${oldInfo.gap_minutes}m</span>
+                                    </div>
+                                    ` : ''}
+                                    <div style="padding-top: 8px;">
+                                        <small style="color: #666;">
+                                            <i class="fas fa-calendar-alt" style="margin-right: 6px;"></i>
+                                            ${new Date(oldInfo.old_checkin).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} - 
+                                            ${new Date(oldInfo.old_checkout).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                        </small>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -3156,7 +3290,7 @@ function printReceipt(guestId) {
                         <span style="color: #666;">₱${previousCharges.toFixed(2)}</span>
                     </div>
                     <div class="summary-row" style="background: #e8f5e9; padding: 8px 0; margin: 8px 0; border-radius: 4px;">
-                        <span style="color: #2e7d32; font-weight: 600;">Additional Charges (Rebook)</span>
+                        <span style="color: #2e7d32; font-weight: 600;">Additional Charges ${hasExtension ? '(Extension)' : '(Rebook)'}</span>
                         <span style="color: #2e7d32; font-weight: 600;">₱${newCharges.toFixed(2)}</span>
                     </div>
                     <div class="summary-row" style="padding-top: 8px; border-top: 1px dashed #dee2e6;">
@@ -3221,9 +3355,6 @@ function printReceipt(guestId) {
                         font-size: 0.9rem;
                         color: #6c757d;
                         margin-bottom: 15px;
-                    }
-                    .rebook-notice {
-                        margin: 15px 0;
                     }
                     hr {
                         border: 0;
@@ -3325,6 +3456,7 @@ function printReceipt(guestId) {
                     <div class="timestamp" style="margin-top: -8px;">
                         Current Stay: ${guest.check_in_date} - ${guest.check_out_date}
                     </div>
+                    ${extensionSection}
                     ${rebookSection}
                     <hr>
 
@@ -3392,7 +3524,8 @@ function printReceipt(guestId) {
                     <div class="footer-text">
                         <strong>Thank you for your patronage!</strong>
                         <span>Receipt #: GIT-${guest.id}-${new Date().getFullYear()}</span>
-                        ${isRebooked ? '<div style="margin-top: 8px; font-size: 0.8rem; color: #2196f3;"><i class="fas fa-info-circle"></i> This receipt includes charges from rebooked stay</div>' : ''}
+                        ${hasExtension ? '<div style="margin-top: 8px; font-size: 0.8rem; color: #28a745;"><i class="fas fa-clock"></i> Extended stay - Thank you for choosing us again!</div>' : ''}
+                        ${isRebooked && !hasExtension ? '<div style="margin-top: 8px; font-size: 0.8rem; color: #2196f3;"><i class="fas fa-info-circle"></i> This receipt includes charges from rebooked stay</div>' : ''}
                     </div>
                 </div>
             `;
@@ -3534,6 +3667,5 @@ setTimeout(() => {
 
 </body>
 </html>
-
 
 

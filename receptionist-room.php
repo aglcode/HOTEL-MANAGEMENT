@@ -3,7 +3,7 @@ session_start();
 
 require_once 'database.php';
 
-// ✅ CRITICAL FIX: Update room status based on current checkins
+// Update room status based on current checkins
 // This ensures rooms with active/scheduled guests show correct status
 $conn->query("
     UPDATE rooms r
@@ -11,9 +11,20 @@ $conn->query("
         SELECT room_number, check_out_date, status
         FROM (
             SELECT room_number, check_out_date, status,
-                   ROW_NUMBER() OVER (PARTITION BY room_number ORDER BY check_in_date DESC) as rn
+                   ROW_NUMBER() OVER (
+                       PARTITION BY room_number 
+                       ORDER BY 
+                           CASE 
+                               WHEN status = 'checked_in' AND check_in_date <= NOW() AND check_out_date > NOW() THEN 1
+                               WHEN status = 'scheduled' AND check_in_date <= NOW() AND check_out_date > NOW() THEN 2
+                               ELSE 3
+                           END,
+                           check_in_date ASC
+                   ) as rn
             FROM checkins
             WHERE status IN ('checked_in', 'scheduled')
+              AND check_in_date <= NOW() 
+              AND check_out_date > NOW()
         ) ranked
         WHERE rn = 1
     ) c ON r.room_number = c.room_number
@@ -25,18 +36,37 @@ $conn->query("
     WHERE r.status != 'maintenance'
 ");
 
-// Auto-update booked rooms without active timer to available
+//  Auto-checkout expired bookings
+$conn->query("
+    UPDATE checkins 
+    SET status = 'checked_out'
+    WHERE status IN ('checked_in', 'scheduled')
+      AND check_out_date <= NOW()
+      AND id NOT IN (
+          SELECT id FROM (
+              SELECT MIN(id) as id 
+              FROM checkins 
+              WHERE status = 'scheduled' 
+                AND check_in_date > NOW()
+              GROUP BY room_number, guest_name
+          ) future_bookings
+      )
+");
+
+// Free rooms with no active bookings
 $expiredRooms = $conn->query("
     SELECT r.room_number
     FROM rooms r
     LEFT JOIN (
-        SELECT room_number, MAX(check_out_date) AS latest_checkout
+        SELECT room_number
         FROM checkins
         WHERE status IN ('checked_in', 'scheduled')
+          AND check_in_date <= NOW()
+          AND check_out_date > NOW()
         GROUP BY room_number
     ) c ON r.room_number = c.room_number
     WHERE r.status = 'booked' 
-    AND (c.latest_checkout IS NULL OR c.latest_checkout <= NOW())
+      AND c.room_number IS NULL
 ");
 
 while ($room = $expiredRooms->fetch_assoc()) {
@@ -46,7 +76,6 @@ while ($room = $expiredRooms->fetch_assoc()) {
 
 $bookedRooms = $conn->query("SELECT COUNT(*) AS booked FROM rooms WHERE status = 'booked'")->fetch_assoc()['booked'] ?? 0;
 $maintenanceRooms = $conn->query("SELECT COUNT(*) AS maintenance FROM rooms WHERE status = 'maintenance'")->fetch_assoc()['maintenance'] ?? 0;
-
 $totalRooms = $conn->query("SELECT COUNT(*) AS total FROM rooms")->fetch_assoc()['total'] ?? 0;
 $availableRooms = $conn->query("SELECT COUNT(*) AS available FROM rooms WHERE status = 'available'")->fetch_assoc()['available'] ?? 0;
 
@@ -56,17 +85,62 @@ $booking_count = $booking_count_row['total'] ?? 0;
 
 $bookings_result = $conn->query("SELECT * FROM bookings ORDER BY start_date DESC");
 
-// ✅ CRITICAL FIX: Updated room query with proper checkin data
+// Get count of new bookings created in last 24 hours
+$newBookingsQuery = $conn->query("
+    SELECT COUNT(*) as new_count 
+    FROM bookings 
+    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+      AND status NOT IN ('cancelled', 'completed')
+");
+$newBookingsCount = $newBookingsQuery->fetch_assoc()['new_count'] ?? 0;
+
+// Get count of upcoming bookings (check-in within next 24 hours)
+$upcomingBookingsQuery = $conn->query("
+    SELECT COUNT(*) as upcoming_count 
+    FROM bookings 
+    WHERE start_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 24 HOUR)
+      AND status NOT IN ('cancelled', 'completed')
+");
+$upcomingBookingsCount = $upcomingBookingsQuery->fetch_assoc()['upcoming_count'] ?? 0;
+
+// Total notification count
+$totalNotifications = $newBookingsCount + $upcomingBookingsCount;
+
+// Query rooms with ONLY current active booking (not future ones)
+// FIXED: Always fetch the latest check_out_date for active bookings
 $allRoomsQuery = "
     SELECT r.room_number, r.room_type, r.status,
         c.check_out_date,
-        c.status as checkin_status
+        c.checkin_status,
+        c.guest_name,
+        c.checkin_id,
+        c.stay_duration,
+        c.last_modified
     FROM rooms r
     LEFT JOIN (
-        SELECT room_number, check_out_date, status,
-               ROW_NUMBER() OVER (PARTITION BY room_number ORDER BY check_in_date DESC) as rn
+        SELECT 
+            id as checkin_id,
+            room_number, 
+            check_out_date, 
+            status as checkin_status,
+            guest_name,
+            stay_duration,
+            last_modified,
+            ROW_NUMBER() OVER (
+                PARTITION BY room_number 
+                ORDER BY 
+                    CASE 
+                        WHEN status = 'checked_in' AND check_in_date <= NOW() AND check_out_date > NOW() THEN 1
+                        WHEN status = 'scheduled' AND check_in_date <= NOW() AND check_out_date > NOW() THEN 2
+                        ELSE 3
+                    END,
+                    last_modified DESC,  -- ✅ FIX: Prioritize most recently modified booking
+                    check_in_date ASC
+            ) as rn
         FROM checkins
         WHERE status IN ('checked_in', 'scheduled')
+          AND check_in_date <= NOW()
+          AND check_out_date > NOW()
     ) c ON r.room_number = c.room_number AND c.rn = 1
     ORDER BY r.room_number ASC
 ";
@@ -84,16 +158,20 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
-// ACTIONS: EXTEND / CHECKOUT
+
+// IMPROVED CHECKOUT ACTION - Handles Gap Rebookings
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     $room_number = (int)$_POST['room_number'];
 
-    // EXTEND
+    // EXTEND ACTION
     if (isset($_POST['extend'])) {
         $stmt = $conn->prepare("
             SELECT id, check_out_date, total_price 
             FROM checkins 
-            WHERE room_number = ? AND status = 'checked_in' 
+            WHERE room_number = ? 
+              AND status = 'checked_in'
+              AND check_in_date <= NOW()
+              AND check_out_date > NOW()
             ORDER BY check_in_date DESC LIMIT 1
         ");
         $stmt->bind_param('i', $room_number);
@@ -137,12 +215,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
         }
     }
 
-    // CHECKOUT
+    // Only checks out CURRENT active booking
     if (isset($_POST['checkout'])) {
         $stmt = $conn->prepare("
             SELECT id, total_price, amount_paid, guest_name 
             FROM checkins 
-            WHERE room_number = ? AND status = 'checked_in' 
+            WHERE room_number = ? 
+              AND status = 'checked_in'
+              AND check_in_date <= NOW()
+              AND check_out_date > NOW()
             ORDER BY check_in_date DESC LIMIT 1
         ");
         $stmt->bind_param('i', $room_number);
@@ -162,11 +243,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                 exit;
             }
 
-            $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
-            $stmt->bind_param('i', $room_number);
-            $stmt->execute();
-            $stmt->close();
+            // Check if there's a future scheduled booking for this room
+            $futureCheck = $conn->prepare("
+                SELECT COUNT(*) as has_future
+                FROM checkins
+                WHERE room_number = ?
+                  AND status = 'scheduled'
+                  AND check_in_date > NOW()
+                LIMIT 1
+            ");
+            $futureCheck->bind_param('i', $room_number);
+            $futureCheck->execute();
+            $hasFuture = (int)$futureCheck->get_result()->fetch_assoc()['has_future'];
+            $futureCheck->close();
 
+            // Only set room to available if no future bookings
+            if ($hasFuture === 0) {
+                $stmt = $conn->prepare("UPDATE rooms SET status = 'available' WHERE room_number = ?");
+                $stmt->bind_param('i', $room_number);
+                $stmt->execute();
+                $stmt->close();
+            }
+
+            // Check out current booking
             $stmt_update2 = $conn->prepare("
                 UPDATE checkins 
                 SET check_out_date = NOW(), status = 'checked_out' 
@@ -176,6 +275,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $stmt_update2->execute();
             $stmt_update2->close();
 
+            // Update related booking status
             $bkSel = $conn->prepare("
                 SELECT id FROM bookings 
                 WHERE guest_name = ? AND room_number = ? 
@@ -196,6 +296,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                 $bkSel->close();
             }
 
+            // Expire keycard
             $stmt_k2 = $conn->prepare("
                 UPDATE keycards 
                 SET status='expired' 
@@ -205,6 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             $stmt_k2->execute();
             $stmt_k2->close();
 
+            // Delete orders
             $del = $conn->prepare("
                 DELETE FROM orders 
                 WHERE room_number = ? 
@@ -540,6 +642,104 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     }
 }
 
+/* Notification Badge Styles */
+.notification-badge {
+  position: absolute;
+  top: 2px;     /* move higher up */
+  right: 10px;  /* slightly tighter alignment */
+  background: #dc3545;
+  color: white;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 5px;
+  animation: pulse-badge 2s infinite;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.4);
+}
+
+
+@keyframes pulse-badge {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* Make sure nav-links has position relative */
+.nav-links a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #374151;
+  text-decoration: none;
+  padding: 12px 18px;
+  border-radius: 8px;
+  margin: 4px 10px;
+  transition: all 0.2s ease;
+}
+
+/* New booking row highlight */
+.new-booking-row {
+  background-color: #fff3cd !important;
+  border-left: 4px solid #ffc107;
+}
+
+.new-booking-row:hover {
+  background-color: #ffe69c !important;
+}
+
+/* Badge for new bookings */
+.badge-new-slim {
+  display: inline-block;
+  font-size: 9px;
+  background: #e6f4ea;
+  color: #2e7d32;
+  border-radius: 6px;
+  padding: 0px 4px 1px 4px;
+  font-weight: 600;
+  margin-left: 4px;
+  position: relative;
+  top: -4px; /* lifts slightly like a square root */
+  line-height: 1;
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(102, 126, 234, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(102, 126, 234, 0.8);
+  }
+}
+
+/* Upcoming booking indicator */
+.upcoming-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #28a745;
+  border-radius: 50%;
+  margin-right: 6px;
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
     </style>
 
 </head>
@@ -554,28 +754,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     <h6>Receptionist</h6>
   </div>
 
-<div class="nav-links">
-  <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active position-relative' : 'position-relative'; ?>" id="notif-dashboard">
-    <i class="fa-solid fa-gauge"></i> Dashboard
-    <span id="orderNotifCount"
-          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
-          style="font-size: 0.7rem; padding: 4px 6px;">0</span>
-  </a>
-
-  <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-bed"></i> Rooms
-  </a>
-  <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-users"></i> Guests
-  </a>
-  <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-calendar-check"></i> Booking
-  </a>
-  <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-money-check"></i> Payment
-  </a>
-</div>
-
+  <div class="nav-links">
+    <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-gauge"></i> Dashboard
+    </a>
+    <a href="receptionist-room.php"
+      class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?> position-relative">
+      <i class="fa-solid fa-bed"></i> Rooms
+      <span class="notification-badge" style="display: none;">0</span>
+    </a>
+    <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-users"></i> Guests
+    </a>
+    <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-calendar-check"></i> Booking
+    </a>
+    <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
+      <i class="fa-solid fa-money-check"></i> Payment
+    </a>
+  </div>
 
   <div class="signout">
     <a href="signin.php"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
@@ -686,7 +883,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
     $orderCount = $orderResult->fetch_assoc()['pending_orders'] ?? 0;
     $orderCountQuery->close();
     
-    // ✅ Use the checkin_status and check_out_date from the JOIN
+    // Use the checkin_status and check_out_date from the JOIN
     $hasActiveCheckin = !empty($room['check_out_date']) && !empty($room['checkin_status']);
 ?>
                     
@@ -797,141 +994,166 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
                         <th>Action/Status</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php
-                        $summary_result = $conn->query("
-                          SELECT guest_name, start_date, end_date, room_number, duration, num_people, status 
-                          FROM bookings
-                          ORDER BY 
-                              CASE 
-                                  WHEN status = 'active' THEN 1
-                                  ELSE 2
-                              END,
-                              start_date DESC
-                      ");
+<tbody>
+<?php
+    // prioritize active 'Check In' bookings, then latest ones
+    $summary_result = $conn->query("
+        SELECT 
+            b.guest_name, 
+            b.start_date, 
+            b.end_date, 
+            b.room_number, 
+            b.duration, 
+            b.num_people, 
+            b.status, 
+            b.created_at,
+            r.status AS room_status,
+            CASE 
+                WHEN b.status NOT IN ('cancelled','completed') 
+                     AND r.status = 'available' THEN 0 -- highest priority (for check-in)
+                ELSE 1
+            END AS checkin_priority
+        FROM bookings b
+        LEFT JOIN rooms r ON b.room_number = r.room_number
+        ORDER BY 
+            checkin_priority ASC,  -- show 'Check In' first
+            b.created_at DESC       -- then latest to oldest
+    ");
 
-                        if ($summary_result->num_rows > 0):
-                            while ($booking = $summary_result->fetch_assoc()):
-                                $room_number = (int)$booking['room_number'];
-                                $booking_start = $booking['start_date'];
-                                $booking_end = $booking['end_date'];
-                                $guest_name = $booking['guest_name'];
-                                $booking_status = $booking['status'];
-                                $now = new DateTime();
+    if ($summary_result->num_rows > 0):
+        while ($booking = $summary_result->fetch_assoc()):
+            $room_number = (int)$booking['room_number'];
+            $guest_name = $booking['guest_name'];
+            $booking_status = $booking['status'];
 
-                                $booking_end_dt = new DateTime($booking_end);
-                                $booking_finished = $now >= $booking_end_dt;
+            $now = new DateTime('now', new DateTimeZone('Asia/Manila'));
+            $booking_start_dt = new DateTime($booking['start_date'], new DateTimeZone('Asia/Manila'));
+            $booking_end_dt = new DateTime($booking['end_date'], new DateTimeZone('Asia/Manila'));
+            $created_dt = new DateTime($booking['created_at'], new DateTimeZone('Asia/Manila'));
 
-                                $is_cancelled = ($booking_status === 'cancelled');
+            $booking_finished = $now >= $booking_end_dt;
+            $is_cancelled = ($booking_status === 'cancelled');
 
-                                $already_checked_in = false;
-                                $occupied_by_other = false;
-                                $checked_out_for_booking = false;
-                                $current_occupant = null;
+            // Determine if expired (booking time passed, never checked in)
+            $is_expired = false;
 
-                                if (!$is_cancelled) {
-                                    $currStmt = $conn->prepare("
-                                        SELECT guest_name, check_out_date 
-                                        FROM checkins 
-                                        WHERE room_number = ? 
-                                          AND check_in_date <= NOW() 
-                                          AND check_out_date > NOW() 
-                                        ORDER BY check_in_date DESC 
-                                        LIMIT 1
-                                    ");
-                                    $currStmt->bind_param("i", $room_number);
-                                    $currStmt->execute();
-                                    $currRes = $currStmt->get_result();
-                                    if ($currRes && $rowCurr = $currRes->fetch_assoc()) {
-                                        $current_occupant = $rowCurr['guest_name'];
-                                        if ($current_occupant === $guest_name) {
-                                            $already_checked_in = true;
-                                        } else {
-                                            $occupied_by_other = true;
-                                        }
-                                    }
-                                    $currStmt->close();
+            // Check active occupancy or checkin status
+            $already_checked_in = false;
+            $occupied_by_other = false;
+            $checked_out_for_booking = false;
 
-                                    if (!$already_checked_in) {
-                                        $coStmt = $conn->prepare("
-                                            SELECT id 
-                                            FROM checkins 
-                                            WHERE room_number = ? 
-                                              AND guest_name = ? 
-                                              AND check_out_date <= NOW()
-                                            ORDER BY check_out_date DESC
-                                            LIMIT 1
-                                        ");
-                                        $coStmt->bind_param("is", $room_number, $guest_name);
-                                        $coStmt->execute();
-                                        $coRes = $coStmt->get_result();
-                                        if ($coRes && $coRes->num_rows > 0) {
-                                            $checked_out_for_booking = true;
-                                        }
-                                        $coStmt->close();
-                                    }
-                                }
-                    ?>
-                    <tr>
-                        <td class="align-middle"><?= htmlspecialchars($booking['guest_name']) ?></td>
-                        <td class="align-middle"><?= date("M d, Y h:i A", strtotime($booking['start_date'])) ?></td>
-                        <td class="align-middle"><?= date("M d, Y h:i A", strtotime($booking['end_date'])) ?></td>
-                        <td class="align-middle"><?= $booking['room_number'] ?></td>
-                        <td class="align-middle"><?= $booking['duration'] ?> hrs</td>
-                        <td class="align-middle">
-                            <?php
-                                if ($is_cancelled):
-                            ?>
-                                <span class="badge bg-danger">Cancelled</span>
-                            <?php 
-                                elseif ($already_checked_in):
-                            ?>
-                                <span class="badge bg-success">In Use by <?= htmlspecialchars($guest_name) ?></span>
-                            <?php 
-                                elseif ($checked_out_for_booking || $booking_finished): 
-                            ?>
-                                <span class="badge bg-secondary">Checked Out</span>
-                            <?php 
-                                elseif ($occupied_by_other): 
-                            ?>
-                                <span class="badge bg-warning text-dark">Room Unavailable</span>
-                            <?php 
-                                else:
-                                    $room_check = $conn->prepare("SELECT status FROM rooms WHERE room_number = ?");
-                                    $room_check->bind_param("i", $booking['room_number']);
-                                    $room_check->execute();
-                                    $room_result = $room_check->get_result();
-                                    $room = $room_result->fetch_assoc();
-                                    $room_check->close();
-                                    
-                                    if ($room && $room['status'] === 'available'): 
-                                        $guest = urlencode($booking['guest_name']);
-                                        $checkin = urlencode($booking['start_date']);
-                                        $checkout = urlencode($booking['end_date']);
-                                        $num_people = (int)$booking['num_people'];
-                            ?>
-                                <a href="check-in.php?room_number=<?= $booking['room_number']; ?>&guest_name=<?= $guest; ?>&checkin=<?= $checkin; ?>&checkout=<?= $checkout; ?>&num_people=<?= $num_people; ?>" class="btn btn-sm btn-success">
-                                    <i class="fas fa-sign-in-alt me-1"></i> Check In
-                                </a>
-                            <?php 
-                                    else: 
-                            ?>
-                                <span class="badge bg-secondary">Room Unavailable</span>
-                            <?php 
-                                    endif;
-                                endif; 
-                            ?>
-                        </td>
-                    </tr>
-                    <?php 
-                            endwhile; 
-                        else: 
-                    ?>
-                        <tr><td colspan="6" class="text-center py-4 text-muted">No bookings found.</td></tr>
-                    <?php 
-                        endif; 
-                    ?>
-                </tbody>
+            if (!$is_cancelled) {
+                $currStmt = $conn->prepare("
+                    SELECT guest_name, check_out_date 
+                    FROM checkins 
+                    WHERE room_number = ? 
+                      AND check_in_date <= NOW() 
+                      AND check_out_date > NOW() 
+                    ORDER BY check_in_date DESC 
+                    LIMIT 1
+                ");
+                $currStmt->bind_param("i", $room_number);
+                $currStmt->execute();
+                $currRes = $currStmt->get_result();
+                if ($currRes && $rowCurr = $currRes->fetch_assoc()) {
+                    $current_occupant = $rowCurr['guest_name'];
+                    if ($current_occupant === $guest_name) {
+                        $already_checked_in = true;
+                    } else {
+                        $occupied_by_other = true;
+                    }
+                }
+                $currStmt->close();
+
+                if (!$already_checked_in) {
+                    $coStmt = $conn->prepare("
+                        SELECT id 
+                        FROM checkins 
+                        WHERE room_number = ? 
+                          AND guest_name = ? 
+                          AND check_out_date <= NOW()
+                        ORDER BY check_out_date DESC
+                        LIMIT 1
+                    ");
+                    $coStmt->bind_param("is", $room_number, $guest_name);
+                    $coStmt->execute();
+                    $coRes = $coStmt->get_result();
+                    if ($coRes && $coRes->num_rows > 0) {
+                        $checked_out_for_booking = true;
+                    }
+                    $coStmt->close();
+                }
+            }
+
+            // Mark expired only if booking end time has passed and not checked in/out
+            if (!$already_checked_in && !$checked_out_for_booking && !$is_cancelled && $now > $booking_end_dt) {
+                $is_expired = true;
+            }
+
+            // Mark as NEW only if created < 24hrs, not cancelled, not expired
+            $hours_since_created = ($now->getTimestamp() - $created_dt->getTimestamp()) / 3600;
+            $is_new = ($hours_since_created <= 24 && !$is_cancelled && !$is_expired);
+
+            // Add row class for new bookings
+            $row_class = $is_new ? 'new-booking-row' : '';
+?>
+<tr class="<?= $row_class ?>">
+    <td class="align-middle">
+        <?= htmlspecialchars($guest_name) ?>
+        <?php if ($is_new): ?>
+            <span class="badge-new-slim">New</span>
+        <?php endif; ?>
+    </td>
+    <td class="align-middle">
+        <?= date("M d, Y h:i A", strtotime($booking['start_date'])) ?>
+    </td>
+    <td class="align-middle"><?= date("M d, Y h:i A", strtotime($booking['end_date'])) ?></td>
+    <td class="align-middle"><?= $booking['room_number'] ?></td>
+    <td class="align-middle"><?= $booking['duration'] ?> hrs</td>
+    <td class="align-middle">
+        <?php if ($is_cancelled): ?>
+            <span class="badge bg-danger">Cancelled</span>
+        <?php elseif ($is_expired): ?>
+            <span class="badge bg-warning">Expired</span>
+        <?php elseif ($already_checked_in): ?>
+            <span class="badge bg-success">In Use</span>
+        <?php elseif ($checked_out_for_booking || $booking_finished): ?>
+            <span class="badge bg-secondary">Checked Out</span>
+        <?php elseif ($occupied_by_other): ?>
+            <span class="badge bg-warning text-dark">Room Unavailable</span>
+        <?php else: ?>
+            <?php
+                $room_check = $conn->prepare("SELECT status FROM rooms WHERE room_number = ?");
+                $room_check->bind_param("i", $room_number);
+                $room_check->execute();
+                $room_result = $room_check->get_result();
+                $room = $room_result->fetch_assoc();
+                $room_check->close();
+
+                if ($room && $room['status'] === 'available'):
+                    $guest = urlencode($guest_name);
+                    $checkin = urlencode($booking['start_date']);
+                    $checkout = urlencode($booking['end_date']);
+                    $num_people = (int)$booking['num_people'];
+            ?>
+                <a href="check-in.php?room_number=<?= $room_number; ?>&guest_name=<?= $guest; ?>&checkin=<?= $checkin; ?>&checkout=<?= $checkout; ?>&num_people=<?= $num_people; ?>" 
+                   class="btn btn-sm btn-success">
+                    <i class="fas fa-sign-in-alt me-1"></i> Check In
+                </a>
+            <?php else: ?>
+                <span class="badge bg-secondary">Room Unavailable</span>
+            <?php endif; ?>
+        <?php endif; ?>
+    </td>
+</tr>
+<?php 
+        endwhile;
+    else: 
+?>
+    <tr><td colspan="6" class="text-center py-4 text-muted">No bookings found.</td></tr>
+<?php endif; ?>
+</tbody>
+
             </table>
         </div>
     </div>
@@ -989,6 +1211,48 @@ async function checkOrderNotifications() {
 // Run every 10 seconds
 checkOrderNotifications();
 setInterval(checkOrderNotifications, 10000);
+function updateRoomNotifications() {
+  fetch('get_booking_notifications.php')
+    .then(res => res.json())
+    .then(data => {
+      const badge = document.querySelector('.notification-badge');
+      if (!badge) return;
+
+      // Update badge
+      if (data.success && data.count > 0) {
+        badge.textContent = data.count;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    })
+    .catch(err => console.error('Notification fetch error:', err));
+}
+
+// Run on page load
+updateRoomNotifications();
+
+// Refresh every 30 seconds
+setInterval(updateRoomNotifications, 30000);
+
+// Auto-refresh booking table every 60 seconds (only if DataTable exists)
+function refreshBookingTable() {
+  if ($.fn.DataTable.isDataTable('#bookingSummaryTable')) {
+    $('#bookingSummaryTable').DataTable().ajax.reload(null, false);
+  }
+}
+
+
+// Smooth scroll to new bookings when page loads
+$(document).ready(function() {
+  const newBookingRows = $('.new-booking-row');
+  if (newBookingRows.length > 0) {
+    // Scroll to first new booking
+    $('html, body').animate({
+      scrollTop: newBookingRows.first().offset().top - 150
+    }, 1000);
+  }
+});
 
 document.addEventListener("DOMContentLoaded", function() {
   const successToast = document.getElementById("roomToastSuccess");
@@ -1286,6 +1550,7 @@ $(document).ready(function() {
     info: true,
     autoWidth: false,
     responsive: true,
+    order: [],
     pageLength: 5,
     lengthMenu: [5, 10, 25, 50, 100],
     dom: 'rt<"row mt-3"<"col-sm-5"i><"col-sm-7"p>>',

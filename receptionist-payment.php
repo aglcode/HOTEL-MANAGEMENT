@@ -300,6 +300,25 @@ $result = $conn->query($sql);
     padding-right: 15px; 
     padding-bottom: 1rem;
 }
+/* Notification Badge Styles */
+.notification-badge {
+  position: absolute;
+  top: 2px;     /* move higher up */
+  right: 10px;  /* slightly tighter alignment */
+  background: #dc3545;
+  color: white;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 5px;
+  animation: pulse-badge 2s infinite;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.4);
+}
 
     </style>
 </head>
@@ -314,28 +333,22 @@ $result = $conn->query($sql);
     <h6>Receptionist</h6>
   </div>
 
-<div class="nav-links">
-  <a href="receptionist-dash.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-dash.php' ? 'active position-relative' : 'position-relative'; ?>" id="notif-dashboard">
-    <i class="fa-solid fa-gauge"></i> Dashboard
-    <span id="orderNotifCount"
-          class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
-          style="font-size: 0.7rem; padding: 4px 6px;">0</span>
-  </a>
+   <?php include __DIR__ . '/includes/get-notifications.php'; ?>
 
-  <a href="receptionist-room.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-room.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-bed"></i> Rooms
-  </a>
-  <a href="receptionist-guest.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-guest.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-users"></i> Guests
-  </a>
-  <a href="receptionist-booking.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-booking.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-calendar-check"></i> Booking
-  </a>
-  <a href="receptionist-payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'receptionist-payment.php' ? 'active' : ''; ?>">
-    <i class="fa-solid fa-money-check"></i> Payment
-  </a>
-</div>
-
+  <div class="nav-links">
+    <a href="receptionist-dash.php"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+        <a href="receptionist-room.php" class="position-relative">
+  <i class="fa-solid fa-bed"></i> Rooms
+  <?php if (!empty($totalNotifications) && $totalNotifications > 0): ?>
+    <span class="notification-badge">
+      <?= $totalNotifications ?>
+    </span>
+  <?php endif; ?>
+</a>
+    <a href="receptionist-guest.php"><i class="fa-solid fa-users"></i> Guests</a>
+    <a href="receptionist-booking.php"><i class="fa-solid fa-calendar-check"></i> Booking</a>
+    <a href="receptionist-payment.php" class="active"><i class="fa-solid fa-money-check"></i> Payment</a>
+  </div>
 
   <div class="signout">
     <a href="signin.php"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>

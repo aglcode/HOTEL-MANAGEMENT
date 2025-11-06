@@ -1,18 +1,20 @@
 <?php
 session_start();
-require_once 'database.php'; // Include your database connection settings
-
-// Set timezone and current time for check-in
+require_once 'database.php';
 date_default_timezone_set('Asia/Manila');
+
+// ============================
+// Initialize core variables
+// ============================
 $checkInDate = date("Y-m-d H:i:s");
 $checkInDisplay = date("F j, Y h:i A");
 
+// ✅ IMPROVED: Check both GET and POST for booking flag
+$from_booking = !empty($_GET['guest_name']) || (!empty($_POST['from_booking']) && $_POST['from_booking'] === 'yes');
 $guest_name = $_GET['guest_name'] ?? '';
 $checkin = $_GET['checkin'] ?? '';
 $checkout = $_GET['checkout'] ?? '';
 $num_people = $_GET['num_people'] ?? '';
-$room_number = $_GET['room_number'] ?? '';
-
 
 $room_number = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? (int)($_POST['room_number'] ?? 0)
@@ -23,8 +25,10 @@ if (!$room_number) {
     exit();
 }
 
+// ============================
 // Fetch room info
-$roomQuery = "SELECT * FROM rooms WHERE room_number = ? AND status = 'available'";
+// ============================
+$roomQuery = "SELECT * FROM rooms WHERE room_number = ? AND status != 'maintenance'";
 $stmt = $conn->prepare($roomQuery);
 $stmt->bind_param("i", $room_number);
 $stmt->execute();
@@ -39,7 +43,7 @@ if (!$room && $_SERVER['REQUEST_METHOD'] !== 'POST') {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #dc3545; /* red danger */
+            background: #dc3545;
             color: white;
             padding: 12px 20px;
             border-radius: 6px;
@@ -55,84 +59,163 @@ if (!$room && $_SERVER['REQUEST_METHOD'] !== 'POST') {
             pointer-events: auto;
             transform: translateY(0);
         }
-        .btn-toast {
-            margin: 20px;
-            padding: 10px 16px;
-            border: none;
-            background: #007bff;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .btn-toast:hover {
-            background: #0056b3;
-        }
     </style>
-
-    <button id='toastBtn' class='btn-toast'>Show Warning</button>
     <div id='toast' class='toast'>Room not found or not available.</div>
-
     <script>
-        document.getElementById('toastBtn').addEventListener('click', function() {
-            let toast = document.getElementById('toast');
-            toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 4000); // auto-hide after 4s
-        });
+        let toast = document.getElementById('toast');
+        toast.classList.add('show');
+        setTimeout(() => window.location.href = 'receptionist-room.php', 2000);
     </script>
     ";
     exit();
 }
 
-// Check if there is an ACTIVE booking for this room
-$bookingStatus = null;
-$bookingQuery = "SELECT status FROM bookings WHERE room_number = ? ORDER BY end_date DESC LIMIT 1";
-$stmtBooking = $conn->prepare($bookingQuery);
-$stmtBooking->bind_param("i", $room_number);
-$stmtBooking->execute();
-$stmtBooking->bind_result($bookingStatus);
-$stmtBooking->fetch();
-$stmtBooking->close();
-
-// Only block if the last booking is still active
-if ($bookingStatus === 'booked' || $bookingStatus === 'checked_in') {
-    echo "
-    <div style='max-width:600px;margin:60px auto;padding:40px 30px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;'>
-        <i class='fas fa-ban fa-3x text-danger mb-3'></i>
-        <h2 class='mb-2'>Check-In Unavailable</h2>
-        <p class='mb-3'>This room is still <strong>occupied</strong> or <strong>reserved</strong>.<br>
-        Please select another room.</p>
-        <a href='receptionist-room.php' class='btn btn-primary mt-2'><i class='fas fa-arrow-left me-2'></i>Back to Rooms</a>
-    </div>
+// ============================
+// ✅ VALIDATION ONLY IF NOT FROM BOOKING SUMMARY
+// ============================
+if (!$from_booking) {
+    // Active check-in conflict
+    $activeCheckinQuery = "
+        SELECT COUNT(*) as active_count
+        FROM checkins
+        WHERE room_number = ?
+          AND status IN ('checked_in', 'scheduled')
+          AND check_in_date <= NOW()
+          AND check_out_date > NOW()
     ";
-    exit();
-}
+    $stmtActive = $conn->prepare($activeCheckinQuery);
+    $stmtActive->bind_param("i", $room_number);
+    $stmtActive->execute();
+    $activeCount = (int)$stmtActive->get_result()->fetch_assoc()['active_count'];
+    $stmtActive->close();
 
-// ✅ If last booking was completed/checked_out → room is available
-$conn->query("UPDATE rooms SET status = 'available' WHERE room_number = $room_number");
-
-// Handle form submission
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $guest_name = htmlspecialchars(trim($_POST['guest_name']));
-    $address = htmlspecialchars(trim($_POST['address']));
-    $telephone = htmlspecialchars(trim($_POST['telephone']));
-    $room_type = htmlspecialchars(trim($_POST['room_type']));
-    $stay_duration = (int)($_POST['stay_duration']);
-    $payment_mode = htmlspecialchars(trim($_POST['payment_mode']));
-    $gcash_reference = htmlspecialchars(trim($_POST['gcash_ref_id'] ?? ''));
-    $user_id = $_SESSION['user_id'];
-
-    if (
-        empty($guest_name) || empty($address) || empty($telephone) ||
-        $stay_duration <= 0 || $payment_mode === "select" ||
-        ($payment_mode === "gcash" && empty($gcash_reference))
-    ) {
-        echo "Please fill in all required fields.";
+    if ($activeCount > 0) {
+        echo "
+        <div style='max-width:600px;margin:60px auto;padding:40px 30px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;'>
+            <i class='fas fa-ban fa-3x text-danger mb-3'></i>
+            <h2 class='mb-2'>Room Currently Occupied</h2>
+            <p class='mb-3'>This room is currently being used by another guest.<br>
+            Please select another room or wait until it becomes available.</p>
+            <a href='receptionist-room.php' class='btn btn-primary mt-2'><i class='fas fa-arrow-left me-2'></i>Back to Rooms</a>
+        </div>
+        <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
+        <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css'>
+        ";
         exit();
     }
 
-    // ✅ Pricing map
+    // Booking conflict
+    $bookingConflictQuery = "
+        SELECT guest_name, start_date, end_date
+        FROM bookings
+        WHERE room_number = ?
+          AND status NOT IN ('cancelled', 'completed')
+          AND end_date > NOW()
+        ORDER BY start_date ASC
+        LIMIT 1
+    ";
+    $stmtBooking = $conn->prepare($bookingConflictQuery);
+    $stmtBooking->bind_param("i", $room_number);
+    $stmtBooking->execute();
+    $bookingResult = $stmtBooking->get_result();
+    $conflictingBooking = $bookingResult->fetch_assoc();
+    $stmtBooking->close();
+
+    if ($conflictingBooking) {
+        $conflictStart = date('M d, Y h:i A', strtotime($conflictingBooking['start_date']));
+        $conflictEnd = date('M d, Y h:i A', strtotime($conflictingBooking['end_date']));
+        
+        echo "
+        <div style='max-width:600px;margin:60px auto;padding:40px 30px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;'>
+            <i class='fas fa-calendar-times fa-3x text-warning mb-3'></i>
+            <h2 class='mb-2'>Room Already Reserved</h2>
+            <p class='mb-3'>This room has an upcoming reservation by <strong>" . htmlspecialchars($conflictingBooking['guest_name']) . "</strong></p>
+            <div class='alert alert-warning' style='padding:15px;border-radius:8px;background:#fff3cd;border:1px solid #ffc107;'>
+                <p class='mb-1'><strong>Reserved Period:</strong></p>
+                <p class='mb-0'>From: {$conflictStart}</p>
+                <p class='mb-0'>To: {$conflictEnd}</p>
+            </div>
+            <a href='receptionist-room.php' class='btn btn-primary mt-3'><i class='fas fa-arrow-left me-2'></i>Back to Rooms</a>
+        </div>
+        <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
+        <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css'>
+        ";
+        exit();
+    }
+}
+
+// ✅ Make room available if no issues
+$conn->query("UPDATE rooms SET status = 'available' WHERE room_number = $room_number AND status != 'maintenance'");
+
+// ============================
+// Fetch existing bookings/check-ins for timeline display
+// ============================
+$upcomingSchedules = [];
+
+// Get active check-ins (only those that have started or are upcoming)
+$activeCheckinQuery = "
+    SELECT guest_name, check_in_date, check_out_date, status, 'checkin' as type
+    FROM checkins
+    WHERE room_number = ?
+      AND status IN ('checked_in', 'scheduled')
+      AND check_out_date > NOW()
+    ORDER BY check_in_date ASC
+";
+$stmtActive = $conn->prepare($activeCheckinQuery);
+$stmtActive->bind_param("i", $room_number);
+$stmtActive->execute();
+$activeResult = $stmtActive->get_result();
+while ($row = $activeResult->fetch_assoc()) {
+    $upcomingSchedules[] = $row;
+}
+$stmtActive->close();
+
+// Get upcoming bookings
+$upcomingBookingsQuery = "
+    SELECT guest_name, start_date as check_in_date, end_date as check_out_date, status, 'booking' as type
+    FROM bookings
+    WHERE room_number = ?
+      AND status NOT IN ('cancelled', 'completed')
+      AND end_date > NOW()
+    ORDER BY start_date ASC
+";
+$stmtBooking = $conn->prepare($upcomingBookingsQuery);
+$stmtBooking->bind_param("i", $room_number);
+$stmtBooking->execute();
+$bookingResult = $stmtBooking->get_result();
+while ($row = $bookingResult->fetch_assoc()) {
+    $upcomingSchedules[] = $row;
+}
+$stmtBooking->close();
+
+// Sort all schedules by check-in date
+usort($upcomingSchedules, function($a, $b) {
+    return strtotime($a['check_in_date']) - strtotime($b['check_in_date']);
+});
+
+// ============================
+// ✅ FORM SUBMISSION WITH SMART VALIDATION
+// ============================
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $guest_name_submitted = htmlspecialchars(trim($_POST['guest_name']));
+    $address = htmlspecialchars(trim($_POST['address']));
+    $telephone = htmlspecialchars(trim($_POST['telephone']));
+    $room_type = htmlspecialchars(trim($_POST['room_type'] ?? $room['room_type']));
+    $stay_duration = (int)($_POST['stay_duration']);
+    $payment_mode = htmlspecialchars(trim($_POST['payment_mode']));
+    $gcash_reference = htmlspecialchars(trim($_POST['gcash_ref_id'] ?? ''));
+    $user_id = $_SESSION['user_id'] ?? null;
+
+    if (
+        empty($guest_name_submitted) || empty($address) || empty($telephone) ||
+        $stay_duration <= 0 || $payment_mode === "select" ||
+        ($payment_mode === "gcash" && empty($gcash_reference))
+    ) {
+        $_SESSION['error_msg'] = "Please fill in all required fields.";
+        header("Location: check-in.php?room_number={$room_number}");
+        exit();
+    }
+
     $pricing = [
         3 => $room['price_3hrs'],
         6 => $room['price_6hrs'],
@@ -141,81 +224,154 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     ];
 
     if (!isset($pricing[$stay_duration])) {
-        echo "Invalid stay duration.";
+        $_SESSION['error_msg'] = "Invalid stay duration.";
+        header("Location: check-in.php?room_number={$room_number}");
         exit();
     }
 
-    // ✅ Calculate total first
     $total_price = floatval($pricing[$stay_duration]);
+    $amount_paid = isset($_POST['amount_paid']) && is_numeric($_POST['amount_paid'])
+        ? floatval($_POST['amount_paid'])
+        : 0.00;
+    $change = max(0, $amount_paid - $total_price);
 
-// Calculate total first
-$pricing = [
-    3 => $room['price_3hrs'],
-    6 => $room['price_6hrs'],
-    12 => $room['price_12hrs'],
-    24 => $room['price_24hrs']
-];
+    $check_in_datetime = new DateTime('now', new DateTimeZone('Asia/Manila'));
+    $check_out_datetime = clone $check_in_datetime;
+    $check_out_datetime->modify("+{$stay_duration} hours");
 
-if (!isset($pricing[$stay_duration])) {
-    echo "Invalid stay duration.";
-    exit();
-}
+    $check_in_mysql = $check_in_datetime->format('Y-m-d H:i:s');
+    $check_out_mysql = $check_out_datetime->format('Y-m-d H:i:s');
 
-$total_price = floatval($pricing[$stay_duration]);
+    // ============================
+    // ✅ CONFLICT CHECKS (ONLY IF NOT FROM BOOKING)
+    // ============================
+    if (!$from_booking) {
+        // Check for overlapping check-ins
+        $overlapCheckinQuery = "
+            SELECT guest_name, check_in_date, check_out_date
+            FROM checkins
+            WHERE room_number = ?
+              AND status IN ('checked_in', 'scheduled')
+              AND (
+                  (check_in_date < ? AND check_out_date > ?) OR
+                  (check_in_date < ? AND check_out_date > ?) OR
+                  (check_in_date >= ? AND check_out_date <= ?)
+              )
+            LIMIT 1
+        ";
+        $stmtOverlap = $conn->prepare($overlapCheckinQuery);
+        $stmtOverlap->bind_param(
+            'issssss',
+            $room_number,
+            $check_out_mysql, $check_in_mysql,
+            $check_out_mysql, $check_in_mysql,
+            $check_in_mysql, $check_out_mysql
+        );
+        $stmtOverlap->execute();
+        $overlapResult = $stmtOverlap->get_result();
+        $overlappingCheckin = $overlapResult->fetch_assoc();
+        $stmtOverlap->close();
 
-// Read user payment
-$amount_paid = isset($_POST['amount_paid']) && is_numeric($_POST['amount_paid']) 
-    ? floatval($_POST['amount_paid']) 
-    : 0.00;
+        if ($overlappingCheckin) {
+            $_SESSION['error_msg'] = "Time conflict detected! Room already booked by " .
+                                     htmlspecialchars($overlappingCheckin['guest_name']) . 
+                                     " during this time period.";
+            header("Location: check-in.php?room_number={$room_number}");
+            exit();
+        }
 
-// Compute change
-$change = max(0, $amount_paid - $total_price);
+        // Check for overlapping bookings
+        $overlapBookingQuery = "
+            SELECT guest_name, start_date, end_date
+            FROM bookings
+            WHERE room_number = ?
+              AND status NOT IN ('cancelled', 'completed')
+              AND (
+                  (start_date < ? AND end_date > ?) OR
+                  (start_date < ? AND end_date > ?) OR
+                  (start_date >= ? AND end_date <= ?)
+              )
+            LIMIT 1
+        ";
+        $stmtBookingOverlap = $conn->prepare($overlapBookingQuery);
+        $stmtBookingOverlap->bind_param(
+            'issssss',
+            $room_number,
+            $check_out_mysql, $check_in_mysql,
+            $check_out_mysql, $check_in_mysql,
+            $check_in_mysql, $check_out_mysql
+        );
+        $stmtBookingOverlap->execute();
+        $bookingOverlapResult = $stmtBookingOverlap->get_result();
+        $overlappingBooking = $bookingOverlapResult->fetch_assoc();
+        $stmtBookingOverlap->close();
 
+        if ($overlappingBooking) {
+            $_SESSION['error_msg'] = "Time conflict detected! Room reserved by " .
+                                     htmlspecialchars($overlappingBooking['guest_name']) . 
+                                     " during this time period.";
+            header("Location: check-in.php?room_number={$room_number}");
+            exit();
+        }
+    }
 
-    // ✅ Calculate check-out time
-    $check_out_date = new DateTime();
-    $check_out_date->modify("+$stay_duration hours");
-    $formatted_check_out = $check_out_date->format('Y-m-d H:i:s');
-
-    // ✅ Insert into the database
-    $sql = "INSERT INTO checkins (guest_name, address, telephone, room_number, room_type, stay_duration, total_price, amount_paid, change_amount, payment_mode, gcash_reference, check_in_date, check_out_date, receptionist_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    // ============================
+    // ✅ Insert check-in record
+    // ============================
+    $sql = "INSERT INTO checkins 
+            (guest_name, address, telephone, room_number, room_type, stay_duration,
+             total_price, amount_paid, change_amount, payment_mode, gcash_reference,
+             check_in_date, check_out_date, status, receptionist_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'checked_in', ?)";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param(
-        "sssisisddssssi",
-        $guest_name,
-        $address,
-        $telephone,
-        $room_number,
-        $room_type,
-        $stay_duration,
-        $total_price,
-        $amount_paid,
-        $change,
-        $payment_mode,
-        $gcash_reference,
-        $checkInDate,
-        $formatted_check_out,
+        "sssisiddsssssi",
+        $guest_name_submitted, $address, $telephone,
+        $room_number, $room_type, $stay_duration,
+        $total_price, $amount_paid, $change,
+        $payment_mode, $gcash_reference,
+        $check_in_mysql, $check_out_mysql,
         $user_id
     );
 
     if ($stmt->execute()) {
+        // Update room status
         $updateRoomStatusQuery = "UPDATE rooms SET status = 'booked' WHERE room_number = ?";
         $updateStmt = $conn->prepare($updateRoomStatusQuery);
         $updateStmt->bind_param("i", $room_number);
         $updateStmt->execute();
+        $updateStmt->close();
 
-        $_SESSION['guest_name'] = $guest_name;
+        // ✅ Update booking status to completed if from booking
+        if ($from_booking) {
+            $updateBookingQuery = "
+                UPDATE bookings 
+                SET status = 'completed' 
+                WHERE guest_name = ? 
+                  AND room_number = ? 
+                  AND status NOT IN ('cancelled', 'completed')
+                ORDER BY start_date DESC 
+                LIMIT 1
+            ";
+            $updateBookingStmt = $conn->prepare($updateBookingQuery);
+            $updateBookingStmt->bind_param("si", $guest_name_submitted, $room_number);
+            $updateBookingStmt->execute();
+            $updateBookingStmt->close();
+        }
+
+        $_SESSION['guest_name'] = $guest_name_submitted;
         $_SESSION['room_number'] = $room_number;
         $_SESSION['room_type'] = $room_type;
-        $_SESSION['check_in_date'] = $checkInDisplay;
-        $_SESSION['check_out_date'] = $check_out_date->format('F j, Y h:i A');
+        $_SESSION['check_in_date'] = $check_in_datetime->format('F j, Y h:i A');
+        $_SESSION['check_out_date'] = $check_out_datetime->format('F j, Y h:i A');
         $_SESSION['total_price'] = $total_price;
 
         header("Location: receptionist-guest.php?success=checkedin");
         exit();
     } else {
-        echo "Error: " . $stmt->error;
+        $_SESSION['error_msg'] = "Check-in failed: " . $stmt->error;
+        header("Location: check-in.php?room_number={$room_number}");
+        exit();
     }
 
     $stmt->close();
@@ -223,6 +379,7 @@ $change = max(0, $amount_paid - $total_price);
 
 $conn->close();
 ?>
+
 
 <!-- HTML FORM -->
 <!DOCTYPE html>
@@ -264,6 +421,17 @@ $conn->close();
             },
         }
     </script>
+
+    <style>
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+</style>
+
 </head>
 
 <body class="bg-gray-50 font-sans">
@@ -271,13 +439,20 @@ $conn->close();
         <div class="max-w-5xl mx-auto">
             <div class="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl mb-6">
                 <div class="text-white px-6 py-4 flex justify-between items-center" style="background-color: #8b1d2d;">
-                    <h4 class="text-xl font-semibold flex items-center"><i class="fas fa-check-circle mr-2"></i>Guest Check-In</h4>
-                    <div id="currentTime" class="text-white text-sm" style="color: white;"></div>
+                    <h4 class="text-xl font-semibold flex items-center">
+                        <i class="fas fa-check-circle mr-2"></i>Guest Check-In
+                        <?php if ($from_booking): ?>
+                            <span class="ml-3 text-sm bg-green-500 px-3 py-1 rounded-full">From Booking</span>
+                        <?php endif; ?>
+                    </h4>
+                    <div id="currentTime" class="text-white text-sm" style="color: white !important;"></div>
                 </div>
                 
                 <div class="p-6">
                     <form method="post" id="checkInForm" onsubmit="return validateForm();">
                         <input type="hidden" name="room_number" value="<?php echo htmlspecialchars($room_number); ?>">
+                        <!-- ✅ Hidden field to track if from booking -->
+                        <input type="hidden" name="from_booking" value="<?php echo $from_booking ? 'yes' : 'no'; ?>">
 
                         <div class="mb-8">
                             <div class="border-l-4 p-4 rounded-lg mb-6"
@@ -292,6 +467,117 @@ $conn->close();
                                     </p>
                                 </div>
                             </div>
+
+<!-- Occupied Time Slots Display -->
+<?php if (!empty($upcomingSchedules)): ?>
+<div class="mb-6">
+    <div class="bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg">
+        <div class="bg-yellow-50 px-4 py-3 border-b border-yellow-200">
+            <h5 class="font-medium flex items-center text-yellow-800">
+                <i class="fas fa-calendar-alt mr-2"></i>
+                Occupied Time Slots for Room <?php echo $room['room_number']; ?>
+            </h5>
+        </div>
+        <div class="p-5">
+            <div class="space-y-3">
+                <?php 
+                foreach ($upcomingSchedules as $schedule): 
+                    $checkInTime = strtotime($schedule['check_in_date']);
+                    $checkOutTime = strtotime($schedule['check_out_date']);
+                    $currentTime = time();
+                    
+                    // ✅ Currently occupied = check-in has started AND hasn't ended yet
+                    $isCurrentlyOccupied = ($checkInTime <= $currentTime) && ($checkOutTime > $currentTime);
+                    
+                    // ✅ Upcoming = hasn't started yet
+                    $isUpcoming = $checkInTime > $currentTime;
+                    
+                    $borderColor = $schedule['type'] === 'checkin' ? 'border-blue-500' : 'border-purple-500';
+                    $bgColor = $schedule['type'] === 'checkin' ? 'bg-blue-50' : 'bg-purple-50';
+                    $iconColor = $schedule['type'] === 'checkin' ? 'text-blue-600' : 'text-purple-600';
+                    $typeLabel = $schedule['type'] === 'checkin' ? 'Check-in' : 'Booking';
+                    
+                    // Determine status label
+                    if ($isCurrentlyOccupied) {
+                        $statusLabel = 'Currently Occupied';
+                        $statusClass = 'bg-red-200 text-red-800';
+                        $statusIcon = 'fa-circle';
+                    } elseif ($isUpcoming) {
+                        $statusLabel = 'Upcoming';
+                        $statusClass = 'bg-yellow-200 text-yellow-800';
+                        $statusIcon = 'fa-clock';
+                    } else {
+                        $statusLabel = 'Past';
+                        $statusClass = 'bg-gray-200 text-gray-800';
+                        $statusIcon = 'fa-history';
+                    }
+                ?>
+                <div class="border-l-4 <?php echo $borderColor; ?> <?php echo $bgColor; ?> p-4 rounded-lg">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2 flex-wrap gap-2">
+                                <i class="fas fa-user <?php echo $iconColor; ?> mr-1"></i>
+                                <span class="font-semibold <?php echo $iconColor; ?>">
+                                    <?php echo htmlspecialchars($schedule['guest_name']); ?>
+                                </span>
+                                <span class="text-xs px-2 py-1 rounded-full <?php echo $schedule['type'] === 'checkin' ? 'bg-blue-200 text-blue-800' : 'bg-purple-200 text-purple-800'; ?>">
+                                    <?php echo $typeLabel; ?>
+                                </span>
+                                <span class="text-xs px-2 py-1 rounded-full <?php echo $statusClass; ?> <?php echo $isCurrentlyOccupied ? 'animate-pulse' : ''; ?>">
+                                    <i class="fas <?php echo $statusIcon; ?> mr-1"></i><?php echo $statusLabel; ?>
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div class="flex items-center text-gray-700">
+                                    <i class="fas fa-sign-in-alt text-green-600 mr-2 w-4"></i>
+                                    <span class="font-medium">Check-in:</span>
+                                    <span class="ml-2"><?php echo date('M d, Y h:i A', $checkInTime); ?></span>
+                                </div>
+                                <div class="flex items-center text-gray-700">
+                                    <i class="fas fa-sign-out-alt text-red-600 mr-2 w-4"></i>
+                                    <span class="font-medium">Check-out:</span>
+                                    <span class="ml-2"><?php echo date('M d, Y h:i A', $checkOutTime); ?></span>
+                                </div>
+                            </div>
+                            <?php 
+                            $duration = ($checkOutTime - $checkInTime) / 3600;
+                            $remainingHours = max(0, ($checkOutTime - $currentTime) / 3600);
+                            $hoursUntilStart = max(0, ($checkInTime - $currentTime) / 3600);
+                            ?>
+                            <div class="mt-2 text-xs text-gray-600">
+                                <i class="fas fa-clock mr-1"></i>
+                                Duration: <?php echo number_format($duration, 1); ?> hours
+                                <?php if ($isCurrentlyOccupied && $remainingHours > 0): ?>
+                                    • <span class="text-orange-600 font-medium"><?php echo number_format($remainingHours, 1); ?> hours remaining</span>
+                                <?php elseif ($isUpcoming && $hoursUntilStart > 0): ?>
+                                    • <span class="text-blue-600 font-medium">Starts in <?php echo number_format($hoursUntilStart, 1); ?> hours</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <?php if ($from_booking): ?>
+                <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p class="text-sm text-green-800 flex items-start">
+                        <i class="fas fa-check-circle mr-2 mt-1"></i>
+                        <span><strong>Ready to Check In:</strong> You're checking in a guest from their reservation. The booking details are pre-filled for convenience. Please verify the information and complete the check-in process.</span>
+                    </p>
+                </div>
+            <?php else: ?>
+                <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p class="text-sm text-blue-800 flex items-start">
+                        <i class="fas fa-info-circle mr-2 mt-1"></i>
+                        <span><strong>Important:</strong> Please select a check-in time and duration that doesn't conflict with the occupied slots above. The system will automatically validate your selection.</span>
+                    </p>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="bg-white rounded-xl shadow-md overflow-hidden h-full transition-all duration-300 hover:shadow-lg">
@@ -759,6 +1045,84 @@ function selectPayment(mode) {
 
                 return true;
             }
+
+
+// Occupied time slots data
+const occupiedSlots = <?php echo json_encode(array_map(function($schedule) {
+    return [
+        'guest_name' => $schedule['guest_name'],
+        'check_in' => strtotime($schedule['check_in_date']) * 1000,
+        'check_out' => strtotime($schedule['check_out_date']) * 1000,
+        'type' => $schedule['type']
+    ];
+}, $upcomingSchedules)); ?>;
+
+// ✅ Check if this is from a booking
+const fromBooking = <?php echo $from_booking ? 'true' : 'false'; ?>;
+
+// Function to check if selected time conflicts with existing schedules
+function checkTimeConflict() {
+    // ✅ Skip conflict check if checking in from booking
+    if (fromBooking) {
+        hideConflictWarning();
+        return;
+    }
+
+    const duration = parseInt(document.getElementById("stay_duration").value);
+    if (!duration) return;
+    
+    const now = new Date().getTime();
+    const selectedCheckout = now + (duration * 60 * 60 * 1000);
+    
+    let hasConflict = false;
+    let conflictDetails = '';
+    
+    occupiedSlots.forEach(slot => {
+        if ((now < slot.check_out && selectedCheckout > slot.check_in) ||
+            (now >= slot.check_in && selectedCheckout <= slot.check_out)) {
+            hasConflict = true;
+            const checkInDate = new Date(slot.check_in).toLocaleString();
+            const checkOutDate = new Date(slot.check_out).toLocaleString();
+            conflictDetails += `\n• ${slot.guest_name} (${slot.type === 'checkin' ? 'Check-in' : 'Booking'}): ${checkInDate} - ${checkOutDate}`;
+        }
+    });
+    
+    if (hasConflict) {
+        showConflictWarning(conflictDetails);
+    } else {
+        hideConflictWarning();
+    }
+}
+
+function showConflictWarning(details) {
+    let warningDiv = document.getElementById('conflict-warning');
+    if (!warningDiv) {
+        warningDiv = document.createElement('div');
+        warningDiv.id = 'conflict-warning';
+        warningDiv.className = 'mt-3 p-3 bg-red-50 border-l-4 border-red-500 rounded-lg';
+        document.getElementById('stay_duration').parentNode.appendChild(warningDiv);
+    }
+    warningDiv.innerHTML = `
+        <div class="flex items-start">
+            <i class="fas fa-exclamation-triangle text-red-600 mr-2 mt-1"></i>
+            <div>
+                <p class="text-sm font-semibold text-red-800 mb-1">Time Conflict Detected!</p>
+                <p class="text-xs text-red-700">Your selected duration conflicts with:${details}</p>
+            </div>
+        </div>
+    `;
+    warningDiv.classList.remove('hidden');
+}
+
+function hideConflictWarning() {
+    const warningDiv = document.getElementById('conflict-warning');
+    if (warningDiv) {
+        warningDiv.classList.add('hidden');
+    }
+}
+
+// Add event listener to stay duration
+document.getElementById('stay_duration').addEventListener('change', checkTimeConflict);
 
         // Update clock
         function updateClock() {
