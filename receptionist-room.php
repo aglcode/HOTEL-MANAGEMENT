@@ -632,14 +632,132 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
   transition: background-color 0.15s ease;
 }
 
+/* ============================================
+   CLEANING STATUS STYLES
+   Add these to your existing <style> section
+   ============================================ */
 
-@media (max-width: 768px) {
-    .stat-card {
-        text-align: center;
+/* Cleaning status badge */
+/* ============================================
+   CLEANING STATUS STYLES
+   Add these to your existing <style> section
+   ============================================ */
+
+/* Cleaning status badge */
+.status-cleaning {
+    background-color: rgba(13, 202, 240, 0.1);
+    color: #0dcaf0;
+    border: 1px solid rgba(13, 202, 240, 0.3);
+}
+
+/* Cleaning room card styling */
+.room-card.cleaning {
+    border-left: 4px solid #0dcaf0;
+    background: linear-gradient(135deg, rgba(13, 202, 240, 0.02) 0%, rgba(255, 255, 255, 1) 100%);
+    cursor: not-allowed;
+}
+
+.room-card.cleaning .card-header {
+    background-color: rgba(13, 202, 240, 0.05);
+    border-bottom: 1px solid rgba(13, 202, 240, 0.2);
+}
+
+/* Cleaning countdown timer */
+.cleaning-countdown {
+    font-size: 1.1rem;
+    color: #0dcaf0;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 2px rgba(13, 202, 240, 0.2);
+}
+
+/* Cleaning timer container */
+.cleaning-timer-container {
+    background: rgba(13, 202, 240, 0.05);
+    border: 1px solid rgba(13, 202, 240, 0.15);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+/* Broom icon animation */
+.cleaning-timer-container .fa-broom {
+    animation: sweep 2s ease-in-out infinite;
+    display: inline-block;
+}
+
+@keyframes sweep {
+    0%, 100% {
+        transform: rotate(0deg);
     }
-    .stat-icon {
-        margin: 0 auto 10px auto;
+    25% {
+        transform: rotate(-15deg);
     }
+    75% {
+        transform: rotate(15deg);
+    }
+}
+
+/* Hover effect for cleaning cards */
+.room-card.cleaning:hover {
+    box-shadow: 0 4px 15px rgba(13, 202, 240, 0.2);
+    transform: translateY(-2px);
+    transition: all 0.3s ease;
+}
+
+/* Cleaning status in room list (if you have a table view) */
+.badge.bg-cleaning {
+    background-color: #0dcaf0 !important;
+    color: #fff;
+}
+
+/* Pulse animation for cleaning badge */
+.status-cleaning {
+    animation: pulse-cleaning 2s ease-in-out infinite;
+}
+
+@keyframes pulse-cleaning {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Disabled check-in button during cleaning */
+.btn-disabled-cleaning {
+    cursor: not-allowed !important;
+    opacity: 1 !important;
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #fff !important;
+}
+
+.btn-disabled-cleaning:hover {
+    background-color: #5a6268 !important;
+    border-color: #545b62 !important;
+}
+
+/* Prevent card click during cleaning */
+.room-card.cleaning * {
+    pointer-events: none;
+}
+
+/* Allow finish cleaning button to be clickable */
+.btn-finish-cleaning {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+.btn-finish-cleaning:hover {
+    background-color: #157347 !important;
+    border-color: #146c43 !important;
+}
+
+/* Cleaning button container */
+.cleaning-disabled-btn-container {
+    gap: 8px;
 }
 
 /* Notification Badge Styles */
@@ -1168,6 +1286,356 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
 
 <script>
 
+// ============================================
+// ROOM CLEANING STATUS SYSTEM - ENHANCED FRONTEND VERSION
+// Adds 20-minute cleaning countdown after checkout
+// Handles manual 'Finish Cleaning' as frontend-only
+// ============================================
+
+// Storage keys
+const CLEANING_STORAGE_KEY = 'rooms_in_cleaning';
+const FORCE_AVAILABLE_KEY = 'rooms_force_available';
+
+// ==========================
+// Local Storage Utilities
+// ==========================
+
+function getCleaningRooms() {
+  try {
+    const data = localStorage.getItem(CLEANING_STORAGE_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch (e) {
+    console.error('Error reading cleaning rooms:', e);
+    return {};
+  }
+}
+
+function saveCleaningRooms(rooms) {
+  try {
+    localStorage.setItem(CLEANING_STORAGE_KEY, JSON.stringify(rooms));
+  } catch (e) {
+    console.error('Error saving cleaning rooms:', e);
+  }
+}
+
+function getForceAvailableRooms() {
+  try {
+    const data = localStorage.getItem(FORCE_AVAILABLE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.error('Error reading force available rooms:', e);
+    return [];
+  }
+}
+
+function saveForceAvailableRooms(rooms) {
+  try {
+    localStorage.setItem(FORCE_AVAILABLE_KEY, JSON.stringify([...new Set(rooms)]));
+  } catch (e) {
+    console.error('Error saving force available rooms:', e);
+  }
+}
+
+function addForceAvailableRoom(roomNumber) {
+  let rooms = getForceAvailableRooms();
+  if (!rooms.includes(roomNumber)) {
+    rooms.push(roomNumber);
+    saveForceAvailableRooms(rooms);
+  }
+}
+
+function removeForceAvailableRoom(roomNumber) {
+  let rooms = getForceAvailableRooms();
+  rooms = rooms.filter(r => r !== roomNumber);
+  saveForceAvailableRooms(rooms);
+}
+
+// ==========================
+// Cleaning State Functions
+// ==========================
+
+function setRoomToCleaning(roomNumber) {
+  const cleaningRooms = getCleaningRooms();
+  const cleaningEndTime = Date.now() + (20 * 60 * 1000); // 20 minutes from now
+  
+  cleaningRooms[roomNumber] = {
+    startTime: Date.now(),
+    endTime: cleaningEndTime
+  };
+  
+  saveCleaningRooms(cleaningRooms);
+  removeForceAvailableRoom(roomNumber); // remove from force-available if re-cleaned
+  
+  console.log(`🧹 Room ${roomNumber} set to cleaning until ${new Date(cleaningEndTime).toLocaleTimeString()}`);
+}
+
+function removeRoomFromCleaning(roomNumber) {
+  const cleaningRooms = getCleaningRooms();
+  delete cleaningRooms[roomNumber];
+  saveCleaningRooms(cleaningRooms);
+  console.log(`✅ Room ${roomNumber} removed from cleaning status`);
+}
+
+function isRoomCleaning(roomNumber) {
+  const cleaningRooms = getCleaningRooms();
+  const roomData = cleaningRooms[roomNumber];
+  
+  if (!roomData) return false;
+  
+  // Check if cleaning period has expired
+  if (Date.now() >= roomData.endTime) {
+    removeRoomFromCleaning(roomNumber);
+    return false;
+  }
+  
+  return true;
+}
+
+function getCleaningTimeRemaining(roomNumber) {
+  const cleaningRooms = getCleaningRooms();
+  const roomData = cleaningRooms[roomNumber];
+  
+  if (!roomData) return 0;
+  
+  const remaining = roomData.endTime - Date.now();
+  return remaining > 0 ? remaining : 0;
+}
+
+function formatCleaningTime(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+}
+
+// ==========================
+// UI Update Functions
+// ==========================
+
+function updateRoomCardForCleaning(roomNumber) {
+  let roomCard = document.querySelector(`.room-card[onclick*="${roomNumber}"]`) ||
+                 document.querySelector(`[data-room-number="${roomNumber}"]`);
+
+  if (!roomCard) {
+    const allCards = document.querySelectorAll('.room-card');
+    for (let card of allCards) {
+      const roomNumEl = card.querySelector('.card-title, h5, h6');
+      if (roomNumEl && roomNumEl.textContent.includes(`#${roomNumber}`)) {
+        roomCard = card;
+        break;
+      }
+    }
+  }
+
+  if (!roomCard) return console.warn(`⚠️ Room card not found for room ${roomNumber}`);
+
+  const statusBadge = roomCard.querySelector('.status-badge');
+  const cardBody = roomCard.querySelector('.card-body');
+  if (!statusBadge || !cardBody) return;
+
+  console.log(`🔧 Updating UI for cleaning room ${roomNumber}`);
+  
+  roomCard.classList.remove('available', 'booked', 'maintenance');
+  roomCard.classList.add('cleaning');
+  roomCard.style.pointerEvents = 'none';
+  roomCard.style.opacity = '0.9';
+
+  statusBadge.className = 'status-badge status-cleaning';
+  statusBadge.textContent = 'Cleaning';
+
+  // Remove guest countdown timer
+  cardBody.querySelectorAll('.countdown-timer, .cleaning-disabled-btn-container, .btn-success').forEach(el => el.remove());
+
+  // Create cleaning timer
+  let timerDiv = cardBody.querySelector('.cleaning-timer-container');
+  if (!timerDiv) {
+    timerDiv = document.createElement('div');
+    timerDiv.className = 'cleaning-timer-container';
+    timerDiv.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted"><i class="fas fa-broom me-2"></i>Cleaning:</span>
+        <span class="cleaning-countdown fw-bold text-info" data-room="${roomNumber}">Calculating...</span>
+      </div>
+    `;
+    cardBody.insertBefore(timerDiv, cardBody.firstChild);
+  }
+
+  const countdownEl = timerDiv.querySelector('.cleaning-countdown');
+  if (countdownEl) countdownEl.textContent = formatCleaningTime(getCleaningTimeRemaining(roomNumber));
+
+  // Add buttons
+  const disabledButtonDiv = document.createElement('div');
+  disabledButtonDiv.className = 'd-flex flex-column align-items-center gap-2 mt-3 cleaning-disabled-btn-container';
+  disabledButtonDiv.innerHTML = `
+    <button class="btn btn-sm btn-success btn-finish-cleaning" data-room="${roomNumber}" style="width: 100%;">
+      <i class="fas fa-check me-1"></i> Finish Cleaning
+    </button>
+    <button class="btn btn-sm btn-secondary btn-disabled-cleaning" disabled style="width: 100%;">
+      <i class="fas fa-lock me-1"></i> Room Being Cleaned
+    </button>
+  `;
+  cardBody.appendChild(disabledButtonDiv);
+
+  const finishBtn = disabledButtonDiv.querySelector('.btn-finish-cleaning');
+  finishBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const room = finishBtn.getAttribute('data-room');
+
+    const finishAction = () => {
+      removeRoomFromCleaning(room);
+      restoreRoomCardToAvailable(room);
+      Swal.fire({
+        title: 'Success!',
+        text: `Room #${room} is now available.`,
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+        background: '#1a1a1a',
+        color: '#fff'
+      });
+    };
+
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({
+        title: 'Finish Cleaning?',
+        text: `Room #${room} will be marked as available immediately.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#198754',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Yes, finish cleaning',
+        cancelButtonText: 'Cancel',
+        background: '#1a1a1a',
+        color: '#fff'
+      }).then(result => result.isConfirmed && finishAction());
+    } else {
+      if (confirm(`Finish cleaning Room #${room}?`)) finishAction();
+    }
+  });
+}
+
+function restoreRoomCardToAvailable(roomNumber) {
+  let roomCard = document.querySelector(`.room-card[onclick*="${roomNumber}"]`) ||
+                 document.querySelector(`[data-room-number="${roomNumber}"]`);
+
+  if (!roomCard) {
+    const allCards = document.querySelectorAll('.room-card');
+    for (let card of allCards) {
+      const roomNumEl = card.querySelector('.card-title, h5, h6');
+      if (roomNumEl && roomNumEl.textContent.includes(`#${roomNumber}`)) {
+        roomCard = card;
+        break;
+      }
+    }
+  }
+
+  if (!roomCard) return;
+
+  console.log(`♻️ Restoring room ${roomNumber} to available status`);
+  
+  const statusBadge = roomCard.querySelector('.status-badge');
+  const cardBody = roomCard.querySelector('.card-body');
+
+  roomCard.classList.remove('cleaning');
+  roomCard.classList.add('available');
+  roomCard.style.pointerEvents = 'auto';
+  roomCard.style.opacity = '1';
+
+  if (statusBadge) {
+    statusBadge.className = 'status-badge status-available';
+    statusBadge.textContent = 'Available';
+  }
+
+  cardBody?.querySelectorAll('.cleaning-timer-container, .cleaning-disabled-btn-container').forEach(el => el.remove());
+
+  if (cardBody && !cardBody.querySelector('.btn-success')) {
+    const buttonDiv = document.createElement('div');
+    buttonDiv.className = 'd-flex justify-content-center mt-3';
+    buttonDiv.innerHTML = `
+      <a href="check-in.php?room_number=${roomNumber}" class="btn btn-sm btn-success">
+        <i class="fas fa-sign-in-alt me-1"></i> Check In
+      </a>
+    `;
+    cardBody.appendChild(buttonDiv);
+  }
+
+  addForceAvailableRoom(roomNumber);
+}
+
+// ==========================
+// Countdown + Init
+// ==========================
+
+function updateAllCleaningCountdowns() {
+  const countdowns = document.querySelectorAll('.cleaning-countdown');
+  countdowns.forEach(countdown => {
+    const roomNumber = countdown.getAttribute('data-room');
+    if (isRoomCleaning(roomNumber)) {
+      const remaining = getCleaningTimeRemaining(roomNumber);
+      countdown.textContent = formatCleaningTime(remaining);
+      if (remaining <= 0) {
+        removeRoomFromCleaning(roomNumber);
+        restoreRoomCardToAvailable(roomNumber);
+      }
+    } else {
+      restoreRoomCardToAvailable(roomNumber);
+    }
+  });
+}
+
+let cleaningCountdownInterval = null;
+
+function initializeCleaningStatus() {
+  console.log('🚀 Initializing cleaning status system...');
+  if (cleaningCountdownInterval) clearInterval(cleaningCountdownInterval);
+
+  const cleaningRooms = getCleaningRooms();
+  Object.keys(cleaningRooms).forEach(roomNumber => {
+    if (isRoomCleaning(roomNumber)) updateRoomCardForCleaning(roomNumber);
+    else removeRoomFromCleaning(roomNumber);
+  });
+
+  const forceAvailableRooms = getForceAvailableRooms();
+  forceAvailableRooms.forEach(roomNumber => {
+    console.log(`🔁 Restoring forced available room ${roomNumber}`);
+    restoreRoomCardToAvailable(roomNumber);
+  });
+
+  cleaningCountdownInterval = setInterval(updateAllCleaningCountdowns, 1000);
+  setTimeout(updateAllCleaningCountdowns, 100);
+}
+
+// ==========================
+// Export Public Functions
+// ==========================
+
+window.RoomCleaningSystem = {
+  setRoomToCleaning,
+  removeRoomFromCleaning,
+  isRoomCleaning,
+  getCleaningTimeRemaining,
+  initializeCleaningStatus,
+  updateRoomCardForCleaning,
+  restoreRoomCardToAvailable,
+  triggerCleaningAfterCheckout(roomNumber) {
+    if (!roomNumber) return console.error('Room number is required');
+    setRoomToCleaning(roomNumber);
+    setTimeout(() => updateRoomCardForCleaning(roomNumber), 100);
+  },
+  refreshCleaningStatus: initializeCleaningStatus
+};
+
+// ==========================
+// Auto-Initialize
+// ==========================
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeCleaningStatus);
+} else {
+  initializeCleaningStatus();
+}
+
+
 let previousNotifCount = 0;
 
 // 🔔 Check pending orders count
@@ -1321,10 +1789,11 @@ document.querySelectorAll('.extend-form').forEach(form => {
 
 document.querySelectorAll('.checkout-form').forEach(form => {
   form.addEventListener('submit', function (e) {
-    e.preventDefault();
+    e.preventDefault(); // Always prevent default form submission
 
     const roomNumber = form.querySelector('input[name="room_number"]').value;
 
+    // First check payment status
     fetch("receptionist-guest.php", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -1333,6 +1802,7 @@ document.querySelectorAll('.checkout-form').forEach(form => {
     .then(res => res.json())
     .then(data => {
       if (data.payment_required) {
+        // Payment required - show payment form
         const amountDueRaw = Number(data.amount_due) || 0;
         const amountDueDisplay = amountDueRaw.toFixed(2);
 
@@ -1389,12 +1859,10 @@ document.querySelectorAll('.checkout-form').forEach(form => {
             const gcashWrapper = document.getElementById('gcash_ref_wrapper');
             const gcashInput = document.getElementById('gcash_reference');
 
-            // Show/hide GCash field
             modeSelect.addEventListener('change', () => {
               gcashWrapper.style.display = modeSelect.value === 'gcash' ? 'block' : 'none';
             });
 
-            // Allow only numbers in GCash input
             gcashInput.addEventListener('input', (e) => {
               e.target.value = e.target.value.replace(/[^0-9]/g, '');
             });
@@ -1452,7 +1920,12 @@ document.querySelectorAll('.checkout-form').forEach(form => {
                   background: '#1a1a1a',
                   confirmButtonColor: "#8b1d2d"
                 }).then(() => {
-                  form.submit();
+                  // ✅ NOW trigger cleaning and submit form
+                  setRoomToCleaning(roomNumber);
+                  updateRoomCardForCleaning(roomNumber);
+                  
+                  // Redirect without submitting the form element
+                  window.location.href = 'receptionist-room.php?success=checked_out';
                 });
               } else {
                 Swal.fire("Error", payData.message || "Payment failed.", "error");
@@ -1466,6 +1939,7 @@ document.querySelectorAll('.checkout-form').forEach(form => {
         });
 
       } else {
+        // ✅ No payment required - show checkout confirmation FIRST
         Swal.fire({
           title: 'Are you sure?',
           text: "Do you really want to check out this guest?",
@@ -1474,11 +1948,20 @@ document.querySelectorAll('.checkout-form').forEach(form => {
           confirmButtonColor: '#8b1d2d',
           cancelButtonColor: '#555',
           confirmButtonText: 'Yes, check out',
-          cancelButtonText: 'Cancel'
+          cancelButtonText: 'Cancel',
+          background: '#1a1a1a',
+          color: '#fff'
         }).then((result) => {
           if (result.isConfirmed) {
-            form.submit();
+            // ✅ User confirmed - NOW trigger cleaning and submit
+            setRoomToCleaning(roomNumber);
+            updateRoomCardForCleaning(roomNumber);
+            
+            // Use native form submission (not location redirect)
+            form.removeEventListener('submit', arguments.callee); // Remove this listener
+            form.submit(); // Submit the actual form
           }
+          // If cancelled, do nothing - form won't submit
         });
       }
     })
