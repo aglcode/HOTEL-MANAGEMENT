@@ -1096,7 +1096,6 @@ if ($result->num_rows > 0) {
                 <?php if (!empty($row['email'])): ?>
                 <div class="small text-muted"><i class="fas fa-envelope me-1"></i><?= htmlspecialchars($row['email']) ?></div>
                 <?php endif; ?>
-                <div class="small text-muted"><i class="fas fa-users me-1"></i><?= $row['num_people'] ?> guest(s), Age: <?= $row['age'] ?></div>
             </div>
             </td>
 
@@ -1193,18 +1192,6 @@ if ($result->num_rows > 0) {
                                             <input type="number" name="age" id="age" class="form-control" required min="18" max="120" placeholder="18">
                                             <small class="text-muted">Must be 18 years or older</small>
                                             <div class="invalid-feedback">You must be at least 18 years old to book.</div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="numPeople" class="form-label fw-medium">Guests *</label>
-                                            <input 
-                                                type="number" 
-                                                name="num_people" 
-                                                id="numPeople" 
-                                                class="form-control" 
-                                                min="1" 
-                                                required 
-                                                oninput="validateGuestCount(this);">
-                                            <div id="guestError" class="text-danger small mt-1 d-none">Number of guests must be at least 1.</div>
                                         </div>
                                         </div>
                                     </div>
@@ -2290,15 +2277,14 @@ $(document).ready(function () {
   var bookingTable = $('#bookingTable').DataTable({
     paging: true,
     lengthChange: false,
-    searching: false,
+    searching: true, // ✅ Enable searching
     ordering: true,
     info: true,
     autoWidth: false,
     responsive: true,
-    pageLength: 5,
+    pageLength: 10,
     lengthMenu: [5, 10, 25, 50, 100],
 
-    // ✅ Improved DOM layout (pagination now visible & aligned)
     dom:
       '<"top d-flex justify-content-between align-items-center mb-3"lf>' +
       'rt' +
@@ -2321,13 +2307,12 @@ $(document).ready(function () {
     },
   });
 
-  // ✅ Move built-in length dropdown into your custom area
+  // ✅ Move built-in length dropdown into custom area
   bookingTable.on('init', function () {
     var lengthSelect = $('#bookingTable_length select')
       .addClass('form-select form-select-sm')
       .css('width', '80px');
 
-    // Add dropdown to your custom menu container
     $('#customBookingLengthMenu').html(
       '<label class="d-flex align-items-center gap-2 mb-0">' +
         '<span>Show</span>' +
@@ -2336,15 +2321,64 @@ $(document).ready(function () {
       '</label>'
     );
 
-    // Hide default DataTables length control to avoid duplication
     $('#bookingTable_length').hide();
   });
 
+  // ✅ Connect custom search input to DataTables search
+  $('#bookingSearchInput').on('keyup', function () {
+    bookingTable.search(this.value).draw();
+  });
 
   // ✅ Filter by status (column index 8)
   $('#bookingFilterSelect').on('change', function () {
     bookingTable.column(8).search(this.value).draw();
   });
+
+  // ✅ AUTO-SEARCH FROM URL PARAMETER
+  // Check if there's a guest_name parameter in the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const guestName = urlParams.get('guest_name');
+  
+  if (guestName) {
+    // Set the search input value
+    $('#bookingSearchInput').val(guestName);
+    
+    // Trigger the search
+    bookingTable.search(guestName).draw();
+    
+    // ✅ Show a toast notification
+    const toastHtml = `
+      <div id="searchToast" class="toast align-items-center text-bg-info border-0 fade show" role="alert">
+        <div class="d-flex">
+          <div class="toast-body">
+            <i class="fas fa-search me-2"></i>
+            Showing bookings for: <strong>${guestName}</strong>
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>
+    `;
+    
+    $('.toast-container').append(toastHtml);
+    
+    const searchToast = new bootstrap.Toast(document.getElementById('searchToast'), {
+      autohide: true,
+      delay: 4000
+    });
+    searchToast.show();
+    
+    // ✅ Scroll to the table smoothly
+    setTimeout(() => {
+      document.getElementById('bookingList').scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }, 300);
+    
+    // ✅ Clean up URL (remove the parameter) after search is applied
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
 });
 
 

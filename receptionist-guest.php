@@ -3233,17 +3233,23 @@ function printReceipt(guestId) {
             const currentDate = now.toLocaleDateString('en-US', dateOptions);
             const currentTime = now.toLocaleTimeString('en-US', timeOptions);
 
-            // Build orders table rows
+            // ✅ Corrected: use price as the actual total already from DB
             let ordersRows = '';
+            let computedOrdersTotal = 0;
+
             if (guest.orders && guest.orders.length > 0) {
                 guest.orders.forEach(order => {
-                    const unitPrice = parseFloat(order.price);
-                    const quantity = parseInt(order.quantity);
+                    const qty = parseInt(order.quantity);
+                    const price = parseFloat(order.price); // price per item
+                    const lineTotal = price; // assuming order.price is already total (120 each, not 120*3)
+
+                    computedOrdersTotal += lineTotal;
+
                     ordersRows += `
                         <tr>
                             <td>${order.item_name}</td>
-                            <td class="text-center">${quantity}</td>
-                            <td class="text-end">₱${unitPrice.toFixed(2)}</td>
+                            <td class="text-center">${qty}</td>
+                            <td class="text-end">₱${lineTotal.toFixed(2)}</td>
                         </tr>
                     `;
                 });
@@ -3541,7 +3547,7 @@ function printReceipt(guestId) {
                     <div class="summary-section">
                         <div class="summary-row">
                             <span>Orders Subtotal</span>
-                            <span>₱${ordersTotal.toFixed(2)}</span>
+                            <span>₱${computedOrdersTotal.toFixed(2)}</span>
                         </div>
                     </div>
                     <hr style="margin: 10px 0; border-top: 1px dashed #dee2e6;">
@@ -3553,7 +3559,7 @@ function printReceipt(guestId) {
                         ${ordersRows ? `
                         <div class="summary-row" style="padding-top: 8px; border-top: 1px dashed #dee2e6;">
                             <span>Orders Total</span>
-                            <span>₱${ordersTotal.toFixed(2)}</span>
+                            <span>₱${computedOrdersTotal.toFixed(2)}</span>
                         </div>
                         ` : ''}
 
@@ -3603,6 +3609,7 @@ function printReceipt(guestId) {
             alert('Failed to load receipt data');
         });
 }
+
 
 function closeReceipt() {
     document.getElementById('receiptModal').style.display = 'none';

@@ -36,7 +36,30 @@ $conn->query("
     WHERE r.status != 'maintenance'
 ");
 
-//  Auto-checkout expired bookings
+// auto checkout with cleaning time ---------------------------------------------
+
+//  Auto-checkout expired bookings and track rooms for cleaning
+$expiredCheckinsResult = $conn->query("
+    SELECT id, room_number 
+    FROM checkins 
+    WHERE status IN ('checked_in', 'scheduled')
+      AND check_out_date <= NOW()
+      AND id NOT IN (
+          SELECT id FROM (
+              SELECT MIN(id) as id 
+              FROM checkins 
+              WHERE status = 'scheduled' 
+                AND check_in_date > NOW()
+              GROUP BY room_number, guest_name
+          ) future_bookings
+      )
+");
+
+$autoCheckedOutRooms = [];
+while ($expiredRow = $expiredCheckinsResult->fetch_assoc()) {
+    $autoCheckedOutRooms[] = (int)$expiredRow['room_number'];
+}
+
 $conn->query("
     UPDATE checkins 
     SET status = 'checked_out'
@@ -52,6 +75,8 @@ $conn->query("
           ) future_bookings
       )
 ");
+
+// ------------------------------------------------------------------
 
 // Free rooms with no active bookings
 $expiredRooms = $conn->query("
@@ -1801,11 +1826,35 @@ document.querySelectorAll('.countdown-timer').forEach(function (timer) {
             clearInterval(interval);
             timer.textContent = "Expired";
 
-            fetch('receptionist-room.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `room_number=${roomNumber}&checkout=1`
-            }).then(() => location.reload());
+            console.log(`⏰ TIMER EXPIRED for room ${roomNumber}`);
+            console.log(`🧹 Setting room ${roomNumber} to cleaning status...`);
+            
+            // Set room to cleaning BEFORE checkout
+            setRoomToCleaning(roomNumber);
+            
+            // Verify it was set
+            const cleaningRooms = getCleaningRooms();
+            console.log(`✅ Cleaning rooms after setting:`, cleaningRooms);
+            
+            // Small delay to ensure localStorage is written
+            setTimeout(() => {
+                console.log(`📤 Sending checkout request for room ${roomNumber}...`);
+                
+                fetch('receptionist-room.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `room_number=${roomNumber}&checkout=1`
+                }).then(response => {
+                    console.log(`✅ Checkout response received for room ${roomNumber}`);
+                    return response.text();
+                }).then(() => {
+                    console.log(`🔄 Reloading page...`);
+                    location.reload();
+                }).catch(error => {
+                    console.error(`❌ Checkout error for room ${roomNumber}:`, error);
+                    location.reload();
+                });
+            }, 200);
         } else {
             const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
