@@ -91,15 +91,139 @@ if (!$from_booking) {
 
     if ($activeCount > 0) {
         echo "
-        <div style='max-width:600px;margin:60px auto;padding:40px 30px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;'>
-            <i class='fas fa-ban fa-3x text-danger mb-3'></i>
-            <h2 class='mb-2'>Room Currently Occupied</h2>
-            <p class='mb-3'>This room is currently being used by another guest.<br>
-            Please select another room or wait until it becomes available.</p>
-            <a href='receptionist-room.php' class='btn btn-primary mt-2'><i class='fas fa-arrow-left me-2'></i>Back to Rooms</a>
-        </div>
-        <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
-        <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css'>
+        <!DOCTYPE html>
+        <html lang='en'>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
+            <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css'>
+            <style>
+                body {
+                    background: #fff;
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                }
+                .status-card {
+                    width: 60%;
+                    max-width: 1100px;
+                    background: #fff;
+                    border-radius: 16px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    overflow: hidden;
+                }
+                .status-header {
+                    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+                    color: white;
+                    padding: 40px 30px;
+                    text-align: center;
+                }
+                .status-header h1 {
+                    font-size: 2rem;
+                    font-weight: 700;
+                    margin: 0 0 10px 0;
+                    letter-spacing: -0.5px;
+                }
+                .status-header p {
+                    margin: 0;
+                    opacity: 0.95;
+                    font-size: 1.05rem;
+                }
+                .status-body {
+                    padding: 40px 35px;
+                    background: #f8f9fa;
+                }
+                .info-box {
+                    background: white;
+                    border-radius: 12px;
+                    padding: 25px;
+                    margin-bottom: 25px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                }
+                .info-label {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    color: #6c757d;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 8px;
+                }
+                .status-dot {
+                    width: 10px;
+                    height: 10px;
+                    background: #dc3545;
+                    border-radius: 50%;
+                    display: inline-block;
+                    animation: pulse 2s infinite;
+                }
+                @keyframes pulse {
+                    0%, 100% {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                    50% {
+                        opacity: 0.5;
+                        transform: scale(1.1);
+                    }
+                }
+                .status-text {
+                    color: #dc3545;
+                    font-size: 0.95rem;
+                    font-weight: 600;
+                    margin: 0;
+                }
+                .btn-back {
+                    background: linear-gradient(135deg, #8b1f2e 0%, #a82d3e 100%);
+                    color: white;
+                    border: none;
+                    padding: 14px 30px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    font-size: 1rem;
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    transition: all 0.3s ease;
+                    text-decoration: none;
+                }
+                .btn-back:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(139, 31, 46, 0.4);
+                    color: white;
+                }
+            </style>
+        </head>
+        <body>
+            <div class='status-card'>
+                <div class='status-header'>
+                    <h1>Room Currently Occupied</h1>
+                    <p>This room is being used by another guest</p>
+                </div>
+                <div class='status-body'>
+                    <div class='info-box'>
+                        <div class='info-label'>
+                            <span class='status-dot'></span>
+                            ROOM STATUS
+                        </div>
+                        <p class='status-text'>This room is currently occupied and unavailable for check-in. Please select another room or wait until it becomes available.</p>
+                    </div>
+                    <a href='receptionist-room.php' class='btn-back'>
+                        <i class='fas fa-arrow-left'></i>
+                        Back to Rooms
+                    </a>
+                </div>
+            </div>
+        </body>
+        </html>
         ";
         exit();
     }
@@ -122,23 +246,176 @@ if (!$from_booking) {
     $stmtBooking->close();
 
     if ($conflictingBooking) {
-        $conflictStart = date('M d, Y h:i A', strtotime($conflictingBooking['start_date']));
-        $conflictEnd = date('M d, Y h:i A', strtotime($conflictingBooking['end_date']));
+        $conflictStart = date('M d, Y', strtotime($conflictingBooking['start_date']));
+        $conflictStartTime = date('h:i A', strtotime($conflictingBooking['start_date']));
+        $conflictEnd = date('M d, Y', strtotime($conflictingBooking['end_date']));
+        $conflictEndTime = date('h:i A', strtotime($conflictingBooking['end_date']));
         
         echo "
-        <div style='max-width:600px;margin:60px auto;padding:40px 30px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;'>
-            <i class='fas fa-calendar-times fa-3x text-warning mb-3'></i>
-            <h2 class='mb-2'>Room Already Reserved</h2>
-            <p class='mb-3'>This room has an upcoming reservation by <strong>" . htmlspecialchars($conflictingBooking['guest_name']) . "</strong></p>
-            <div class='alert alert-warning' style='padding:15px;border-radius:8px;background:#fff3cd;border:1px solid #ffc107;'>
-                <p class='mb-1'><strong>Reserved Period:</strong></p>
-                <p class='mb-0'>From: {$conflictStart}</p>
-                <p class='mb-0'>To: {$conflictEnd}</p>
+        <!DOCTYPE html>
+        <html lang='en'>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
+            <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css'>
+            <style>
+                body {
+                    background: #fff;
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                }
+                .status-card {
+                    width: 60%;
+                    max-width: 1100px;
+                    background: #fff;
+                    border-radius: 16px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    overflow: hidden;
+                }
+                .status-header {
+                    background: linear-gradient(135deg, #8b1f2e 0%, #a82d3e 100%);
+                    color: white;
+                    padding: 40px 30px;
+                    text-align: center;
+                }
+                .status-header h1 {
+                    font-size: 2rem;
+                    font-weight: 700;
+                    margin: 0 0 10px 0;
+                    letter-spacing: -0.5px;
+                }
+                .status-header p {
+                    margin: 0;
+                    opacity: 0.95;
+                    font-size: 1.05rem;
+                }
+                .status-body {
+                    padding: 40px 35px;
+                    background: #f8f9fa;
+                }
+                .info-box {
+                    background: white;
+                    border-radius: 12px;
+                    padding: 25px;
+                    margin-bottom: 25px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                }
+                .info-label {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    color: #6c757d;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 20px;
+                }
+                .status-dot {
+                    width: 10px;
+                    height: 10px;
+                    background: #dc3545;
+                    border-radius: 50%;
+                    display: inline-block;
+                    animation: pulse 2s infinite;
+                }
+                @keyframes pulse {
+                    0%, 100% {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                    50% {
+                        opacity: 0.5;
+                        transform: scale(1.1);
+                    }
+                }
+                .period-section {
+                    text-align: center;
+                    margin-bottom: 15px;
+                }
+                .period-label {
+                    color: #6c757d;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    margin-bottom: 8px;
+                }
+                .period-date {
+                    color: #212529;
+                    font-size: 1.25rem;
+                    font-weight: 700;
+                    margin-bottom: 3px;
+                }
+                .period-time {
+                    color: #6c757d;
+                    font-size: 0.95rem;
+                }
+                .divider {
+                    width: 2px;
+                    height: 40px;
+                    background: linear-gradient(to bottom, transparent, #dc3545, transparent);
+                    margin: 10px auto;
+                }
+                .btn-back {
+                    background: linear-gradient(135deg, #8b1f2e 0%, #a82d3e 100%);
+                    color: white;
+                    border: none;
+                    padding: 14px 30px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    font-size: 1rem;
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    transition: all 0.3s ease;
+                    text-decoration: none;
+                }
+                .btn-back:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(139, 31, 46, 0.4);
+                    color: white;
+                }
+            </style>
+        </head>
+        <body>
+            <div class='status-card'>
+                <div class='status-header'>
+                    <h1>Room Already Reserved</h1>
+                    <p>This room has an upcoming reservation by <strong>" . htmlspecialchars($conflictingBooking['guest_name']) . "</strong></p>
+                </div>
+                <div class='status-body'>
+                    <div class='info-box'>
+                        <div class='info-label'>
+                            <span class='status-dot'></span>
+                            RESERVED PERIOD
+                        </div>
+                        <div class='period-section'>
+                            <div class='period-label'>FROM</div>
+                            <div class='period-date'>{$conflictStart}</div>
+                            <div class='period-time'>{$conflictStartTime}</div>
+                        </div>
+                        <div class='divider'></div>
+                        <div class='period-section'>
+                            <div class='period-label'>TO</div>
+                            <div class='period-date'>{$conflictEnd}</div>
+                            <div class='period-time'>{$conflictEndTime}</div>
+                        </div>
+                    </div>
+                    <a href='receptionist-room.php' class='btn-back'>
+                        <i class='fas fa-arrow-left'></i>
+                        Back to Rooms
+                    </a>
+                </div>
             </div>
-            <a href='receptionist-room.php' class='btn btn-primary mt-3'><i class='fas fa-arrow-left me-2'></i>Back to Rooms</a>
-        </div>
-        <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
-        <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css'>
+        </body>
+        </html>
         ";
         exit();
     }

@@ -2,10 +2,12 @@
 header('Content-Type: application/json');
 session_start();
 
-$host = "localhost";
-$user = "root";
-$pass = "";
-$db   = "hotel_db";
+// $host = "localhost";
+// $user = "root";
+// $pass = "";
+// $db   = "hotel_db";
+
+require_once 'database.php';
 
 $conn = new mysqli($host, $user, $pass, $db);
 if ($conn->connect_error) {

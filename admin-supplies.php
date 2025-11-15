@@ -9,6 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $price = floatval($_POST['price'] ?? 0);
     $quantity = intval($_POST['quantity'] ?? 1);
     $category = trim($_POST['category'] ?? '');
+    $type = trim($_POST['type'] ?? '');
     $id = $_POST['id'] ?? null;
 
         // Handle image upload
@@ -36,11 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if ($action === 'edit' && $id) {
     // If new image uploaded, use it; otherwise keep existing
     if ($image) {
-        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, image = ? WHERE id = ?");
-        $stmt->bind_param("sdissi", $name, $price, $quantity, $category, $image, $id);
+        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, type = ?, image = ? WHERE id = ?");
+        $stmt->bind_param("sdisssi", $name, $price, $quantity, $category, $type, $image, $id);
     } else {
-        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ? WHERE id = ?");
-        $stmt->bind_param("sdisi", $name, $price, $quantity, $category, $id);
+        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, type = ? WHERE id = ?");
+        $stmt->bind_param("sdissi", $name, $price, $quantity, $category, $type, $id);
     }
     if ($stmt->execute()) {
         header("Location: admin-supplies.php?success=edited");
@@ -50,8 +51,8 @@ if ($action === 'edit' && $id) {
     exit();
 } 
 elseif ($action === 'add') {
-    $stmt = $conn->prepare("SELECT id, quantity FROM supplies WHERE LOWER(name) = LOWER(?) AND category = ?");
-    $stmt->bind_param("ss", $name, $category);
+    $stmt = $conn->prepare("SELECT id, quantity FROM supplies WHERE LOWER(name) = LOWER(?) AND category = ? AND type = ?");
+    $stmt->bind_param("sss", $name, $category, $type);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -65,8 +66,8 @@ elseif ($action === 'add') {
             header("Location: admin-supplies.php?error=unknown");
         }
     } else {
-        $stmt = $conn->prepare("INSERT INTO supplies (name, price, quantity, category, image) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("sdiss", $name, $price, $quantity, $category, $image);
+        $stmt = $conn->prepare("INSERT INTO supplies (name, price, quantity, category, type, image) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sdisss", $name, $price, $quantity, $category, $type, $image);
         if ($stmt->execute()) {
             header("Location: admin-supplies.php?success=added");
         } else {
@@ -90,11 +91,11 @@ elseif ($action === 'archive' && $id) {
     // Archive the supply instead of deleting
     // If new image uploaded, use it; otherwise keep existing
     if ($image) {
-        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, image = ? WHERE id = ?");
-        $stmt->bind_param("sdissi", $name, $price, $quantity, $category, $image, $id);
+        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, type = ?, image = ? WHERE id = ?");
+        $stmt->bind_param("sdisssi", $name, $price, $quantity, $category, $type, $image, $id);
     } else {
-        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ? WHERE id = ?");
-        $stmt->bind_param("sdisi", $name, $price, $quantity, $category, $id);
+        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, type = ? WHERE id = ?");
+        $stmt->bind_param("sdissi", $name, $price, $quantity, $category, $type, $id);
     }
     if ($stmt->execute()) {
         header("Location: admin-supplies.php?success=archived");
@@ -131,7 +132,11 @@ $stmt->execute();
 $supplies = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 $totalSupplies = count($supplies);
-$totalCost = array_reduce($supplies, fn($sum, $s) => $sum + ($s['price'] * $s['quantity']), 0);
+
+$totalCost = array_reduce($supplies, function ($sum, $s) {
+    // Exclude if quantity is 999 (infinite)
+    return $s['quantity'] == 999 ? $sum : $sum + ($s['price'] * $s['quantity']);
+}, 0);
 ?>
 
 
@@ -657,6 +662,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <th>Quantity</th>
             <th>Total</th>
             <th>Category</th>
+            <th>Type</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -686,20 +692,26 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div><?= htmlspecialchars($s['name']) ?></div>
               </div>
             </td>
-              <td>₱<?= number_format($s['price'], 2) ?></td>
-                <td>
-                <span class="badge 
-                  <?php if ($s['category'] == 'Food'): ?>
-                    bg-green-100 text-green-800 border-green-200
-                  <?php else: ?>
-                    bg-blue-100 text-blue-800 border-blue-200
-                  <?php endif; ?>
-                ">
-                    <?= (int)$s['quantity'] ?>
-                  </span>
-                </td>
+            <td>₱<?= number_format($s['price'], 2) ?></td>
+            <td>
+              <span class="badge 
+                <?php if ($s['category'] == 'Food'): ?>
+                  bg-green-100 text-green-800 border-green-200
+                <?php else: ?>
+                  bg-blue-100 text-blue-800 border-blue-200
+                <?php endif; ?>
+              ">
+                <?= $s['quantity'] == 999 ? 'N/A' : (int)$s['quantity'] ?>
+              </span>
+            </td>
 
-              <td>₱<?= number_format($s['price'] * $s['quantity'], 2) ?></td>
+            <td>
+              <?php if ($s['quantity'] == 999): ?>
+                N/A
+              <?php else: ?>
+                ₱<?= number_format($s['price'] * $s['quantity'], 2) ?>
+              <?php endif; ?>
+            </td>
               <td>
                 <!-- Category badge with same custom color sets -->
                 <span class="badge 
@@ -712,15 +724,28 @@ document.addEventListener("DOMContentLoaded", () => {
                   <?= htmlspecialchars($s['category']) ?>
                 </span>
               </td>
+              <td>
+                <span class="badge bg-yellow-100 text-yellow-800 border-yellow-200">
+                  <?= htmlspecialchars($s['type']) ?>
+                </span>
+              </td>
               <td class="text-center user-actions">
               <span class="action-btn edit me-2" 
-                    onclick="populateEditForm(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>', <?= $s['price'] ?>, <?= $s['quantity'] ?>, '<?= $s['category'] ?>', '<?= htmlspecialchars($s['image'] ?? '', ENT_QUOTES) ?>')">
+                  onclick="populateEditForm(
+                    <?= $s['id'] ?>, 
+                    '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>', 
+                    <?= $s['price'] ?>, 
+                    <?= $s['quantity'] ?>, 
+                    '<?= htmlspecialchars($s['category'], ENT_QUOTES) ?>', 
+                    '<?= htmlspecialchars($s['type'], ENT_QUOTES) ?>', 
+                    '<?= htmlspecialchars($s['image'] ?? '', ENT_QUOTES) ?>'
+                  )">
                   <i class="fas fa-edit"></i>
                 </span>
-<span class="action-btn archive" 
-      onclick="confirmArchive(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>')">
-  <i class="fas fa-archive"></i>
-</span>
+                <span class="action-btn archive" 
+                      onclick="confirmArchive(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>')">
+                  <i class="fas fa-archive"></i>
+                </span>
               </td>
             </tr>
             <?php endforeach; ?>
@@ -813,6 +838,36 @@ document.addEventListener("DOMContentLoaded", () => {
               </select>
             </div>
           </div>
+
+          <!-- Type -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Type</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="fas fa-list"></i></span>
+              <select class="form-select border-start-0" id="supplyType" name="type" required>
+                <option value="" disabled selected>Select a type</option>
+                <option value="Noodles">Noodles</option>
+                <option value="Rice Meals">Rice Meals</option>
+                <option value="Lumpia">Lumpia</option>
+                <option value="Snacks">Snacks</option>
+                <option value="Water">Water</option>
+                <option value="Ice">Ice</option>
+                <option value="Softdrinks">Softdrinks</option>
+                <option value="Shakes">Shakes</option>
+                <option value="Juice">Juice</option>
+                <option value="Coffee">Coffee</option>
+                <option value="Teas">Teas</option>
+                <option value="Other Drinks">Other Drinks</option>
+                <option value="Essentials">Essentials</option>
+                <option value="Dental Care">Dental Care</option>
+                <option value="Feminine Hygiene">Feminine Hygiene</option>
+                <option value="Shampoo">Shampoo</option>
+                <option value="Conditioner">Conditioner</option>
+                <option value="Personal Protection">Personal Protection</option>
+                <option value="Disposable Utensils">Disposable Utensils</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <!-- Modal Footer -->
@@ -880,12 +935,13 @@ document.addEventListener("DOMContentLoaded", () => {
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 <script>
 // Triggered when clicking the "Edit" button
-function populateEditForm(id, name, price, quantity, category, image) {
+function populateEditForm(id, name, price, quantity, category, type, image) {
   document.getElementById('supplyId').value = id;
   document.getElementById('supplyName').value = name;
   document.getElementById('supplyPrice').value = price;
   document.getElementById('supplyQuantity').value = quantity;
   document.getElementById('supplyCategory').value = category;
+  document.getElementById('supplyType').value = type;
   document.getElementById('supplyAction').value = 'edit';
   document.getElementById('addSupplyModalLabel').innerText = 'Edit Supply';
 

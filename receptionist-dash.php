@@ -307,6 +307,21 @@ $upcoming_bookings_result = $conn->query("
     font-weight: bold;
     font-size: 1.2rem;
 }
+
+.clickable-booking-card {
+    transition: all 0.3s ease;
+}
+
+.clickable-booking-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(135, 29, 43, 0.2) !important;
+    border: 2px solid #871D2B;
+}
+
+.clickable-booking-card:active {
+    transform: translateY(-2px);
+}
+
 </style>
 
 </head> 
@@ -672,46 +687,58 @@ $upcoming_bookings_result = $conn->query("
         </div>
     </div>
 
-    <!-- Upcoming Bookings -->
-    <div class="card shadow-sm">
-        <div class="card-header text-white" style="background-color: #871D2B;"><h5 class="mb-0"><i class="fas fa-calendar-alt me-2" ></i>Upcoming Bookings (Next 7 Days)</h5></div>
-        <div class="card-body">
-            <?php if ($upcoming_bookings_result->num_rows > 0): ?>
-            <div class="row g-3">
-                <?php while($booking = $upcoming_bookings_result->fetch_assoc()):
-                    $checkInDate = new DateTime($booking['start_date']);
-                    $checkOutDate = (clone $checkInDate)->add(new DateInterval('PT'.$booking['duration'].'H'));
-                    $initial = strtoupper($booking['guest_name'][0]);
-                ?>
-                <div class="col-md-6 col-lg-4">
-                    <div class="card booking-card h-100">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="guest-avatar me-3"><?= $initial ?></div>
-                                <div>
-                                    <h6 class="mb-0"><?= htmlspecialchars($booking['guest_name']) ?></h6>
-                                    <small class="text-muted"><?= htmlspecialchars($booking['email']) ?></small>
-                                </div>
+<!-- Upcoming Bookings -->
+<div class="card shadow-sm">
+    <div class="card-header text-white" style="background-color: #871D2B;">
+        <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Upcoming Bookings (Next 7 Days)</h5>
+    </div>
+    <div class="card-body">
+        <?php if ($upcoming_bookings_result->num_rows > 0): ?>
+        <div class="row g-3">
+            <?php while($booking = $upcoming_bookings_result->fetch_assoc()):
+                $checkInDate = new DateTime($booking['start_date']);
+                $checkOutDate = (clone $checkInDate)->add(new DateInterval('PT'.$booking['duration'].'H'));
+                $initial = strtoupper($booking['guest_name'][0]);
+            ?>
+            <!-- ✅ MAKE CARD CLICKABLE with cursor pointer and onclick event -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card booking-card h-100 clickable-booking-card" 
+                     onclick="redirectToBooking('<?= htmlspecialchars($booking['guest_name']) ?>')"
+                     style="cursor: pointer; transition: all 0.3s ease;">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="guest-avatar me-3"><?= $initial ?></div>
+                            <div>
+                                <h6 class="mb-0"><?= htmlspecialchars($booking['guest_name']) ?></h6>
+                                <small class="text-muted"><?= htmlspecialchars($booking['email']) ?></small>
                             </div>
-                            <div class="mb-2">
-                                <div class="d-flex justify-content-between"><span>Room:</span><span><?= htmlspecialchars($booking['room_number']) ?></span></div>
-                                <div class="d-flex justify-content-between"><span>Type:</span><span><?= htmlspecialchars($booking['room_type']) ?></span></div>
-                                <div class="d-flex justify-content-between"><span>Guests:</span><span><?= $booking['num_people'] ?> people</span></div>
-                            </div>
-                            <hr>
-                            <div class="d-flex justify-content-between"><span>Check-in:</span><span><?= $checkInDate->format('M j, g:i A') ?></span></div>
-                            <div class="d-flex justify-content-between"><span>Check-out:</span><span><?= $checkOutDate->format('M j, g:i A') ?></span></div>
-                            <div class="d-flex justify-content-between mt-2"><span>Total:</span><span class="text-success fw-bold">₱<?= number_format($booking['total_price'],2) ?></span></div>
+                        </div>
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between"><span>Room:</span><span><?= htmlspecialchars($booking['room_number']) ?></span></div>
+                            <div class="d-flex justify-content-between"><span>Type:</span><span><?= htmlspecialchars($booking['room_type']) ?></span></div>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between"><span>Check-in:</span><span><?= $checkInDate->format('M j, g:i A') ?></span></div>
+                        <div class="d-flex justify-content-between"><span>Check-out:</span><span><?= $checkOutDate->format('M j, g:i A') ?></span></div>
+                        <div class="d-flex justify-content-between mt-2"><span>Total:</span><span class="text-success fw-bold">₱<?= number_format($booking['total_price'],2) ?></span></div>
+                        
+                        <!-- ✅ ADD VISUAL INDICATOR -->
+                        <div class="text-center mt-3">
+                            <small class="text-muted"><i class="fas fa-mouse-pointer me-1"></i>Click to view details</small>
                         </div>
                     </div>
                 </div>
-                <?php endwhile; ?>
             </div>
-            <?php else: ?>
-            <div class="text-center py-4 text-muted"><i class="fas fa-calendar-times fa-2x mb-2"></i><p>No upcoming bookings.</p></div>
-            <?php endif; ?>
+            <?php endwhile; ?>
         </div>
+        <?php else: ?>
+        <div class="text-center py-4 text-muted">
+            <i class="fas fa-calendar-times fa-2x mb-2"></i>
+            <p>No upcoming bookings.</p>
+        </div>
+        <?php endif; ?>
     </div>
+</div>
 
     <!-- ✅ Pending Orders Section -->
 <div id="ordersList" class="collapse mt-3">
@@ -747,6 +774,16 @@ $upcoming_bookings_result = $conn->query("
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+
+  function redirectToBooking(guestName) {
+    // Encode the guest name for URL
+    const encodedName = encodeURIComponent(guestName);
+    
+    // Redirect to receptionist-booking.php with guest name as search parameter
+    window.location.href = `receptionist-booking.php?guest_name=${encodedName}`;
+}
+
+
 function updateClock(){
     const now = new Date();
     document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
@@ -863,7 +900,8 @@ function renderOrders(data) {
       <div class="col-md-6 col-lg-4">
         <div class="card order-card h-100">
           <div class="card-body">
-            <div class="d-flex align-items-center justify-content-between mb-3">
+             <div class="d-flex align-items-center mb-3">
+             <div class="room-avatar me-3">${room}</div>
               <div>
                 <h6 class="mb-0">
                   Room ${room}

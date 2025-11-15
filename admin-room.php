@@ -74,6 +74,70 @@ if (isset($_GET['action']) && $_GET['action'] == 'archive' && isset($_GET['room_
     exit();
 }
 
+// Handle Add Card
+if (isset($_POST['add_card'])) {
+    $room_id = (int)$_POST['room_id'];
+    $code = trim($_POST['code']);
+    
+    if (empty($code)) {
+        header("Location: admin-room.php?error=empty_code");
+        exit();
+    }
+    
+    $query = "INSERT INTO cards (room_id, code) VALUES (?, ?)";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("is", $room_id, $code);
+    
+    if ($stmt->execute()) {
+        header("Location: admin-room.php?success=card_added#addCardForm");
+    } else {
+        header("Location: admin-room.php?error=card_add_failed");
+    }
+    $stmt->close();
+    exit();
+}
+
+// Handle Edit Card
+if (isset($_POST['edit_card'])) {
+    $card_id = (int)$_POST['card_id'];
+    $room_id = (int)$_POST['room_id'];
+    $code = trim($_POST['code']);
+    
+    if (empty($code)) {
+        header("Location: admin-room.php?error=empty_code");
+        exit();
+    }
+    
+    $query = "UPDATE cards SET room_id = ?, code = ? WHERE id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("isi", $room_id, $code, $card_id);
+    
+    if ($stmt->execute()) {
+        header("Location: admin-room.php?success=card_edited#addCardForm");
+    } else {
+        header("Location: admin-room.php?error=card_edit_failed");
+    }
+    $stmt->close();
+    exit();
+}
+
+// Handle Delete Card
+if (isset($_GET['action']) && $_GET['action'] == 'delete_card' && isset($_GET['card_id'])) {
+    $card_id = (int)$_GET['card_id'];
+    
+    $query = "DELETE FROM cards WHERE id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $card_id);
+    
+    if ($stmt->execute()) {
+        header("Location: admin-room.php?success=card_deleted");
+    } else {
+        header("Location: admin-room.php?error=card_delete_failed");
+    }
+    $stmt->close();
+    exit();
+}
+
 // Fetch room data
 $result = $conn->query("SELECT * FROM rooms WHERE is_archived = 0 ORDER BY room_number ASC");
 
@@ -532,8 +596,10 @@ if (isset($_GET['action']) && $_GET['action'] == 'edit') {
           <?php
             if ($_GET['success'] == 'added') echo "Room added successfully!";
             if ($_GET['success'] == 'edited') echo "Room edited successfully!";
-            // if ($_GET['success'] == 'deleted') echo "Room deleted successfully!";
             if ($_GET['success'] == 'archived') echo "Room archived successfully!";
+            if ($_GET['success'] == 'card_added') echo "Keycard added successfully!";
+            if ($_GET['success'] == 'card_edited') echo "Keycard updated successfully!";
+            if ($_GET['success'] == 'card_deleted') echo "Keycard deleted successfully!";
           ?>
         </div>
         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
@@ -819,6 +885,336 @@ document.addEventListener("DOMContentLoaded", () => {
           <?php endwhile; ?>
         </tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- Divider Section -->
+<div class="my-5">
+    <div class="d-flex align-items-center">
+        <hr class="flex-grow-1 border-2">
+        <span class="px-4 text-muted fw-semibold text-uppercase" style="font-size: 0.875rem; letter-spacing: 0.5px;">
+            <i class="fas fa-grip-lines-vertical me-2"></i>
+            Room Keycards
+            <i class="fas fa-grip-lines-vertical ms-2"></i>
+        </span>
+        <hr class="flex-grow-1 border-2">
+    </div>
+</div>
+
+<!-- KEYCARD MANAGEMENT SECTION -->
+<div class="mt-5">
+    <h3 class="fw-bold mb-4">Keycard Management</h3>
+    
+    <?php
+    // Fetch all cards with room information
+    $cardsQuery = "
+        SELECT c.id, c.room_id, c.code, c.created_at, 
+               r.room_number, r.room_type, r.status
+        FROM cards c
+        LEFT JOIN rooms r ON c.room_id = r.id
+        WHERE r.is_archived = 0
+        ORDER BY c.created_at DESC
+    ";
+    $cardsResult = $conn->query($cardsQuery);
+
+    // Fetch all rooms for dropdown
+    $roomsQuery = "SELECT id, room_number, room_type, status FROM rooms WHERE is_archived = 0 ORDER BY room_number ASC";
+    $roomsResult = $conn->query($roomsQuery);
+    $rooms = [];
+    while ($room = $roomsResult->fetch_assoc()) {
+        $rooms[] = $room;
+    }
+
+    // Keycard Statistics
+    $totalCards = $conn->query("SELECT COUNT(*) as total FROM cards c JOIN rooms r ON c.room_id = r.id WHERE r.is_archived = 0")->fetch_assoc()['total'] ?? 0;
+    $activeRooms = $conn->query("SELECT COUNT(DISTINCT room_id) as active FROM cards c JOIN rooms r ON c.room_id = r.id WHERE r.is_archived = 0")->fetch_assoc()['active'] ?? 0;
+    $availableCards = $conn->query("SELECT COUNT(*) as available FROM cards c JOIN rooms r ON c.room_id = r.id WHERE r.status = 'available' AND r.is_archived = 0")->fetch_assoc()['available'] ?? 0;
+
+    // Card to edit
+    $card_to_edit = null;
+    if (isset($_GET['action']) && $_GET['action'] == 'edit_card') {
+        $stmt = $conn->prepare("SELECT * FROM cards WHERE id = ?");
+        $stmt->bind_param("i", $_GET['card_id']);
+        $stmt->execute();
+        $card_to_edit = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+    }
+    ?>
+
+    <!-- Keycard Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card stat-card h-100 p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <p class="stat-title">Total Cards</p>
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                        <i class="fas fa-id-card"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-1"><?php echo $totalCards; ?></h3>
+                <p class="stat-change text-success">+2% <span>from last month</span></p>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card stat-card h-100 p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <p class="stat-title">Rooms with Cards</p>
+                    <div class="stat-icon bg-success bg-opacity-10 text-success">
+                        <i class="fas fa-door-open"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-1"><?php echo $activeRooms; ?></h3>
+                <p class="stat-change text-success">+5% <span>from last month</span></p>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card stat-card h-100 p-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <p class="stat-title">Available Cards</p>
+                    <div class="stat-icon bg-info bg-opacity-10 text-info">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+                <h3 class="fw-bold mb-1"><?php echo $availableCards; ?></h3>
+                <p class="stat-change text-info">Ready to use</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Card Form -->
+    <div class="card shadow-sm border-0 mb-4" id="addCardForm">
+        <div class="card-header border-0 d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
+            <h5 class="mb-0 fw-semibold text-white">
+                <i class="fas fa-id-card text-white me-2"></i>
+                <?php echo isset($card_to_edit) ? "Edit Keycard" : "Add New Keycard"; ?>
+            </h5>
+        </div>
+
+        <div class="card-body">
+            <form method="POST" action="admin-room.php" class="row g-4">
+                <input type="hidden" name="card_id" value="<?php echo isset($card_to_edit) ? $card_to_edit['id'] : ''; ?>">
+
+                <div class="col-md-6">
+                    <label for="room_id" class="form-label fw-semibold">Select Room *</label>
+                    <select id="room_id" name="room_id" class="form-select" required>
+                        <option value="">Choose a room...</option>
+                        <?php foreach ($rooms as $room): ?>
+                        <option value="<?= $room['id'] ?>" <?php echo isset($card_to_edit) && $card_to_edit['room_id'] == $room['id'] ? 'selected' : ''; ?>>
+                            Room #<?= $room['room_number'] ?> - <?= ucwords(str_replace('_', ' ', $room['room_type'])) ?>
+                            (<?= ucfirst($room['status']) ?>)
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label for="card_code" class="form-label fw-semibold">Card Code *</label>
+                    <input type="text" id="card_code" name="code" class="form-control" 
+                           placeholder="Enter card access code" 
+                           value="<?php echo isset($card_to_edit) ? htmlspecialchars($card_to_edit['code']) : ''; ?>" 
+                           required>
+                    <small class="text-muted">This code will be used to access the room</small>
+                </div>
+
+                <div class="col-12 d-flex justify-content-end gap-2 mt-3">
+                    <?php if (isset($card_to_edit)): ?>
+                    <a href="admin-room.php" class="btn btn-light">Cancel</a>
+                    <?php endif; ?>
+                    <button type="submit" name="<?php echo isset($card_to_edit) ? 'edit_card' : 'add_card'; ?>" 
+                            class="btn text-white" style="background-color: #871D2B;">
+                        <?php echo isset($card_to_edit) ? 'Update Card' : 'Add Card'; ?>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cards Table -->
+    <div class="card">
+        <div class="card-header bg-dark d-flex justify-content-between align-items-center p-3">
+            <div>
+                <h2 class="h5 mb-0 text-white">Keycard List</h2>
+                <p class="text-sm text-white mt-1"><?php echo $cardsResult->num_rows; ?> total cards</p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <div id="customCardLengthMenu"></div>
+                <div class="position-relative">
+                    <input type="text" class="form-control ps-4" id="cardSearchInput" placeholder="Search cards..." style="width: 200px;">
+                    <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-gray-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table id="cardTable" class="table table-hover align-middle mb-0" style="width:100%;">
+                    <thead class="bg-gray-50 border-bottom border-gray-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">ID</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">Room Number</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">Room Type</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">Card Code</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">Room Status</th>
+                            <th class="px-4 py-3 sorting">Created At</th>
+                            <th class="px-4 py-3 text-center sorting">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php while ($card = $cardsResult->fetch_assoc()): ?>
+                        <tr>
+                            <td class="px-4 py-3 text-sm text-gray-900"><?= $card['id'] ?></td>
+                            <td class="px-4 py-3 text-sm"><strong>#<?= htmlspecialchars($card['room_number']) ?></strong></td>
+                            <td class="px-4 py-3 text-sm text-gray-900"><?= ucwords(str_replace('_', ' ', $card['room_type'])) ?></td>
+                            <td class="px-4 py-3 text-sm"><span style="font-family: 'Courier New', monospace; font-weight: 600; background: #f8f9fa; padding: 4px 8px; border-radius: 4px;"><?= htmlspecialchars($card['code']) ?></span></td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="badge 
+                                    bg-<?= ($card['status'] == 'available') ? 'green-100' : (($card['status'] == 'booked') ? 'amber-100' : 'gray-100') ?> 
+                                    text-<?= ($card['status'] == 'available') ? 'green-800' : (($card['status'] == 'booked') ? 'amber-800' : 'gray-800') ?> 
+                                    border-<?= ($card['status'] == 'available') ? 'green-200' : (($card['status'] == 'booked') ? 'amber-200' : 'gray-200') ?> 
+                                    rounded-pill px-2.5 py-0.5 text-xs font-medium">
+                                    <?= ucfirst($card['status']) ?>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm"><?= date('M d, Y h:i A', strtotime($card['created_at'])) ?></td>
+                            <td class="px-4 py-3 text-center">
+                                <div class="d-flex gap-2 justify-content-center user-actions">
+                                  <a href="#" 
+                                    class="p-1 action-btn edit" 
+                                    title="Edit"
+                                    data-card-id="<?= $card['id'] ?>"
+                                    data-room-id="<?= $card['room_id'] ?>"
+                                    data-room-number="<?= htmlspecialchars($card['room_number']) ?>"
+                                    data-room-type="<?= ucwords(str_replace('_', ' ', $card['room_type'])) ?>"
+                                    data-card-code="<?= htmlspecialchars($card['code']) ?>">
+                                      <i class="fas fa-edit"></i>
+                                  </a>
+                                    <a href="javascript:void(0)" 
+                                       onclick="confirmDeleteCard(<?= $card['id'] ?>, '<?= htmlspecialchars($card['room_number']) ?>')"
+                                       class="p-1 action-btn delete" 
+                                       title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Card Confirmation Modal -->
+<div class="modal fade" id="deleteCardModal" tabindex="-1" aria-labelledby="deleteCardModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0 pb-2">
+                <h5 class="modal-title fw-bold text-danger" id="deleteCardModalLabel">
+                    <i class="fas fa-trash me-2"></i>Delete Keycard
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <hr class="my-0">
+            
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <div class="rounded-circle bg-danger bg-opacity-10 d-inline-flex align-items-center justify-content-center" style="width:60px; height:60px;">
+                        <i class="fas fa-trash text-danger fa-2x"></i>
+                    </div>
+                </div>
+                <h5 class="fw-bold mb-2">Delete this keycard?</h5>
+                <p class="text-muted mb-0">
+                    Are you sure you want to delete the keycard for room <span id="cardToDelete" class="fw-semibold text-dark"></span>?<br>
+                    This action cannot be undone.
+                </p>
+            </div>
+            <hr class="my-0">
+            
+            <div class="modal-footer border-0 justify-content-center">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <a href="#" id="confirmDeleteCardBtn" class="btn btn-danger">
+                    <i class="fas fa-trash me-1"></i> Delete Card
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Keycard Modal -->
+<div class="modal fade" id="editCardModal" tabindex="-1" aria-labelledby="editCardModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-3">
+      
+      <!-- Header -->
+      <div class="modal-header border-bottom">
+        <div class="d-flex align-items-center">
+          <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
+            <i class="fas fa-id-card text-primary"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold mb-0" id="editCardModalLabel">Edit Keycard</h5>
+            <small class="text-muted">Update card access code</small>
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body">
+        <form method="POST" action="admin-room.php" id="editCardForm">
+          <input type="hidden" name="card_id" id="edit_card_id">
+          <input type="hidden" name="room_id" id="edit_card_room_id">
+
+          <!-- Room Number (Read-only) -->
+          <div class="mb-3">
+            <label for="edit_card_room_number" class="form-label fw-semibold">
+              <i class="fas fa-door-open me-1 text-muted"></i> Room Number
+            </label>
+            <input type="text" id="edit_card_room_number" class="form-control bg-light" readonly>
+            <small class="text-muted">This field cannot be modified</small>
+          </div>
+
+          <!-- Room Type (Read-only) -->
+          <div class="mb-3">
+            <label for="edit_card_room_type" class="form-label fw-semibold">
+              <i class="fas fa-bed me-1 text-muted"></i> Room Type
+            </label>
+            <input type="text" id="edit_card_room_type" class="form-control bg-light" readonly>
+            <small class="text-muted">This field cannot be modified</small>
+          </div>
+
+          <!-- Card Code (Editable) -->
+          <div class="mb-3">
+            <label for="edit_card_code" class="form-label fw-semibold">
+              <i class="fas fa-key me-1 text-primary"></i> Card Code *
+            </label>
+            <input type="text" name="code" id="edit_card_code" class="form-control" 
+                   placeholder="Enter new card access code" required>
+            <small class="text-muted">This code will be used to access the room</small>
+          </div>
+
+          <!-- Info Alert -->
+          <div class="alert alert-info d-flex align-items-start mb-0" role="alert">
+            <i class="fas fa-info-circle me-2 mt-1"></i>
+            <div>
+              <strong>Note:</strong> Only the card code can be modified. To change the room assignment, please delete this card and create a new one.
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer border-top">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" form="editCardForm" name="edit_card" class="btn text-white" style="background-color: #871D2B;">
+          <i class="fas fa-save me-1"></i> Update Card
+        </button>
+      </div>
+
     </div>
   </div>
 </div>
@@ -1134,7 +1530,7 @@ if (invalidFound) {
 
 
 // edit modal
-document.querySelectorAll(".action-btn.edit").forEach(btn => {
+document.querySelectorAll("#roomTable .action-btn.edit").forEach(btn => {
   btn.addEventListener("click", function(e) {
     e.preventDefault();
 
@@ -1164,6 +1560,108 @@ function confirmArchive(roomId, roomNumber) {
   const modal = new bootstrap.Modal(document.getElementById("deleteModal"));
   modal.show();
 }
+
+// Keycard DataTable
+$(document).ready(function() {
+    var cardTable = $('#cardTable').DataTable({
+        paging: true,
+        lengthChange: true,
+        searching: true,
+        ordering: true,
+        info: true,
+        autoWidth: false,
+        responsive: true,
+        pageLength: 10,
+        lengthMenu: [10, 25, 50, 100],
+        dom: '<"d-none"l>rt' +
+             '<"row mt-3"<"col-sm-5"i><"col-sm-7"p>>',
+        language: {
+            emptyTable: "<i class='fas fa-id-card fa-3x text-muted mb-3'></i><p class='mb-0'>No keycards found</p>",
+            info: "Showing _START_ to _END_ of _TOTAL_ cards",
+            infoEmpty: "No entries available",
+            infoFiltered: "(filtered from _MAX_ total cards)",
+            lengthMenu: "Show _MENU_ cards",
+            paginate: {
+                first: "«",
+                last: "»",
+                next: "›",
+                previous: "‹"
+            }
+        }
+    });
+
+    // Move dropdown
+    cardTable.on('init', function () {
+        var lengthSelect = $('#cardTable_length select')
+            .addClass('form-select')
+            .css('width','80px');
+
+        $('#customCardLengthMenu').html(
+            '<label class="d-flex align-items-center gap-2 mb-0">' +
+                '<span>Show</span>' +
+                lengthSelect.prop('outerHTML') +
+                '<span>cards</span>' +
+            '</label>'
+        );
+
+        $('#cardTable_length').hide();
+    });
+
+    // Custom search
+    $('#cardSearchInput').on('keyup', function() {
+        cardTable.search(this.value).draw();
+    });
+
+    // Sorting icons
+    cardTable.on('order.dt', function() {
+        $('th.sorting', cardTable.table().header()).removeClass('sorting_asc sorting_desc');
+        cardTable.columns().every(function(index) {
+            var order = cardTable.order()[0];
+            if (order[0] === index) {
+                $('th:eq(' + index + ')', cardTable.table().header())
+                    .addClass(order[1] === 'asc' ? 'sorting_asc' : 'sorting_desc');
+            }
+        });
+    });
+});
+
+// Delete card confirmation
+function confirmDeleteCard(cardId, roomNumber) {
+    const deleteUrl = `admin-room.php?action=delete_card&card_id=${cardId}`;
+    document.getElementById("cardToDelete").textContent = `#${roomNumber}`;
+    document.getElementById("confirmDeleteCardBtn").setAttribute("href", deleteUrl);
+    const modal = new bootstrap.Modal(document.getElementById("deleteCardModal"));
+    modal.show();
+}
+
+// Edit Card Modal Handler
+document.addEventListener('DOMContentLoaded', function() {
+  // Specifically target only edit buttons in the cardTable
+  document.querySelectorAll('#cardTable .action-btn.edit').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation(); // Stop event from bubbling up
+      
+      // Get data from data attributes
+      const cardId = this.dataset.cardId;
+      const roomId = this.dataset.roomId;
+      const roomNumber = this.dataset.roomNumber;
+      const roomType = this.dataset.roomType;
+      const cardCode = this.dataset.cardCode;
+      
+      // Fill the modal form fields
+      document.getElementById('edit_card_id').value = cardId;
+      document.getElementById('edit_card_room_id').value = roomId;
+      document.getElementById('edit_card_room_number').value = '#' + roomNumber;
+      document.getElementById('edit_card_room_type').value = roomType;
+      document.getElementById('edit_card_code').value = cardCode;
+      
+      // Show the modal
+      const editModal = new bootstrap.Modal(document.getElementById('editCardModal'));
+      editModal.show();
+    });
+  });
+});
 
 
     </script>
