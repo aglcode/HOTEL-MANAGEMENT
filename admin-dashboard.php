@@ -590,125 +590,70 @@ try {
 
 
         
-        <div class="row">
-            <!-- Announcements Section -->
-            <div class="col-md-6 mb-4">
-                <div class="row h-100">
-                    <!-- Post Announcement Card -->
-                    <div class="col-12 mb-4">
-                        <div class="card">
-                            <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
-                                <h5 class="mb-0">Post an Announcement</h5>
-                                <i class="fas fa-bullhorn"></i>
-                            </div>
-                            <div class="card-body">
-                                <form method="POST">
-                                    <div class="mb-3">
-                                        <label class="form-label">Title</label>
-                                        <input type="text" name="title" class="form-control" placeholder="Enter announcement title" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Message</label>
-                                        <textarea name="message" class="form-control" rows="4" placeholder="Enter your message here" required></textarea>
-                                    </div>
-                                    <button type="submit" name="add_announcement" class="btn text-white w-100" style="background-color: #871D2B;">
-                                        <i class="fas fa-paper-plane me-2"></i>Post Announcement
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Recent Announcements Card -->
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header text-white d-flex justify-content-between align-items-center" 
-style="background-color: #871D2B;"
->
-                                <h5 class="mb-0">Recent Announcements</h5>
-                                <i class="fas fa-list-ul"></i>
-                            </div>
-                            <div class="card-body p-0">
-                                <?php if ($announcements && $announcements->num_rows > 0): ?>
-                                    <?php while ($row = $announcements->fetch_assoc()): ?>
-                                        <div class="announcement-item p-3 border-bottom">
-                                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <h5 class="mb-0"><?= htmlspecialchars($row['title']) ?></h5>
-                                                <a href="admin-dashboard.php?delete=<?= $row['id'] ?>" class="btn btn-outline-danger btn-sm" onclick="return confirm('Are you sure you want to delete this announcement?')">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </a>
-                                            </div>
-                                            <p class="mb-2"><?= nl2br(htmlspecialchars($row['message'])) ?></p>
-                                            <div class="d-flex align-items-center text-muted">
-                                                <i class="fas fa-user-edit me-2"></i>
-                                                <small>Posted by: <?= $row['created_by'] ?></small>
-                                                <i class="fas fa-clock ms-3 me-2"></i>
-                                                <small><?= date('M d, Y h:i A', strtotime($row['created_at'])) ?></small>
-                                            </div>
-                                        </div>
-                                    <?php endwhile; ?>
-                                <?php else: ?>
-                                    <div class="p-4 text-center">
-                                        <i class="fas fa-bullhorn fa-3x text-muted mb-3"></i>
-                                        <p>No announcements yet. Be the first to post!</p>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+<!-- Announcements Section - Reorganized Layout -->
+<div class="row">
+    <!-- Post Announcement (LEFT SIDE) -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
+                <h5 class="mb-0">Post an Announcement</h5>
+                <i class="fas fa-bullhorn"></i>
             </div>
-            
-            <!-- Feedback and Complaints Section -->
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Customer Feedback</h5>
-                        <i class="fas fa-comments"></i>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" name="title" class="form-control" placeholder="Enter announcement title" required>
                     </div>
-                    <div class="card-body p-0">
-                        <?php if (count($feedback) > 0): ?>
-                            <?php foreach ($feedback as $item): ?>
-                                <div class="feedback-item p-3 border-bottom <?= $item['type'] ?> <?= $item['status'] == 'resolved' ? 'resolved' : '' ?>">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <div>
-                                            <span class="badge bg-<?= $item['type'] == 'complaint' ? 'danger' : 'success' ?> me-2">
-                                                <?= ucfirst($item['type']) ?>
-                                            </span>
-                                            <span class="badge bg-<?= $item['status'] == 'resolved' ? 'success' : 'warning' ?>">
-                                                <?= ucfirst($item['status']) ?>
-                                            </span>
-                                        </div>
-                                        <?php if ($item['status'] == 'pending'): ?>
-                                            <a href="admin-dashboard.php?resolve=<?= $item['id'] ?>" class="btn btn-outline-success btn-sm">
-                                                <i class="fas fa-check me-1"></i> Mark as Resolved
-                                            </a>
-                                        <?php endif; ?>
-                                    </div>
-                                    <p class="mb-2"><?= nl2br(htmlspecialchars($item['message'])) ?></p>
-                                    <div class="d-flex align-items-center text-muted">
-                                        <i class="fas fa-user me-2"></i>
-                                        <small><?= htmlspecialchars($item['guest_name']) ?></small>
-                                        <?php if ($item['email']): ?>
-                                            <i class="fas fa-envelope ms-3 me-2"></i>
-                                            <small><?= htmlspecialchars($item['email']) ?></small>
-                                        <?php endif; ?>
-                                        <i class="fas fa-clock ms-3 me-2"></i>
-                                        <small><?= date('M d, Y h:i A', strtotime($item['created_at'])) ?></small>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <div class="p-4 text-center">
-                                <i class="fas fa-comments fa-3x text-muted mb-3"></i>
-                                <p>No feedback or complaints yet.</p>
-                            </div>
-                        <?php endif; ?>
+                    <div class="mb-3">
+                        <label class="form-label">Message</label>
+                        <textarea name="message" class="form-control" rows="4" placeholder="Enter your message here" required></textarea>
                     </div>
-                </div>
+                    <button type="submit" name="add_announcement" class="btn text-white w-100" style="background-color: #871D2B;">
+                        <i class="fas fa-paper-plane me-2"></i>Post Announcement
+                    </button>
+                </form>
             </div>
         </div>
     </div>
+
+    <!-- Recent Announcements (RIGHT SIDE) -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
+                <h5 class="mb-0">Recent Announcements</h5>
+                <i class="fas fa-list-ul"></i>
+            </div>
+            <div class="card-body p-0">
+                <?php if ($announcements && $announcements->num_rows > 0): ?>
+                    <?php while ($row = $announcements->fetch_assoc()): ?>
+                        <div class="announcement-item p-3 border-bottom">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="mb-0"><?= htmlspecialchars($row['title']) ?></h5>
+                                <a href="admin-dashboard.php?delete=<?= $row['id'] ?>" class="btn btn-outline-danger btn-sm" onclick="return confirm('Are you sure you want to delete this announcement?')">
+                                    <i class="fa-solid fa-trash"></i>
+                                </a>
+                            </div>
+                            <p class="mb-2"><?= nl2br(htmlspecialchars($row['message'])) ?></p>
+                            <div class="d-flex align-items-center text-muted">
+                                <i class="fas fa-user-edit me-2"></i>
+                                <small>Posted by: <?= $row['created_by'] ?></small>
+                                <i class="fas fa-clock ms-3 me-2"></i>
+                                <small><?= date('M d, Y h:i A', strtotime($row['created_at'])) ?></small>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <div class="p-4 text-center">
+                        <i class="fas fa-bullhorn fa-3x text-muted mb-3"></i>
+                        <p>No announcements yet. Be the first to post!</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+            
 
   <!-- History Logs Section -->
 <div class="row mt-4">
