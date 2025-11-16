@@ -919,20 +919,36 @@ $conn->close();
                                     <span class="ml-2"><?php echo date('M d, Y h:i A', $checkOutTime); ?></span>
                                 </div>
                             </div>
-                            <?php 
-                            $duration = ($checkOutTime - $checkInTime) / 3600;
-                            $remainingHours = max(0, ($checkOutTime - $currentTime) / 3600);
-                            $hoursUntilStart = max(0, ($checkInTime - $currentTime) / 3600);
-                            ?>
-                            <div class="mt-2 text-xs text-gray-600">
-                                <i class="fas fa-clock mr-1"></i>
-                                Duration: <?php echo number_format($duration, 1); ?> hours
-                                <?php if ($isCurrentlyOccupied && $remainingHours > 0): ?>
-                                    • <span class="text-orange-600 font-medium"><?php echo number_format($remainingHours, 1); ?> hours remaining</span>
-                                <?php elseif ($isUpcoming && $hoursUntilStart > 0): ?>
-                                    • <span class="text-blue-600 font-medium">Starts in <?php echo number_format($hoursUntilStart, 1); ?> hours</span>
-                                <?php endif; ?>
-                            </div>
+                                <?php 
+                                $duration = ($checkOutTime - $checkInTime) / 3600;
+                                $remainingHours = max(0, ($checkOutTime - $currentTime) / 3600);
+                                $hoursUntilStart = max(0, ($checkInTime - $currentTime) / 3600);
+
+                                //  Format time display function
+                                function formatTimeDisplay($hours) {
+                                    if ($hours >= 1) {
+                                        $wholeHours = floor($hours);
+                                        $minutes = round(($hours - $wholeHours) * 60);
+                                        if ($minutes > 0) {
+                                            return $wholeHours . ' hour' . ($wholeHours > 1 ? 's' : '') . ' ' . $minutes . ' min';
+                                        } else {
+                                            return $wholeHours . ' hour' . ($wholeHours > 1 ? 's' : '');
+                                        }
+                                    } else {
+                                        $minutes = round($hours * 60);
+                                        return $minutes . ' minute' . ($minutes > 1 ? 's' : '');
+                                    }
+                                }
+                                ?>
+                                <div class="mt-2 text-xs text-gray-600">
+                                    <i class="fas fa-clock mr-1"></i>
+                                    Duration: <?php echo formatTimeDisplay($duration); ?>
+                                    <?php if ($isCurrentlyOccupied && $remainingHours > 0): ?>
+                                        • <span class="text-orange-600 font-medium"><?php echo formatTimeDisplay($remainingHours); ?> remaining</span>
+                                    <?php elseif ($isUpcoming && $hoursUntilStart > 0): ?>
+                                        • <span class="text-blue-600 font-medium">Starts in <?php echo formatTimeDisplay($hoursUntilStart); ?></span>
+                                    <?php endif; ?>
+                                </div>
                         </div>
                     </div>
                 </div>
