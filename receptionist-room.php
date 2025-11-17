@@ -1,6 +1,8 @@
 <?php
 session_start();
 
+date_default_timezone_set('Asia/Manila');
+
 require_once 'database.php';
 
 // Update room status based on current checkins
@@ -140,7 +142,8 @@ $allRoomsQuery = "
         c.guest_name,
         c.checkin_id,
         c.stay_duration,
-        c.last_modified
+        c.last_modified,
+        c.tapped_at
     FROM rooms r
     LEFT JOIN (
         SELECT 
@@ -151,6 +154,7 @@ $allRoomsQuery = "
             guest_name,
             stay_duration,
             last_modified,
+            tapped_at,
             ROW_NUMBER() OVER (
                 PARTITION BY room_number 
                 ORDER BY 
@@ -159,7 +163,7 @@ $allRoomsQuery = "
                         WHEN status = 'scheduled' AND check_in_date <= NOW() AND check_out_date > NOW() THEN 2
                         ELSE 3
                     END,
-                    last_modified DESC,  -- ✅ FIX: Prioritize most recently modified booking
+                    last_modified DESC,
                     check_in_date ASC
             ) as rn
         FROM checkins
@@ -883,6 +887,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
   50% { opacity: 0.3; }
 }
 
+/* Tapped status color coding */
+.text-success {
+    color: #28a745 !important;
+}
+
+.text-info {
+    color: #17a2b8 !important;
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+/* Pulsing animation for "Just now" taps */
+@keyframes pulse-tap {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.fw-bold.text-success {
+    animation: pulse-tap 2s ease-in-out infinite;
+}
+
+/* Truncate long guest names */
+.text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
     </style>
 
 </head>
@@ -1012,76 +1054,138 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['room_number'])) {
             <i class="fas fa-bed"></i>
         </div>
         <div class="card-body">
-            <div class="row">
-                <?php while ($room = $resultRooms->fetch_assoc()): 
-    // Fetch pending orders for this room
-    $orderCountQuery = $conn->prepare("
-        SELECT COUNT(*) AS pending_orders 
-        FROM orders 
-        WHERE room_number = ? AND status = 'pending'
-    ");
-    $orderCountQuery->bind_param('i', $room['room_number']);
-    $orderCountQuery->execute();
-    $orderResult = $orderCountQuery->get_result();
-    $orderCount = $orderResult->fetch_assoc()['pending_orders'] ?? 0;
-    $orderCountQuery->close();
-    
-    // Use the checkin_status and check_out_date from the JOIN
-    $hasActiveCheckin = !empty($room['check_out_date']) && !empty($room['checkin_status']);
-?>
-                    
-                    <div class="col-md-4 mb-3">
-                        <div class="card room-card <?= $room['status'] ?>"
-                            onclick="cardClicked(event, <?= $room['room_number']; ?>, '<?= $room['status'] ?>')">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <div class="d-flex flex-column">
-                                    <span>Room #<?= htmlspecialchars($room['room_number']); ?></span>
-                                </div>
-                                <span class="status-badge status-<?= $room['status'] ?>"><?= ucfirst($room['status']) ?></span>
-                            </div>
+<div class="row">
+    <?php while ($room = $resultRooms->fetch_assoc()): 
+        $orderCountQuery = $conn->prepare("
+            SELECT COUNT(*) AS pending_orders 
+            FROM orders 
+            WHERE room_number = ? AND status = 'pending'
+        ");
+        $orderCountQuery->bind_param('i', $room['room_number']);
+        $orderCountQuery->execute();
+        $orderResult = $orderCountQuery->get_result();
+        $orderCount = $orderResult->fetch_assoc()['pending_orders'] ?? 0;
+        $orderCountQuery->close();
+        
+        $hasActiveCheckin = !empty($room['check_out_date']) && !empty($room['checkin_status']);
+        
+        // Format tapped_at time - FIXED VERSION
+        $tappedAtDisplay = 'Never';
+        $tappedAtClass = 'text-muted';
+        
+        if (!empty($room['tapped_at'])) {
+            // Use Unix timestamps for accurate calculation
+            $tappedTimestamp = strtotime($room['tapped_at']);
+            $nowTimestamp = time();
+            $secondsDiff = $nowTimestamp - $tappedTimestamp;
+            
+            // Debugging (remove after testing)
+            echo "<!-- Room {$room['room_number']}: tapped_at={$room['tapped_at']}, diff={$secondsDiff}s -->";
+            
+            if ($secondsDiff < 0) {
+                // Future time - something is wrong
+                $tappedAtDisplay = 'Error';
+                $tappedAtClass = 'text-danger';
+            } elseif ($secondsDiff < 60) {
+                // Less than 1 minute
+                $tappedAtDisplay = 'Just now';
+                $tappedAtClass = 'text-success fw-bold';
+            } elseif ($secondsDiff < 3600) {
+                // Less than 1 hour
+                $minutes = floor($secondsDiff / 60);
+                $tappedAtDisplay = $minutes . ' min' . ($minutes > 1 ? 's' : '') . ' ago';
+                $tappedAtClass = 'text-success';
+            } elseif ($secondsDiff < 86400) {
+                // Less than 1 day
+                $hours = floor($secondsDiff / 3600);
+                $tappedAtDisplay = $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
+                $tappedAtClass = 'text-info';
+            } else {
+                // 1 day or more
+                $days = floor($secondsDiff / 86400);
+                $tappedAtDisplay = $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
+                $tappedAtClass = 'text-warning';
+            }
+        }
+    ?>
+        
+    <div class="col-md-4 mb-3">
+        <div class="card room-card <?= $room['status'] ?>"
+            onclick="cardClicked(event, <?= $room['room_number']; ?>, '<?= $room['status'] ?>')">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex flex-column">
+                    <span>Room #<?= htmlspecialchars($room['room_number']); ?></span>
+                </div>
+                <span class="status-badge status-<?= $room['status'] ?>"><?= ucfirst($room['status']) ?></span>
+            </div>
 
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <span class="text-muted"><i class="fas fa-tag me-2"></i>Type:</span>
-                                    <span class="fw-semibold"><?= ucfirst($room['room_type']) ?></span>
-                                </div>
-                                
-                                <?php if ($hasActiveCheckin): ?>
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <span class="text-muted"><i class="fas fa-clock me-2"></i>Time Left:</span>
-                                        <span class="countdown-timer" data-room="<?= $room['room_number']; ?>" data-checkout="<?= $room['check_out_date']; ?>">Loading...</span>
-                                    </div>
-                                    <div class="d-flex justify-content-between mt-3">
-                                        <form method="POST" action="receptionist-room.php" class="d-inline extend-form">
-                                        <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
-                                        <input type="hidden" name="extend" value="1">
-                                        <button type="submit" class="btn btn-sm btn-warning">
-                                            <i class="fas fa-clock me-1"></i> Extend
-                                        </button>
-                                        </form>
-
-                                        <form method="POST" action="receptionist-room.php" class="d-inline checkout-form">
-                                        <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
-                                        <input type="hidden" name="checkout" value="1">
-                                        <button type="submit" class="btn btn-sm btn-danger">
-                                            <i class="fas fa-sign-out-alt me-1"></i> Check Out
-                                        </button>
-                                        </form>
-                                    </div>
-                                <?php elseif ($room['status'] === 'available'): ?>
-                                    <div class="d-flex justify-content-center mt-3">
-                                        <a href="check-in.php?room_number=<?= $room['room_number']; ?>" class="btn btn-sm btn-success">
-                                            <i class="fas fa-sign-in-alt me-1"></i> Check In
-                                        </a>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="text-muted"><i class="fas fa-tag me-2"></i>Type:</span>
+                    <span class="fw-semibold"><?= ucfirst($room['room_type']) ?></span>
+                </div>
+                
+                <?php if ($hasActiveCheckin): ?>
+                    <!-- Guest Name -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted"><i class="fas fa-user me-2"></i>Guest:</span>
+                        <span class="fw-semibold text-truncate" style="max-width: 150px;" 
+                              title="<?= htmlspecialchars($room['guest_name']) ?>">
+                            <?= htmlspecialchars($room['guest_name']) ?>
+                        </span>
                     </div>
-                <?php endwhile; ?>
+                    
+                    <!-- Last Tapped -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted">
+                            <i class="fas fa-fingerprint me-2"></i>Last Tap:
+                        </span>
+                        <span class="<?= $tappedAtClass ?> fw-semibold">
+                            <?= $tappedAtDisplay ?>
+                        </span>
+                    </div>
+                    
+                    <!-- Time Left -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted"><i class="fas fa-clock me-2"></i>Time Left:</span>
+                        <span class="countdown-timer" 
+                              data-room="<?= $room['room_number']; ?>" 
+                              data-checkout="<?= $room['check_out_date']; ?>">
+                            Loading...
+                        </span>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-flex justify-content-between mt-3">
+                        <form method="POST" action="receptionist-room.php" class="d-inline extend-form">
+                            <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
+                            <input type="hidden" name="extend" value="1">
+                            <button type="submit" class="btn btn-sm btn-warning">
+                                <i class="fas fa-clock me-1"></i> Extend
+                            </button>
+                        </form>
+
+                        <form method="POST" action="receptionist-room.php" class="d-inline checkout-form">
+                            <input type="hidden" name="room_number" value="<?= $room['room_number']; ?>">
+                            <input type="hidden" name="checkout" value="1">
+                            <button type="submit" class="btn btn-sm btn-danger">
+                                <i class="fas fa-sign-out-alt me-1"></i> Check Out
+                            </button>
+                        </form>
+                    </div>
+                <?php elseif ($room['status'] === 'available'): ?>
+                    <div class="d-flex justify-content-center mt-3">
+                        <a href="check-in.php?room_number=<?= $room['room_number']; ?>" 
+                           class="btn btn-sm btn-success">
+                            <i class="fas fa-sign-in-alt me-1"></i> Check In
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
+    <?php endwhile; ?>
+</div>
 
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
   <?php if (isset($_GET['success'])): ?>

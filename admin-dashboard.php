@@ -14,7 +14,8 @@ if (isset($_POST['add_announcement'])) {
     $stmt->execute();
     $stmt->close();
     
-    $_SESSION['success_msg'] = "Announcement posted successfully!";
+    $_SESSION['toast_msg'] = "Announcement posted successfully!";
+    $_SESSION['toast_type'] = "success";
     header("Location: admin-dashboard.php");
     exit();
 }
@@ -28,7 +29,8 @@ if (isset($_GET['delete'])) {
     $stmt->execute();
     $stmt->close();
     
-    $_SESSION['success_msg'] = "Announcement deleted successfully!";
+    $_SESSION['toast_msg'] = "Announcement deleted successfully!";
+    $_SESSION['toast_type'] = "success";
     header("Location: admin-dashboard.php");
     exit();
 }
@@ -42,7 +44,8 @@ if (isset($_GET['resolve'])) {
     $stmt->execute();
     $stmt->close();
     
-    $_SESSION['success_msg'] = "Feedback marked as resolved!";
+    $_SESSION['toast_msg'] = "Feedback marked as resolved!";
+    $_SESSION['toast_type'] = "success";
     header("Location: admin-dashboard.php");
     exit();
 }
@@ -468,6 +471,47 @@ try {
       padding: 30px;
       max-width: 1400px;
     }
+
+    /* Toast Notification Styles */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+.custom-toast {
+    min-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-radius: 8px;
+    border: none;
+}
+
+.custom-toast .toast-header {
+    border-bottom: none;
+    padding: 12px 16px;
+    border-radius: 8px 8px 0 0;
+}
+
+.custom-toast.toast-success .toast-header {
+    background-color: #198754;
+    color: white;
+}
+
+.custom-toast.toast-error .toast-header {
+    background-color: #dc3545;
+    color: white;
+}
+
+.custom-toast .toast-body {
+    padding: 12px 16px;
+    background-color: white;
+    border-radius: 0 0 8px 8px;
+}
+
+.custom-toast .btn-close {
+    filter: brightness(0) invert(1);
+}
         
     </style>
 
@@ -513,21 +557,24 @@ try {
                 </div>
             </div>
         
-        <?php if (isset($_SESSION['success_msg'])): ?>
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            <i class="fas fa-check-circle me-2"></i>
-            <?= $_SESSION['success_msg'] ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        <?php unset($_SESSION['success_msg']); endif; ?>
-        
-        <?php if (isset($_SESSION['error_msg'])): ?>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <i class="fas fa-exclamation-circle me-2"></i>
-            <?= $_SESSION['error_msg'] ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        <?php unset($_SESSION['error_msg']); endif; ?>
+            <!-- Toast Container -->
+            <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+                <?php if (isset($_SESSION['toast_msg'])): ?>
+                    <div id="announcementToast" class="toast align-items-center text-bg-<?= $_SESSION['toast_type'] ?? 'success' ?> border-0" role="alert">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="fas fa-<?= $_SESSION['toast_type'] == 'success' ? 'check-circle' : 'exclamation-circle' ?> me-2"></i>
+                                <?= $_SESSION['toast_msg'] ?>
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                        </div>
+                    </div>
+                    <?php 
+                        unset($_SESSION['toast_msg']);
+                        unset($_SESSION['toast_type']);
+                    ?>
+                <?php endif; ?>
+            </div>
         
         <!-- Statistics Cards -->
         <div class="row mb-4">
@@ -630,9 +677,9 @@ try {
                         <div class="announcement-item p-3 border-bottom">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <h5 class="mb-0"><?= htmlspecialchars($row['title']) ?></h5>
-                                <a href="admin-dashboard.php?delete=<?= $row['id'] ?>" class="btn btn-outline-danger btn-sm" onclick="return confirm('Are you sure you want to delete this announcement?')">
+                                <button class="btn btn-outline-danger btn-sm delete-btn" data-id="<?= $row['id'] ?>">
                                     <i class="fa-solid fa-trash"></i>
-                                </a>
+                                </button>
                             </div>
                             <p class="mb-2"><?= nl2br(htmlspecialchars($row['message'])) ?></p>
                             <div class="d-flex align-items-center text-muted">
@@ -773,6 +820,32 @@ try {
         </div>
     </div>
 </div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="border-bottom: 3px solid #871D2B;">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>Confirm Deletion
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Are you sure you want to delete this announcement? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
+                <a href="#" id="confirmDeleteBtn" class="btn btn-danger">
+                    <i class="fas fa-trash me-2"></i>Delete
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- DataTables JS -->
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
@@ -799,6 +872,33 @@ try {
                     "previous": "<"
                 }
             }
+        });
+    });
+
+    // Show toast notification
+    document.addEventListener('DOMContentLoaded', function() {
+        var toastEl = document.getElementById('announcementToast');
+        if (toastEl) {
+            var toast = new bootstrap.Toast(toastEl, {
+                autohide: true,
+                delay: 3000
+            });
+            toast.show();
+        }
+    });
+    
+    // Handle delete confirmation modal
+    document.addEventListener('DOMContentLoaded', function() {
+        const deleteButtons = document.querySelectorAll('.delete-btn');
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const announcementId = this.getAttribute('data-id');
+                confirmDeleteBtn.href = 'admin-dashboard.php?delete=' + announcementId;
+                deleteModal.show();
+            });
         });
     });
 
