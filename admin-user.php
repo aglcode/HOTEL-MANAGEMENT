@@ -668,72 +668,86 @@ $result = $conn->query($query);
 <div class="row mb-4">
   <div class="col-md-12">
     <div class="card">
-      <div class="card-header text-white d-flex justify-content-between align-items-center" 
-style="background-color: #871D2B;">
+      <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #871D2B;">
         <h5 class="mb-0">Add New User</h5>
         <i class="fas fa-user-plus"></i>
       </div>
       <div class="card-body">
-        <form method="POST" action="admin-user.php" class="row g-3" id="addUserForm">
+        <form method="POST" action="admin-user.php" class="row g-3" id="addUserForm" novalidate>
           <div class="col-md-6">
-            <label for="name" class="form-label">Full Name</label>
+            <label for="name" class="form-label">Full Name<span class="text-danger">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-user"></i></span>
               <input type="text" name="name" id="name" class="form-control" placeholder="Enter full name" required>
             </div>
+            <div class="invalid-feedback">Please enter full name.</div>
           </div>
 
           <div class="col-md-6">
-            <label for="username" class="form-label">Username</label>
+            <label for="username" class="form-label">Username<span class="text-danger">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-user"></i></span>
               <input type="text" name="username" id="username" class="form-control" placeholder="Enter username" required>
             </div>
+            <div class="invalid-feedback">Please enter a username.</div>
           </div>
 
-            <div class="col-md-6">
-            <label for="email" class="form-label">Email</label>
+          <div class="col-md-6">
+            <label for="email" class="form-label">Email<span class="text-danger">*</span></label>
             <div class="input-group">
                 <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                 <input type="email" name="email" id="email" class="form-control" placeholder="Enter email address" required>
-                <button type="button" id="sendCodeBtn" class="btn btn-outline-primary d-none">
-                Send Code
-                </button>
+                <button type="button" id="sendCodeBtn" class="btn btn-outline-primary d-none">Send Code</button>
                 <div class="invalid-feedback">You must verify this email(@) before continuing.</div>
             </div>
-            </div>
+          </div>
 
           <div class="col-md-6">
-            <label for="verification_code" class="form-label">Enter Verification Code</label>
+            <label for="verification_code" class="form-label">Enter Verification Code<span class="text-danger">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-key"></i></span>
               <input type="text" name="verification_code" id="verification_code" class="form-control" placeholder="Enter code sent to email" required>
             </div>
-            <div class="invalid-feedback">
-              Please enter the 6-digit code sent to your email.
-            </div>
+            <div class="invalid-feedback">Please enter the 6-digit code sent to your email.</div>
           </div>
 
+          <!-- Password -->
           <div class="col-md-6">
-            <label for="password" class="form-label">Password</label>
+            <label for="password" class="form-label">Password<span class="text-danger">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-lock"></i></span>
-              <input type="password" name="password" id="password" class="form-control" placeholder="Enter password" required>
-              <div class="invalid-feedback">Password must be at least 8 characters and include a special character.</div>
+              <input type="password" name="password" id="password" class="form-control" placeholder="Enter password" required aria-describedby="passwordHelp">
+              <button type="button" class="btn btn-outline-secondary" id="togglePassword" aria-label="Show/hide password">
+                <i class="fas fa-eye" id="togglePasswordIcon"></i>
+              </button>
             </div>
+            <div id="passwordHelp" class="form-text">At least 8 characters and include a special character.</div>
+            <div class="invalid-feedback" id="passwordFeedback">Password must be at least 8 characters and include a special character.</div>
+          </div>
+
+          <!-- Confirm Password -->
+          <div class="col-md-6">
+            <label for="password_confirm" class="form-label">Re-enter Password<span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-lock"></i></span>
+              <input type="password" name="password_confirm" id="password_confirm" class="form-control" placeholder="Re-enter password" required>
+              <button type="button" class="btn btn-outline-secondary" id="togglePasswordConfirm" aria-label="Show/hide confirm password">
+                <i class="fas fa-eye" id="togglePasswordConfirmIcon"></i>
+              </button>
+            </div>
+            <div class="invalid-feedback" id="confirmFeedback">Passwords do not match.</div>
           </div>
 
           <div class="col-md-12">
-            <label for="role" class="form-label">Role</label>
+            <label for="role" class="form-label">Role<span class="text-danger">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
               <select name="role" id="role" class="form-select" required>
                 <option value="" selected disabled>Select a role</option>
-                <!-- <option value="Admin">Admin</option> -->
                 <option value="Receptionist">Receptionist</option>
-                <!-- <option value="Guest">Guest</option> -->
               </select>
             </div>
+            <div class="invalid-feedback">Please select a role.</div>
           </div>
 
           <div class="col-12 mt-4">
@@ -746,7 +760,6 @@ style="background-color: #871D2B;">
     </div>
   </div>
 </div>
-
 <!-- Error / Validation Toast -->
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
   <div id="validationToast" class="toast align-items-center text-bg-danger border-0" role="alert">
@@ -874,49 +887,78 @@ document.addEventListener("DOMContentLoaded", () => {
   function validateEmail(input) {
     const value = input.value.trim();
     const valid = value.includes("@");
-    if (!valid) {
-      input.classList.add("is-invalid");
-      input.classList.remove("is-valid");
-    } else {
-      input.classList.remove("is-invalid");
-      input.classList.add("is-valid");
-    }
+    input.classList.toggle("is-invalid", !valid);
+    input.classList.toggle("is-valid", valid);
     return valid;
   }
 
   function validatePassword(input) {
     const value = input.value;
     const valid = value.length >= 8 && /[!@#$%^&*(),.?":{}|<>]/.test(value);
-    if (!valid) {
-      input.classList.add("is-invalid");
-      input.classList.remove("is-valid");
-    } else {
-      input.classList.remove("is-invalid");
-      input.classList.add("is-valid");
-    }
+    input.classList.toggle("is-invalid", !valid);
+    input.classList.toggle("is-valid", valid);
     return valid;
   }
 
   function validateVerificationCode(input) {
     const value = input.value.trim();
-    const valid = /^\d{6}$/.test(value); // must be exactly 6 digits
-    if (!valid) {
-      input.classList.add("is-invalid");
-      input.classList.remove("is-valid");
-    } else {
-      input.classList.remove("is-invalid");
-      input.classList.add("is-valid");
-    }
+    const valid = /^\d{6}$/.test(value);
+    input.classList.toggle("is-invalid", !valid);
+    input.classList.toggle("is-valid", valid);
     return valid;
   }
 
   const emailInput = document.getElementById("email");
   const passwordInput = document.getElementById("password");
+  const confirmInput = document.getElementById("password_confirm");
   const codeInput = document.getElementById("verification_code");
   const sendCodeBtn = document.getElementById("sendCodeBtn");
+  const confirmFeedback = document.getElementById("confirmFeedback");
   let emailVerified = false;
 
-  // Show/hide Send Code button as user types
+  // ====== Show/hide password visibility ======
+  document.getElementById("togglePassword").addEventListener("click", () => {
+    const icon = document.getElementById("togglePasswordIcon");
+    const type = passwordInput.type === "password" ? "text" : "password";
+    passwordInput.type = type;
+    icon.classList.toggle("fa-eye-slash");
+  });
+
+  document.getElementById("togglePasswordConfirm").addEventListener("click", () => {
+    const icon = document.getElementById("togglePasswordConfirmIcon");
+    const type = confirmInput.type === "password" ? "text" : "password";
+    confirmInput.type = type;
+    icon.classList.toggle("fa-eye-slash");
+  });
+
+  // ====== Real-time match checking ======
+  function checkPasswordMatch() {
+    if (!confirmInput.value) {
+      confirmInput.classList.remove("is-invalid", "is-valid");
+      confirmFeedback.textContent = "Please re-enter your password.";
+      return true;
+    }
+
+    if (passwordInput.value === confirmInput.value) {
+      confirmInput.classList.add("is-valid");
+      confirmInput.classList.remove("is-invalid");
+      return true;
+    } else {
+      confirmInput.classList.add("is-invalid");
+      confirmInput.classList.remove("is-valid");
+      confirmFeedback.textContent = "Passwords do not match.";
+      return false;
+    }
+  }
+
+  passwordInput.addEventListener("input", () => {
+    validatePassword(passwordInput);
+    checkPasswordMatch();
+  });
+
+  confirmInput.addEventListener("input", checkPasswordMatch);
+
+  // ====== Show/hide Send Code button as user types ======
   emailInput.addEventListener("input", () => {
     if (validateEmail(emailInput)) {
       sendCodeBtn.classList.remove("d-none");
@@ -925,77 +967,68 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Real-time validation for password & code
-  passwordInput.addEventListener("input", () => validatePassword(passwordInput));
-  codeInput.addEventListener("input", () => validateVerificationCode(codeInput));
-  emailInput.addEventListener("input", () => validateEmail(emailInput));
+  // ====== Handle Send Code click ======
+  sendCodeBtn.addEventListener("click", () => {
+    if (!validateEmail(emailInput)) return;
 
-// Handle Send Code click
-sendCodeBtn.addEventListener("click", () => {
-  if (!validateEmail(emailInput)) return;
+    document.getElementById("loadingEmail").textContent = emailInput.value;
+    const loadingModalEl = document.getElementById("loadingModal");
+    const loadingModal = new bootstrap.Modal(loadingModalEl, { backdrop: "static", keyboard: false });
 
-  // ====== Show loading modal ======
-  document.getElementById("loadingEmail").textContent = emailInput.value;
-  const loadingModalEl = document.getElementById("loadingModal");
-  const loadingModal = new bootstrap.Modal(loadingModalEl, { backdrop: "static", keyboard: false });
+    const progressBar = loadingModalEl.querySelector(".progress-bar");
+    progressBar.style.width = "0%";
+    progressBar.classList.remove("progress-animate");
+    void progressBar.offsetWidth;
+    progressBar.classList.add("progress-animate");
 
-  // Reset progress animation each time
-  const progressBar = loadingModalEl.querySelector(".progress-bar");
-  progressBar.style.width = "0%";
-  progressBar.classList.remove("progress-animate");
-  void progressBar.offsetWidth; // trigger reflow
-  progressBar.classList.add("progress-animate");
+    loadingModal.show();
 
-  loadingModal.show();
-
-  fetch("admin-user.php", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: "send_verification=1&email=" + encodeURIComponent(emailInput.value)
-  })
-    .then(res => res.text())
-    .then(data => {
-      console.log("Response:", data);
-
-      // Hide loading, show success
-      setTimeout(() => {
-        loadingModal.hide();
-        document.getElementById("successEmail").textContent = emailInput.value;
-        const successModal = new bootstrap.Modal(document.getElementById("successModal"));
-        successModal.show();
-
-        sendCodeBtn.disabled = true;
-        sendCodeBtn.textContent = "Code Sent";
-        emailVerified = true;
-        emailInput.classList.remove("is-invalid");
-        emailInput.classList.add("is-valid");
-      }, 2000); // sync with animation duration
+    fetch("admin-user.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "send_verification=1&email=" + encodeURIComponent(emailInput.value)
     })
-    .catch(err => {
-      console.error("Error:", err);
-      loadingModal.hide();
-    });
-});
+      .then(res => res.text())
+      .then(data => {
+        console.log("Response:", data);
+        setTimeout(() => {
+          loadingModal.hide();
+          document.getElementById("successEmail").textContent = emailInput.value;
+          const successModal = new bootstrap.Modal(document.getElementById("successModal"));
+          successModal.show();
+          sendCodeBtn.disabled = true;
+          sendCodeBtn.textContent = "Code Sent";
+          emailVerified = true;
+          emailInput.classList.remove("is-invalid");
+          emailInput.classList.add("is-valid");
+        }, 2000);
+      })
+      .catch(err => {
+        console.error("Error:", err);
+        loadingModal.hide();
+      });
+  });
 
-
-  // Form submit validation
+  // ====== Form Submit Validation ======
   document.getElementById("addUserForm").addEventListener("submit", function(event) {
     const emailOk = validateEmail(emailInput);
     const passwordOk = validatePassword(passwordInput);
+    const confirmOk = checkPasswordMatch();
     const codeOk = validateVerificationCode(codeInput);
 
     let hasError = false;
-
     if (!emailOk || !emailVerified) {
       hasError = true;
       emailInput.classList.add("is-invalid");
     }
-
     if (!passwordOk) {
       hasError = true;
       passwordInput.classList.add("is-invalid");
     }
-
+    if (!confirmOk) {
+      hasError = true;
+      confirmInput.classList.add("is-invalid");
+    }
     if (!codeOk) {
       hasError = true;
       codeInput.classList.add("is-invalid");
@@ -1009,6 +1042,7 @@ sendCodeBtn.addEventListener("click", () => {
   });
 });
 </script>
+
 
 
         <!-- User List --> 

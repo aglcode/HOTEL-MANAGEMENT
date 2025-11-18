@@ -217,6 +217,19 @@ if ($conflict_result->num_rows > 0) {
     );
     
     if ($insert->execute()) {
+        
+                // --- NEW: Sync amount_paid to checkins table (if applicable) ---
+            $updateCheckin = $conn->prepare("
+                UPDATE checkins 
+                SET amount_paid = ?
+                WHERE guest_name = ?
+                  AND room_number = ?
+                ORDER BY check_in_date DESC
+                LIMIT 1
+            ");
+            $updateCheckin->bind_param("dss", $amount_paid, $guest_name, $room_number);
+            $updateCheckin->execute();
+            $updateCheckin->close();
         // Send email if email is provided
         if (!empty($email)) {
             $bookingDetails = [
@@ -299,10 +312,7 @@ $query = "SELECT b.*, r.room_type FROM bookings b
 if ($where) {
     $query .= " WHERE " . implode(" AND ", $where);
 }
-$query .= " ORDER BY b.start_date DESC LIMIT ?, ?";
-$types .= "ii";
-$params[] = $offset;
-$params[] = $limit;
+$query .= " ORDER BY b.start_date DESC";
 
 // Execute query
 $stmt = $conn->prepare($query);
@@ -789,6 +799,174 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
     margin: 0 auto 10px auto;
   }
 }
+
+/* ================================
+   TABLET VIEW (≤ 992px)
+================================ */
+@media (max-width: 992px) {
+
+  /* Sidebar shrinks */
+  .sidebar {
+    width: 220px;
+  }
+
+  .content {
+    margin-left: 230px;
+    padding: 20px;
+  }
+
+  /* Table adjusts */
+  #bookingTable th,
+  #bookingTable td {
+    font-size: 0.85rem;
+    padding: 10px 6px;
+  }
+
+  .table-responsive {
+    border-radius: 8px;
+    padding: 0;
+  }
+
+  /* Cards spacing */
+  .stat-card {
+    margin-bottom: 15px;
+  }
+}
+
+
+/* ================================
+   MOBILE VIEW (≤ 768px)
+================================ */
+@media (max-width: 768px) {
+
+  /* Sidebar collapses into a top bar */
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: fixed;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    z-index: 999;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .sidebar h4 {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .user-info {
+    display: none;
+  }
+
+  .nav-links {
+    flex-direction: row;
+    padding: 0;
+    gap: 5px;
+    margin: 0;
+  }
+
+  .nav-links a {
+    padding: 8px 10px;
+    font-size: 12px;
+    margin: 0 3px;
+  }
+
+  .nav-links a i {
+    font-size: 14px;
+  }
+
+  .signout {
+    display: none;
+  }
+
+  /* Content shifts downward */
+  .content {
+    margin-left: 0 !important;
+    margin-top: 80px;
+    padding: 15px;
+  }
+
+  /* Cards become single column */
+  .stat-card {
+    margin-bottom: 15px;
+    text-align: center;
+  }
+
+  .stat-icon {
+    margin: 0 auto 8px auto;
+  }
+
+  /* Booking Table */
+  #bookingTable th,
+  #bookingTable td {
+    font-size: 0.8rem;
+    padding: 8px 5px;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+    padding-bottom: 10px;
+  }
+
+  /* Toast width */
+  .toast-container .toast {
+    width: 100%;
+    max-width: 90%;
+  }
+}
+/* ================================
+   SMALL MOBILE (≤ 480px)
+================================ */
+@media (max-width: 480px) {
+
+  /* Smaller sidebar top bar */
+  .sidebar {
+    padding: 10px 14px;
+  }
+
+  .nav-links a {
+    font-size: 10px;
+    padding: 6px 6px;
+  }
+
+  /* Content */
+  .content {
+    margin-top: 75px;
+    padding: 10px;
+  }
+
+  /* Stat cards */
+  .stat-title {
+    font-size: 12px;
+  }
+
+  .stat-change {
+    font-size: 11px;
+  }
+
+  /* Table */
+  #bookingTable th,
+  #bookingTable td {
+    font-size: 0.75rem;
+    padding: 6px 3px;
+  }
+
+  /* Smaller toasts */
+  .toast-container .toast {
+    max-width: 95%;
+    min-width: unset;
+  }
+
+  /* Booking list alignment */
+  #bookingList td:nth-child(2) {
+    font-size: 0.75rem;
+  }
+}
+
 </style>
 
 
@@ -1019,74 +1197,93 @@ html, body, .container-fluid, .content, .row, .table-responsive, .dataTables_wra
           </tr>
         </thead>
         <tbody>
-                          <?php
-if ($result->num_rows > 0) {
-    $index = $offset + 1;
-    while ($row = $result->fetch_assoc()):
-        $now = new DateTime();
-        $start = new DateTime($row['start_date']);
-        $end = new DateTime($row['end_date']);
+            <?php
+            if ($result->num_rows > 0) {
+                $index = $offset + 1;
+                while ($row = $result->fetch_assoc()):
+                    $now = new DateTime();
+                    $start = new DateTime($row['start_date']);
+                    $end = new DateTime($row['end_date']);
+            
+                    // Get latest checkin (if any) for this guest + room
+                    $latestCheckin = null;
+                    $lcStmt = $conn->prepare("
+                        SELECT check_in_date, check_out_date, status 
+                        FROM checkins 
+                        WHERE guest_name = ? AND room_number = ? 
+                        ORDER BY check_in_date DESC 
+                        LIMIT 1
+                    ");
+                    $lcStmt->bind_param("ss", $row['guest_name'], $row['room_number']);
+                    $lcStmt->execute();
+                    $lcRes = $lcStmt->get_result();
+                    if ($lcRes && $lcRow = $lcRes->fetch_assoc()) {
+                        $latestCheckin = $lcRow;
+                    }
+                    $lcStmt->close();
+            
+                    // =====================================
+                    // Decide booking status (fixed version)
+                    // =====================================
+                    if ($latestCheckin) {
+                        // There is a checkin record for this guest and room
+                        if ($latestCheckin['status'] === 'checked_in') {
+                            $status_class = "bg-warning text-dark";
+                            $status_text = "In Use";
+                        } elseif ($latestCheckin['status'] === 'checked_out') {
+                            $status_class = "bg-success";
+                            $status_text = "Completed";
+            
+                            // Update booking status to completed
+                            if ($row['status'] !== 'completed') {
+                                $updateStatus = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
+                                $updateStatus->bind_param('i', $row['id']);
+                                $updateStatus->execute();
+                                $updateStatus->close();
+                            }
+                        } else {
+                            // Scheduled / not yet checked in
+                            $status_class = "bg-info";
+                            $status_text = "Upcoming";
+                        }
+                    } else {
+                        // No checkin record exists for this guest + room
+                        if ($now < $start) {
+                            $status_class = "bg-info";
+                            $status_text = "Upcoming";
+                        } elseif ($now >= $start && $now <= $end) {
+                            $status_class = "bg-success";
+                            $status_text = "Active";
+                        } elseif ($now > $end) {
+                            // Booking has ended
+                            if ($row['status'] === 'cancelled') {
+                                // If it's cancelled and past, mark as completed automatically
+                                $updateStatus = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
+                                $updateStatus->bind_param('i', $row['id']);
+                                $updateStatus->execute();
+                                $updateStatus->close();
+            
+                                $status_class = "bg-success";
+                                $status_text = "Completed";
+                            } else {
+                                // Normal end-of-stay completion
+                                if ($row['status'] !== 'completed') {
+                                    $updateStatus = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
+                                    $updateStatus->bind_param('i', $row['id']);
+                                    $updateStatus->execute();
+                                    $updateStatus->close();
+                                }
+                                $status_class = "bg-success";
+                                $status_text = "Completed";
+                            }
+                        } else {
+                            // Fallback — unexpected state
+                            $status_class = "bg-secondary";
+                            $status_text = ucfirst($row['status']);
+                        }
+                    }
+            ?>
 
-        // Get latest checkin (if any) for this guest + room
-        $latestCheckin = null;
-        $lcStmt = $conn->prepare("
-            SELECT check_in_date, check_out_date, status 
-            FROM checkins 
-            WHERE guest_name = ? AND room_number = ? 
-            ORDER BY check_in_date DESC 
-            LIMIT 1
-        ");
-        $lcStmt->bind_param("ss", $row['guest_name'], $row['room_number']);
-        $lcStmt->execute();
-        $lcRes = $lcStmt->get_result();
-        if ($lcRes && $lcRow = $lcRes->fetch_assoc()) {
-            $latestCheckin = $lcRow;
-        }
-        $lcStmt->close();
-
-        // Decide status based on booking and checkin records
-        if ($row['status'] === 'completed') {
-            $status_class = "bg-success";
-            $status_text = "Completed";
-        } elseif ($row['status'] === 'cancelled') {
-            $status_class = "bg-danger";
-            $status_text = "Cancelled";
-        } elseif ($latestCheckin) {
-            // This guest has a checkin record for this room
-            if ($latestCheckin['status'] === 'checked_in') {
-                $status_class = "bg-warning text-dark";
-                $status_text = "In Use";
-            } elseif ($latestCheckin['status'] === 'checked_out') {
-                $status_class = "bg-success";
-                $status_text = "Completed";
-                // Update booking status to completed
-                $updateStatus = $conn->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?");
-                $updateStatus->bind_param('i', $row['id']);
-                $updateStatus->execute();
-                $updateStatus->close();
-            } else {
-                // Status is 'scheduled' - show as upcoming
-                $status_class = "bg-info";
-                $status_text = "Upcoming";
-            }
-        } else {
-            // No checkin record exists for this specific guest+room combo
-            // Use booking dates to determine status
-            if ($now < $start) {
-                $status_class = "bg-info";
-                $status_text = "Upcoming";
-            } elseif ($now >= $start && $now <= $end) {
-                $status_class = "bg-success";
-                $status_text = "Active";
-            } elseif ($now > $end) {
-                $status_class = "bg-success";
-                $status_text = "Completed";
-            } else {
-                $status_class = "bg-secondary";
-                $status_text = ucfirst($row['status']);
-            }
-        }
-?>
                             <tr>
                                  <td><?= $index++ ?></td>
             <td class="text-center align-middle">
@@ -1096,7 +1293,6 @@ if ($result->num_rows > 0) {
                 <?php if (!empty($row['email'])): ?>
                 <div class="small text-muted"><i class="fas fa-envelope me-1"></i><?= htmlspecialchars($row['email']) ?></div>
                 <?php endif; ?>
-                <div class="small text-muted"><i class="fas fa-users me-1"></i><?= $row['num_people'] ?> guest(s), Age: <?= $row['age'] ?></div>
             </div>
             </td>
 
@@ -1194,18 +1390,6 @@ if ($result->num_rows > 0) {
                                             <small class="text-muted">Must be 18 years or older</small>
                                             <div class="invalid-feedback">You must be at least 18 years old to book.</div>
                                         </div>
-                                        <div class="col-md-6">
-                                            <label for="numPeople" class="form-label fw-medium">Guests *</label>
-                                            <input 
-                                                type="number" 
-                                                name="num_people" 
-                                                id="numPeople" 
-                                                class="form-control" 
-                                                min="1" 
-                                                required 
-                                                oninput="validateGuestCount(this);">
-                                            <div id="guestError" class="text-danger small mt-1 d-none">Number of guests must be at least 1.</div>
-                                        </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1282,6 +1466,14 @@ if ($result->num_rows > 0) {
                                             <label for="totalPrice" class="form-label fw-medium">Total Price</label>
                                             <input type="text" id="totalPrice" class="form-control bg-light fw-semibold" readonly>
                                         </div>
+                                        <div class="mb-3">
+                                        <label for="downPayment" class="form-label fw-medium">Required Downpayment (20%)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%); color: #fff;">₱</span>
+                                            <input type="text" id="downPayment" name="amount_paid" class="form-control bg-light fw-semibold" readonly>
+                                        </div>
+                                        <small class="text-muted">Automatically calculated based on total booking price.</small>
+                                    </div>
                                     </div>
                                 </div>
                             </div>
@@ -1308,7 +1500,7 @@ if ($result->num_rows > 0) {
                                         <label for="amountPaid" class="form-label fw-medium">Amount to Pay *</label>
                                         <div class="input-group">
                                             <span class="input-group-text" style="background: linear-gradient(135deg, #6a1520 0%, #8b1d2d 100%); color: #fff;">₱</span>
-                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" min="0" step="0.01" required oninput="calculateChange();">
+                                            <input type="number" name="amount_paid" id="amountPaid" class="form-control" required readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -1335,27 +1527,39 @@ if ($result->num_rows > 0) {
                                                     oninput="limitReferenceNumber(this); validateReferenceNumber();">
                                                 
                                                 <small class="text-muted">Found in your GCash transaction receipt</small>
-
+                                
                                                 <!-- Error messages -->
                                                 <div id="refErrorEmpty" class="text-danger small mt-1 d-none">Please enter the GCash reference number.</div>
                                                 <div id="refErrorDigit" class="text-danger small mt-1 d-none">Reference number must contain digits only.</div>
                                                 <div id="refErrorLength" class="text-danger small mt-1 d-none">Reference number must be exactly 13 digits.</div>
                                             </div>
-
+                                
                                         </div>
                                     </div>
+                                
                                     <div class="col-md-4 d-flex align-items-stretch">
                                         <div class="text-center p-3 rounded-3 shadow-sm" style="background: linear-gradient(135deg, #e0e7ff 0%, #fbc2eb 100%);">
                                             <div class="fw-bold mb-2" style="color: #0063F7; font-size: 1.2rem;">
                                                 <i class="fab fa-google-pay"></i> G<span style="color:#0063F7;">Pay</span>
                                             </div>
                                             <p class="mb-1 text-dark">GCash Number:</p>
-                                            <h5 class="fw-bold text-primary mb-2">09123456789</h5>
+                                            <!-- GCash QR Code (Clickable) -->
+                                            <div class="mb-2">
+                                                <a href="uploads/gcash.jpg" target="_blank">
+                                                    <img src="uploads/gcash.jpg" 
+                                                         alt="GCash QR Code"
+                                                         style="width: 130px; height: auto; border-radius: 8px; cursor: pointer; transition: transform 0.2s;"
+                                                         onmouseover="this.style.transform='scale(1.05)'"
+                                                         onmouseout="this.style.transform='scale(1)'">
+                                                </a>
+                                            </div>
+                                            <h5 class="fw-bold text-primary mb-2">09178118071</h5>
                                             <p class="mb-1 text-dark">Account Name:</p>
                                             <p class="fw-semibold text-primary mb-0">Gitarra Apartelle</p>
                                         </div>
                                     </div>
                                 </div>
+
 
                                 <!-- Cash Section -->
                                 <div class="row mt-3" id="cashSection" style="display: none;">
@@ -2051,57 +2255,85 @@ if (ageInput) {
 
 
     // --- NEW: Auto update estimated checkout ---
+
     function updateCheckoutTime() {
         const startDateInput = document.getElementById('startDate');
         const durationSelect = document.querySelector('select[name="duration"]');
         const endDateInput = document.getElementById('endDate');
-
+    
         const startDate = new Date(startDateInput.value);
         const duration = parseInt(durationSelect.value);
-
+    
         if (!isNaN(startDate.getTime()) && duration > 0) {
             const endDate = new Date(startDate.getTime() + duration * 60 * 60 * 1000);
-            endDateInput.value = endDate.toLocaleString('en-PH', { 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                hour12: true 
-            });
+    
+            // Format: MM/DD/YYYY
+            const month = String(endDate.getMonth() + 1).padStart(2, '0');
+            const day = String(endDate.getDate()).padStart(2, '0');
+            const year = endDate.getFullYear();
+    
+            // Format time: HH:MM AM/PM
+            let hours = endDate.getHours();
+            const minutes = String(endDate.getMinutes()).padStart(2, '0');
+            const ampm = hours >= 12 ? "PM" : "AM";
+            hours = hours % 12;
+            hours = hours ? hours : 12; // Convert 0 -> 12
+            hours = String(hours).padStart(2, '0');
+    
+            endDateInput.value = `${month}/${day}/${year} ${hours}:${minutes} ${ampm}`;
         } else {
             endDateInput.value = '';
         }
     }
 
-        function updatePrice() {
-            const roomSelect = document.getElementById('roomNumber');
-            const durationSelect = document.getElementById('duration');
-            const priceInput = document.getElementById('totalPrice');
 
-            if (!roomSelect.value || !durationSelect.value) {
-                priceInput.value = '';
-                return;
-            }
+function updatePrice() {
+    const roomSelect = document.getElementById('roomNumber');
+    const durationSelect = document.getElementById('duration');
+    const priceInput = document.getElementById('totalPrice');
+    const downPaymentInput = document.getElementById('downPayment'); // NEW
+    const amountPaidInput = document.getElementById('amountPaid');   // NEW
 
-            const selectedRoom = roomSelect.options[roomSelect.selectedIndex];
-            const duration = durationSelect.value;
-            let price = 0;
+    if (!roomSelect.value || !durationSelect.value) {
+        priceInput.value = '';
+        if (downPaymentInput) downPaymentInput.value = '';
+        if (amountPaidInput) amountPaidInput.value = '';
+        return;
+    }
 
-            switch (duration) {
-                case '3':  price = selectedRoom.dataset.price3; break;
-                case '6':  price = selectedRoom.dataset.price6; break;
-                case '12': price = selectedRoom.dataset.price12; break;
-                case '24': price = selectedRoom.dataset.price24; break;
-                case '48': price = selectedRoom.dataset.priceOt; break;
-                default:   price = 0;
-            }
+    const selectedRoom = roomSelect.options[roomSelect.selectedIndex];
+    const duration = durationSelect.value;
+    let price = 0;
 
-            price = parseFloat(price) || 0;
-            priceInput.value = price.toFixed(2);
-            calculateChange();
-            updateCheckoutTime();
-        }
+    switch (duration) {
+        case '3':  price = selectedRoom.dataset.price3; break;
+        case '6':  price = selectedRoom.dataset.price6; break;
+        case '12': price = selectedRoom.dataset.price12; break;
+        case '24': price = selectedRoom.dataset.price24; break;
+        case '48': price = selectedRoom.dataset.priceOt; break;
+        default:   price = 0;
+    }
+
+    price = parseFloat(price) || 0;
+    priceInput.value = price.toFixed(2);
+
+    // ⭐ Calculate 20% downpayment
+    let dp = price * 0.20;
+
+    // Insert into DP field
+    if (downPaymentInput) {
+        downPaymentInput.value = dp.toFixed(2);
+    }
+
+    // Insert into Payment Amount field (auto-fill)
+    if (amountPaidInput) {
+        amountPaidInput.value = dp.toFixed(2);
+    }
+
+    calculateChange();
+    updateCheckoutTime();
+}
+
 
     // --- Calculate change ---
     function calculateChange() {
@@ -2201,15 +2433,17 @@ async function validateBookingForm() {
         }
     }
 
-    // --- Payment validation ---
-    if (amountPaid < totalPrice) {
-        await Swal.fire({
-            icon: 'error',
-            title: 'Insufficient Payment',
-            text: 'Amount paid cannot be less than the total price.',
-        });
-        return false;
-    }
+// --- Payment validation based on Downpayment (20%) ---
+const requiredDownpayment = totalPrice * 0.20;
+
+if (amountPaid < requiredDownpayment) {
+    await Swal.fire({
+        icon: 'error',
+        title: 'Insufficient Downpayment',
+        html: `Guest must pay at least <strong>₱${requiredDownpayment.toFixed(2)}</strong> (20% downpayment).`,
+    });
+    return false;
+}
 
     // ✅ Everything validated and confirmed
     return true;
@@ -2290,17 +2524,16 @@ $(document).ready(function () {
   var bookingTable = $('#bookingTable').DataTable({
     paging: true,
     lengthChange: false,
-    searching: false,
+    searching: true, // ✅ Enable searching
     ordering: true,
     info: true,
     autoWidth: false,
     responsive: true,
-    pageLength: 5,
+    pageLength: 10,
     lengthMenu: [5, 10, 25, 50, 100],
 
-    // ✅ Improved DOM layout (pagination now visible & aligned)
     dom:
-      '<"top d-flex justify-content-between align-items-center mb-3"lf>' +
+      '<"top d-flex justify-content-between align-items-center mb-3"l>' +
       'rt' +
       '<"bottom d-flex justify-content-between align-items-center mt-3"ip>',
 
@@ -2321,13 +2554,12 @@ $(document).ready(function () {
     },
   });
 
-  // ✅ Move built-in length dropdown into your custom area
+  // ✅ Move built-in length dropdown into custom area
   bookingTable.on('init', function () {
     var lengthSelect = $('#bookingTable_length select')
       .addClass('form-select form-select-sm')
       .css('width', '80px');
 
-    // Add dropdown to your custom menu container
     $('#customBookingLengthMenu').html(
       '<label class="d-flex align-items-center gap-2 mb-0">' +
         '<span>Show</span>' +
@@ -2336,15 +2568,64 @@ $(document).ready(function () {
       '</label>'
     );
 
-    // Hide default DataTables length control to avoid duplication
     $('#bookingTable_length').hide();
   });
 
+  // ✅ Connect custom search input to DataTables search
+    $('#bookingSearchInput').on('keyup', function () {
+      bookingTable.search(this.value).draw();
+    });
 
   // ✅ Filter by status (column index 8)
   $('#bookingFilterSelect').on('change', function () {
     bookingTable.column(8).search(this.value).draw();
   });
+
+  // ✅ AUTO-SEARCH FROM URL PARAMETER
+  // Check if there's a guest_name parameter in the URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const guestName = urlParams.get('guest_name');
+  
+  if (guestName) {
+    // Set the search input value
+    $('#bookingSearchInput').val(guestName);
+    
+    // Trigger the search
+    bookingTable.search(guestName).draw();
+    
+    // ✅ Show a toast notification
+    const toastHtml = `
+      <div id="searchToast" class="toast align-items-center text-bg-info border-0 fade show" role="alert">
+        <div class="d-flex">
+          <div class="toast-body">
+            <i class="fas fa-search me-2"></i>
+            Showing bookings for: <strong>${guestName}</strong>
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      </div>
+    `;
+    
+    $('.toast-container').append(toastHtml);
+    
+    const searchToast = new bootstrap.Toast(document.getElementById('searchToast'), {
+      autohide: true,
+      delay: 4000
+    });
+    searchToast.show();
+    
+    // ✅ Scroll to the table smoothly
+    setTimeout(() => {
+      document.getElementById('bookingList').scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }, 300);
+    
+    // ✅ Clean up URL (remove the parameter) after search is applied
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
 });
 
 

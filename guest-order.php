@@ -1,20 +1,28 @@
 <?php
 session_start();
 require_once 'database.php';
+
+// ✅ Set timezone for PHP and MySQL
 date_default_timezone_set('Asia/Manila');
+$conn->query("SET time_zone = '+08:00'");
 
 // =========================
 // Validate QR access or session
 // =========================
 $room  = $_GET['room'] ?? ($_SESSION['room_number'] ?? null);
-$token = $_GET['token'] ?? ($_SESSION['qr_token'] ?? null);
+$token = $_GET['token'] ?? ($_SESSION['qr_code'] ?? null);
 
+// Basic validation
 if (empty($room) || empty($token)) {
     die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
         <h3>❌ Access Denied</h3>
         <p>Missing or invalid access token. Please scan your room QR code again.</p>
     </div>');
 }
+
+// Sanitize inputs
+$room  = htmlspecialchars(trim($room));
+$token = htmlspecialchars(trim($token));
 
 // =========================
 // Check room + keycard status
@@ -29,12 +37,13 @@ $stmt = $conn->prepare("
     WHERE k.room_number = ? AND k.qr_code = ?
     LIMIT 1
 ");
-$stmt->bind_param("is", $room, $token);
+$stmt->bind_param("ss", $room, $token);
 $stmt->execute();
-$res = $stmt->get_result();
+$res  = $stmt->get_result();
 $info = $res->fetch_assoc();
 $stmt->close();
 
+// Invalid keycard or room
 if (!$info) {
     die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
         <h3>❌ Invalid QR</h3>
@@ -44,14 +53,14 @@ if (!$info) {
 
 // If room is available → block access
 if ($info['room_status'] === 'available') {
-    session_destroy();
+    unset($_SESSION['room_number'], $_SESSION['qr_code']);
     die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
         <h3>❌ Access Denied</h3>
         <p>This room has been checked out. Please contact the front desk.</p>
     </div>');
 }
 
-// If room is occupied but keycard expired → reactivate automatically
+// If room is occupied but keycard is inactive → reactivate automatically
 if ($info['room_status'] !== 'available' && $info['key_status'] !== 'active') {
     $stmt2 = $conn->prepare("UPDATE keycards SET status = 'active' WHERE id = ?");
     $stmt2->bind_param("i", $info['key_id']);
@@ -60,7 +69,7 @@ if ($info['room_status'] !== 'available' && $info['key_status'] !== 'active') {
 }
 
 // =========================
-// Validate QR token in DB (fetch guest info from checkins)
+// Validate QR token in DB (fetch guest info)
 // =========================
 $stmt = $conn->prepare("
     SELECT 
@@ -71,37 +80,50 @@ $stmt = $conn->prepare("
         r.room_type,
         c.status AS checkin_status
     FROM keycards k
-    LEFT JOIN checkins c ON k.room_number = c.room_number AND c.status = 'checked_in'
-    LEFT JOIN rooms r ON k.room_number = r.room_number
+    LEFT JOIN checkins c 
+        ON k.room_number = c.room_number 
+        AND c.status = 'checked_in'
+    LEFT JOIN rooms r 
+        ON k.room_number = r.room_number
     WHERE k.room_number = ? 
       AND k.qr_code = ?
     LIMIT 1
 ");
-$stmt->bind_param("is", $room, $token);
+$stmt->bind_param("ss", $room, $token);
 $stmt->execute();
 $guestInfo = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
+// Invalid or expired QR
 if (!$guestInfo) {
+    unset($_SESSION['room_number'], $_SESSION['qr_code']);
     die('<div style="padding:50px;text-align:center;font-family:Poppins,sans-serif;color:red;">
         <h3>❌ Invalid or Expired QR Code</h3>
         <p>Your session has expired. Please contact the front desk.</p>
     </div>');
 }
 
+// =========================
 // Save session for continuity
+// =========================
 $_SESSION['room_number'] = $guestInfo['room_number'];
-$_SESSION['qr_token'] = $guestInfo['qr_code'];
+$_SESSION['qr_code']     = $guestInfo['qr_code'];
 
+// =========================
 // Extract guest info
+// =========================
 $guest_name = $guestInfo['guest_name'] ?? 'Guest';
 $room_type  = $guestInfo['room_type'] ?? 'Standard Room';
-$check_in   = !empty($guestInfo['check_in_date']) ? date('F j, Y g:i A', strtotime($guestInfo['check_in_date'])) : 'N/A';
-$check_out  = !empty($guestInfo['check_out_date']) ? date('F j, Y g:i A', strtotime($guestInfo['check_out_date'])) : 'N/A';
+$check_in   = !empty($guestInfo['check_in_date']) 
+    ? date('F j, Y g:i A', strtotime($guestInfo['check_in_date'])) 
+    : 'N/A';
+$check_out  = !empty($guestInfo['check_out_date']) 
+    ? date('F j, Y g:i A', strtotime($guestInfo['check_out_date'])) 
+    : 'N/A';
 $status     = ucfirst($guestInfo['checkin_status'] ?? 'Pending');
 
 // =========================
-// Auto-cancel overdue bookings (simplified)
+// Auto-cancel overdue bookings
 // =========================
 function autoCancelOverdueBookings($conn) {
     try {
@@ -113,7 +135,7 @@ function autoCancelOverdueBookings($conn) {
             AND start_date <= '$cutoffTime'
         ");
     } catch (Exception $e) {
-        // silent fail
+        error_log('Auto-cancel failed: ' . $e->getMessage());
     }
 }
 autoCancelOverdueBookings($conn);
@@ -121,7 +143,16 @@ autoCancelOverdueBookings($conn);
 // =========================
 // Fetch announcements
 // =========================
-$announcements_result = $conn->query("SELECT * FROM announcements ORDER BY created_at DESC LIMIT 5");
+$announcements_result = $conn->query("
+    SELECT * 
+    FROM announcements 
+    ORDER BY created_at DESC 
+    LIMIT 5
+");
+
+if (!$announcements_result) {
+    error_log('Failed to fetch announcements: ' . $conn->error);
+}
 ?>
 
 <!DOCTYPE html>
@@ -892,6 +923,25 @@ body.scrolled .sticky-filter-bar {
   box-shadow: none;
 }
 
+.add-btn-wrapper {
+    display: inline-block;
+    position: relative;
+}
+
+.info-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: #0dcaf0;
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 2px 5px;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 3px rgba(0,0,0,0.3);
+}
+
     .card-body {
       padding: 1rem 1.25rem 1.25rem;
     }
@@ -900,6 +950,232 @@ body.scrolled .sticky-filter-bar {
       height: 180px;
       object-fit: cover;
     }
+    
+    /* ============================================
+   RESPONSIVE FIXES (MATCHING GUEST DASHBOARD)
+   ============================================ */
+
+/* --- TABLETS (≤ 992px) --- */
+@media (max-width: 992px) {
+
+  .sidebar {
+    width: 230px;
+  }
+
+  .content {
+    margin-left: 240px;
+    padding: 20px;
+  }
+
+  .menu-card {
+    margin-bottom: 15px;
+  }
+
+  .card-img-top {
+    height: 160px;
+  }
+
+  #cartButton, .btn-view {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+  }
+}
+
+
+/* --- MOBILE (≤ 768px) --- */
+@media (max-width: 768px){
+
+  /* Sidebar converts to top bar */
+  .sidebar {
+    position: fixed;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 10px 12px;
+    z-index: 999;
+  }
+
+  .sidebar h4 {
+    margin-bottom: 0;
+    font-size: 1rem;
+  }
+
+  .user-info { display: none; }
+  .signout { display: none; }
+
+  .nav-links {
+    flex-direction: row;
+    padding: 0;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
+  .nav-links a {
+    padding: 8px 12px;
+    font-size: 13px;
+    margin: 0 3px;
+  }
+
+  .nav-links a i {
+    font-size: 15px;
+  }
+
+  /* Content shifts down below sidebar */
+  .content {
+    margin-left: 0;
+    margin-top: 90px;
+    padding: 15px;
+  }
+
+  /* Search bar responsive */
+  .search-box {
+    width: 100%;
+    margin-bottom: 12px;
+  }
+
+  /* Sticky filter bar responsive */
+  .btn-filter-toggle {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+  }
+
+  /* Menu cards adjust */
+  .card-img-top {
+    height: 150px;
+  }
+
+  .menu-card {
+    border-radius: 14px;
+  }
+
+  .card-body {
+    padding: 0.9rem;
+  }
+
+  .price {
+    font-size: 0.95rem;
+  }
+
+  .btn-add {
+    padding: 5px 12px;
+    font-size: 0.8rem;
+  }
+
+  /* Cart button responsive */
+  #cartButton {
+    padding: 6px 14px;
+    font-size: 0.8rem;
+  }
+
+  #cartCount {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+
+  /* Cart sidebar responsive */
+  .cart-sidebar {
+    width: 100%;
+    right: -100%;
+  }
+
+  .cart-sidebar.active {
+    right: 0;
+  }
+
+  .cart-items {
+    max-height: 60%;
+  }
+
+  .cart-item img {
+    width: 50px;
+    height: 50px;
+  }
+
+  .qty-control button {
+    width: 22px;
+    height: 22px;
+  }
+
+  .btn-confirm {
+    padding: 8px 0;
+    font-size: 0.9rem;
+  }
+
+  #scrollTopBtn {
+    bottom: 20px;
+    right: 20px;
+  }
+}
+
+
+/* --- EXTRA SMALL (≤ 480px) --- */
+@media (max-width: 480px){
+
+  .nav-links a {
+    font-size: 11px;
+    padding: 6px 8px;
+  }
+
+  .btn-filter-toggle {
+    font-size: 0.78rem;
+    padding: 6px 12px;
+  }
+
+  .menu-card {
+    border-radius: 12px;
+  }
+
+  .card-img-top {
+    height: 130px;
+  }
+
+  .card-body {
+    padding: 0.8rem;
+  }
+
+  .btn-add {
+    font-size: 0.75rem;
+    padding: 5px 12px;
+  }
+
+  #cartButton {
+    padding: 5px 10px;
+    font-size: 0.7rem;
+  }
+
+  #cartCount {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+  }
+
+  .cart-item h6 {
+    font-size: 0.8rem;
+  }
+
+  .qty-control button {
+    width: 20px;
+    height: 20px;
+  }
+
+  .btn-confirm {
+    padding: 7px 0;
+    font-size: 0.85rem;
+  }
+
+  #scrollTopBtn {
+    width: 40px;
+    height: 40px;
+  }
+
+  #scrollTopBtn svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
     </style>
 </head>
 <body>
@@ -1038,6 +1314,9 @@ body.scrolled .sticky-filter-bar {
                 <span>Total</span>
                 <span id="total">₱0.00</span>
               </div>
+              <button class="btn w-100 btn-secondary mb-2" id="remarksBtn">
+                Add / Edit Remarks
+              </button>
               <button class="btn w-100 btn-confirm" id="confirmOrderBtn">
                 Confirm Order
               </button>
@@ -1075,7 +1354,7 @@ body.scrolled .sticky-filter-bar {
 
               <?php
               // Database connection
-              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              $conn = new mysqli($host, $username, $password, $db_name);
               if ($conn->connect_error) {
                 die("<p class='text-danger text-center'>Database connection failed.</p>");
               }
@@ -1113,7 +1392,24 @@ body.scrolled .sticky-filter-bar {
 
                         <div class="d-flex justify-content-between align-items-center">
                           <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1138,7 +1434,7 @@ body.scrolled .sticky-filter-bar {
 
               <?php
               // Database connection
-              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              $conn = new mysqli($host, $username, $password, $db_name);
               if ($conn->connect_error) {
                 die("<p class='text-danger text-center'>Database connection failed.</p>");
               }
@@ -1176,7 +1472,24 @@ body.scrolled .sticky-filter-bar {
 
                         <div class="d-flex justify-content-between align-items-center">
                           <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1201,7 +1514,7 @@ body.scrolled .sticky-filter-bar {
               
               <?php
               // Database connection
-              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              $conn = new mysqli($host, $username, $password, $db_name);
               if ($conn->connect_error) {
                 die("<p class='text-danger text-center'>Database connection failed.</p>");
               }
@@ -1239,7 +1552,24 @@ body.scrolled .sticky-filter-bar {
 
                         <div class="d-flex justify-content-between align-items-center">
                           <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1264,7 +1594,7 @@ body.scrolled .sticky-filter-bar {
 
               <?php
               // Database connection
-              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              $conn = new mysqli($host, $username, $password, $db_name);
               if ($conn->connect_error) {
                 die("<p class='text-danger text-center'>Database connection failed.</p>");
               }
@@ -1302,7 +1632,24 @@ body.scrolled .sticky-filter-bar {
 
                         <div class="d-flex justify-content-between align-items-center">
                           <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1330,7 +1677,7 @@ body.scrolled .sticky-filter-bar {
 
                 <?php
                 // Database connection
-                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                $conn = new mysqli($host, $username, $password, $db_name);
                 if ($conn->connect_error) {
                   die("<p class='text-danger text-center'>Database connection failed.</p>");
                 }
@@ -1366,10 +1713,27 @@ body.scrolled .sticky-filter-bar {
                             <?php endif; ?>
                           </div>
 
-                          <div class="d-flex justify-content-between align-items-center">
-                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
                           </div>
+                        </div>
                         </div>
                       </div>
                     </div>
@@ -1393,7 +1757,7 @@ body.scrolled .sticky-filter-bar {
 
                 <?php
                 // Database connection
-                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                $conn = new mysqli($host, $username, $password, $db_name);
                 if ($conn->connect_error) {
                   die("<p class='text-danger text-center'>Database connection failed.</p>");
                 }
@@ -1429,10 +1793,27 @@ body.scrolled .sticky-filter-bar {
                             <?php endif; ?>
                           </div>
 
-                          <div class="d-flex justify-content-between align-items-center">
-                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
                           </div>
+                        </div>
                         </div>
                       </div>
                     </div>
@@ -1456,7 +1837,7 @@ body.scrolled .sticky-filter-bar {
 
                 <?php
                 // Database connection
-                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                $conn = new mysqli($host, $username, $password, $db_name);
                 if ($conn->connect_error) {
                   die("<p class='text-danger text-center'>Database connection failed.</p>");
                 }
@@ -1492,10 +1873,27 @@ body.scrolled .sticky-filter-bar {
                             <?php endif; ?>
                           </div>
 
-                          <div class="d-flex justify-content-between align-items-center">
-                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
                           </div>
+                        </div>
                         </div>
                       </div>
                     </div>
@@ -1519,7 +1917,7 @@ body.scrolled .sticky-filter-bar {
 
                 <?php
                 // Database connection
-                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                $conn = new mysqli($host, $username, $password, $db_name);
                 if ($conn->connect_error) {
                   die("<p class='text-danger text-center'>Database connection failed.</p>");
                 }
@@ -1555,10 +1953,27 @@ body.scrolled .sticky-filter-bar {
                             <?php endif; ?>
                           </div>
 
-                          <div class="d-flex justify-content-between align-items-center">
-                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
                           </div>
+                        </div>
                         </div>
                       </div>
                     </div>
@@ -1582,7 +1997,7 @@ body.scrolled .sticky-filter-bar {
 
                 <?php
                 // Database connection
-                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                $conn = new mysqli($host, $username, $password, $db_name);
                 if ($conn->connect_error) {
                   die("<p class='text-danger text-center'>Database connection failed.</p>");
                 }
@@ -1618,10 +2033,27 @@ body.scrolled .sticky-filter-bar {
                             <?php endif; ?>
                           </div>
 
-                          <div class="d-flex justify-content-between align-items-center">
-                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
                           </div>
+                        </div>
                         </div>
                       </div>
                     </div>
@@ -1645,7 +2077,7 @@ body.scrolled .sticky-filter-bar {
 
                 <?php
                 // Database connection
-                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                $conn = new mysqli($host, $username, $password, $db_name);
                 if ($conn->connect_error) {
                   die("<p class='text-danger text-center'>Database connection failed.</p>");
                 }
@@ -1681,10 +2113,27 @@ body.scrolled .sticky-filter-bar {
                             <?php endif; ?>
                           </div>
 
-                          <div class="d-flex justify-content-between align-items-center">
-                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
                           </div>
+                        </div>
                         </div>
                       </div>
                     </div>
@@ -1708,7 +2157,7 @@ body.scrolled .sticky-filter-bar {
 
                 <?php
                 // Database connection
-                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                $conn = new mysqli($host, $username, $password, $db_name);
                 if ($conn->connect_error) {
                   die("<p class='text-danger text-center'>Database connection failed.</p>");
                 }
@@ -1744,10 +2193,27 @@ body.scrolled .sticky-filter-bar {
                             <?php endif; ?>
                           </div>
 
-                          <div class="d-flex justify-content-between align-items-center">
-                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
                           </div>
+                        </div>
                         </div>
                       </div>
                     </div>
@@ -1771,7 +2237,7 @@ body.scrolled .sticky-filter-bar {
 
                 <?php
                 // Database connection
-                $conn = new mysqli("localhost", "root", "", "hotel_db");
+                $conn = new mysqli($host, $username, $password, $db_name);
                 if ($conn->connect_error) {
                   die("<p class='text-danger text-center'>Database connection failed.</p>");
                 }
@@ -1807,10 +2273,27 @@ body.scrolled .sticky-filter-bar {
                             <?php endif; ?>
                           </div>
 
-                          <div class="d-flex justify-content-between align-items-center">
-                            <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                            <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                          <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
                           </div>
+                        </div>
                         </div>
                       </div>
                     </div>
@@ -1843,7 +2326,7 @@ body.scrolled .sticky-filter-bar {
                 
               <?php
               // Database connection
-              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              $conn = new mysqli($host, $username, $password, $db_name);
               if ($conn->connect_error) {
                 die("<p class='text-danger text-center'>Database connection failed.</p>");
               }
@@ -1881,7 +2364,24 @@ body.scrolled .sticky-filter-bar {
 
                         <div class="d-flex justify-content-between align-items-center">
                           <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1906,7 +2406,7 @@ body.scrolled .sticky-filter-bar {
 
               <?php
               // Database connection
-              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              $conn = new mysqli($host, $username, $password, $db_name);
               if ($conn->connect_error) {
                 die("<p class='text-danger text-center'>Database connection failed.</p>");
               }
@@ -1944,7 +2444,24 @@ body.scrolled .sticky-filter-bar {
 
                         <div class="d-flex justify-content-between align-items-center">
                           <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1969,7 +2486,7 @@ body.scrolled .sticky-filter-bar {
 
               <?php
               // Database connection
-              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              $conn = new mysqli($host, $username, $password, $db_name);
               if ($conn->connect_error) {
                 die("<p class='text-danger text-center'>Database connection failed.</p>");
               }
@@ -2007,7 +2524,24 @@ body.scrolled .sticky-filter-bar {
 
                         <div class="d-flex justify-content-between align-items-center">
                           <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2032,7 +2566,7 @@ body.scrolled .sticky-filter-bar {
 
               <?php
               // Database connection
-              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              $conn = new mysqli($host, $username, $password, $db_name);
               if ($conn->connect_error) {
                 die("<p class='text-danger text-center'>Database connection failed.</p>");
               }
@@ -2070,7 +2604,24 @@ body.scrolled .sticky-filter-bar {
 
                         <div class="d-flex justify-content-between align-items-center">
                           <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2095,7 +2646,7 @@ body.scrolled .sticky-filter-bar {
 
               <?php
               // Database connection
-              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              $conn = new mysqli($host, $username, $password, $db_name);
               if ($conn->connect_error) {
                 die("<p class='text-danger text-center'>Database connection failed.</p>");
               }
@@ -2133,7 +2684,24 @@ body.scrolled .sticky-filter-bar {
 
                         <div class="d-flex justify-content-between align-items-center">
                           <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2158,7 +2726,7 @@ body.scrolled .sticky-filter-bar {
 
               <?php
               // Database connection
-              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              $conn = new mysqli($host, $username, $password, $db_name);
               if ($conn->connect_error) {
                 die("<p class='text-danger text-center'>Database connection failed.</p>");
               }
@@ -2196,7 +2764,24 @@ body.scrolled .sticky-filter-bar {
 
                         <div class="d-flex justify-content-between align-items-center">
                           <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2221,7 +2806,7 @@ body.scrolled .sticky-filter-bar {
 
               <?php
               // Database connection
-              $conn = new mysqli("localhost", "root", "", "hotel_db");
+              $conn = new mysqli($host, $username, $password, $db_name);
               if ($conn->connect_error) {
                 die("<p class='text-danger text-center'>Database connection failed.</p>");
               }
@@ -2259,7 +2844,24 @@ body.scrolled .sticky-filter-bar {
 
                         <div class="d-flex justify-content-between align-items-center">
                           <p class="price mb-0">₱<?= number_format($row['price'], 2) ?></p>
-                          <button class="btn btn-add" <?= $isAvailable ? '' : 'disabled' ?>>Add</button>
+                          <div class="add-btn-wrapper position-relative">
+                            <button 
+                              class="btn btn-add" 
+                              id="add-btn-<?= $row['id'] ?>" 
+                              onclick="addItem(<?= $row['id'] ?>)"
+                              <?= $isAvailable ? '' : 'disabled' ?>>
+                              Add
+                            </button>
+                        
+                            <!-- Hidden Info Badge -->
+                            <span 
+                              id="info-badge-<?= $row['id'] ?>" 
+                              class="info-badge"
+                              style="display:none;"
+                              onclick="showPreparingWarning()">
+                              <i class="bi bi-info-lg text-white" style="font-size:12px;"></i>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2662,6 +3264,63 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 </script>
 
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    fetch("guest_fetch_orders.php")
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) return;
+
+            const orders = data.orders;
+
+            orders.forEach(o => {
+
+                if (o.status.toLowerCase() === "preparing") {
+                    const itemId = o.supply_id;
+
+                    let addBtn = document.getElementById("add-btn-" + itemId);
+                    let badge = document.getElementById("info-badge-" + itemId);
+
+                    if (addBtn && badge) {
+                        addBtn.disabled = true;
+                        badge.style.display = "block";
+                    }
+                }
+            });
+        });
+});
+
+function addItem(itemId) {
+    fetch("guest_fetch_orders.php")
+    .then(response => response.json())
+    .then(data => {
+
+        const existing = data.orders.find(o =>
+            Number(o.supply_id) === Number(itemId) &&
+            o.status.toLowerCase() === "preparing"
+        );
+
+        if (existing) {
+            showPreparingWarning();
+            return;
+        }
+
+        // Allowed → proceed
+        addToOrders(itemId);
+    });
+}
+
+function showPreparingWarning() {
+    Swal.fire({
+        icon: "info",
+        title: "Item Already Preparing",
+        text: "You can add this item after it is prepared.",
+        confirmButtonColor: "#8b0000"
+    });
+}
+</script>
+
 <!-- ================ CART FUNCTIONALITY SCRIPT ================ -->
 <script>
 document.addEventListener("DOMContentLoaded", async () => {
@@ -2850,85 +3509,209 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   updateCart();
+  
+// ===============================
+// REMARKS FUNCTION
+// ===============================
+const remarksBtn = document.getElementById("remarksBtn");
 
-  confirmOrderBtn.addEventListener("click", async () => {
-    if (cart.length === 0) {
-      Swal.fire("Empty Cart", "Please add items before confirming.", "warning");
-      return;
-    }
+if (remarksBtn) {
+  remarksBtn.addEventListener("click", () => {
+    openRemarksModal();
+  });
+}
 
-    let summaryHtml = `
-      <div style="
-        font-family:'Poppins',sans-serif;
-        color:#333;
-        background:#fff;
-        border:2px dashed #9c2b27;
-        border-radius:10px;
-        padding:15px;
-        text-align:left;
-        max-width:360px;
-        margin:0 auto;
-      ">
-        <div style="text-align:center;border-bottom:2px dashed #ccc;padding-bottom:8px;margin-bottom:10px;">
-          <h3 style="margin:0;color:#9c2b27;">Gitarra Apartelle</h3>
-          <p style="margin:0;font-size:0.85em;color:#666;">Order List</p>
-          <p style="margin:3px 0 0 0;font-size:0.8em;">Date: ${formatDateTime(new Date())}</p>
-        </div>
-        <ul style="list-style:none;padding-left:0;margin:0;">
-    `;
-    cart.forEach((i) => {
-      summaryHtml += `
-        <li style="
-          padding:6px 0;
-          border-bottom:1px dotted #ccc;
-          display:grid;
-          grid-template-columns: 1fr auto;
-          align-items:flex-start;
-          font-size:0.9em;
-          gap:8px;
-        ">
-          <span><b>${i.name}</b> × ${i.qty}</span>
-          <span style="text-align:right;font-weight:600;">₱${(i.price * i.qty).toFixed(2)}</span>
-        </li>
-      `;
+async function openRemarksModal() {
+  try {
+    const fetchRes = await fetch("guest_fetch_remarks.php");
+    const remarksData = await fetchRes.json();
+    const existingNotes = remarksData.success ? remarksData.notes : "";
+
+    const { value: notes } = await Swal.fire({
+      title: "📝 Add / Edit Remarks",
+      input: "textarea",
+      inputLabel: "Enter remarks for your order",
+      inputPlaceholder: "Write your remarks here...",
+      inputValue: existingNotes,
+      inputAttributes: { maxlength: 300 },
+      showCancelButton: true,
+      confirmButtonText: "Save",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#9c2b27",
+      preConfirm: async (value) => {
+        try {
+          const res = await fetch("guest_add_remarks.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ notes: value.trim() })
+          });
+          const result = await res.json();
+          if (!result.success) throw new Error(result.message);
+          return result.message;
+        } catch (err) {
+          Swal.showValidationMessage(`Error: ${err.message}`);
+          return false;
+        }
+      }
     });
-    const total = cart.reduce((a,b)=>a+b.price*b.qty,0);
+
+    if (notes !== undefined) {
+      Swal.fire({
+        icon: "success",
+        title: "Success",
+        text: "Your remarks have been updated.",
+        timer: 1500,
+        showConfirmButton: false
+      });
+    }
+  } catch (err) {
+    Swal.fire("Error", "Failed to load or save remarks.", "error");
+  }
+}
+
+confirmOrderBtn.addEventListener("click", async () => {
+  if (cart.length === 0) {
+    Swal.fire("Empty Cart", "Please add items before confirming.", "warning");
+    return;
+  }
+
+  // ==============================
+  // ✅ FETCH REMARKS (Compact Version)
+  // ==============================
+  let remarksText = "";
+  try {
+    const r = await fetch("guest_fetch_remarks.php");
+    const d = await r.json();
+    if (d.success && d.notes?.trim()) remarksText = d.notes.trim();
+  } catch (err) {
+    console.warn("Failed to fetch remarks:", err);
+  }
+
+  // ==============================
+  // BUILD ORDER SUMMARY
+  // ==============================
+  let summaryHtml = `
+    <div style="
+      font-family:'Poppins',sans-serif;
+      color:#333;
+      background:#fff;
+      border:2px dashed #9c2b27;
+      border-radius:10px;
+      padding:15px;
+      max-width:360px;
+      margin:0 auto;
+    ">
+      <div style="
+        text-align:center;
+        border-bottom:2px dashed #ccc;
+        padding-bottom:8px;
+        margin-bottom:10px;
+      ">
+        <h3 style="margin:0;color:#9c2b27;">Gitarra Apartelle</h3>
+        <p style="margin:0;font-size:0.85em;color:#666;">Order List</p>
+        <p style="margin:3px 0 0;font-size:0.8em;">Date: ${formatDateTime(new Date())}</p>
+      </div>
+
+      <ul style="list-style:none;padding:0;margin:0;">
+  `;
+
+  cart.forEach((i) => {
     summaryHtml += `
-        </ul>
-        <div style="border-top:2px dashed #ccc;padding-top:10px;margin-top:10px;">
-          <p style="margin:8px 0 0;font-weight:700;color:#9c2b27;text-align:right;">
-            Total: ₱${total.toFixed(2)}
-          </p>
-        </div>
-        <div style="border-top:2px dashed #ccc;margin-top:10px;text-align:center;padding-top:8px;font-size:0.8em;color:#555;">
-          <p style="margin:0;">Thank you for ordering with ❤️</p>
-          <p style="margin:0;color:#9c2b27;font-weight:600;">Gitarra Apartelle</p>
+      <li style="
+        padding:5px 0;
+        border-bottom:1px dotted #ccc;
+        display:grid;
+        grid-template-columns:1fr auto;
+        font-size:0.9em;
+        gap:6px;
+      ">
+        <span><b>${i.name}</b> × ${i.qty}</span>
+        <span style="text-align:right;font-weight:600;">₱${(i.price * i.qty).toFixed(2)}</span>
+      </li>
+    `;
+  });
+
+  const total = cart.reduce((a, b) => a + b.price * b.qty, 0);
+
+  summaryHtml += `
+      </ul>
+
+      <div style="border-top:2px dashed #ccc;padding-top:8px;margin-top:10px;">
+        <p style="margin:5px 0 0;font-weight:700;color:#9c2b27;text-align:right;">
+          Total: ₱${total.toFixed(2)}
+        </p>
+      </div>
+  `;
+
+  // ==============================
+  // ✅ ULTRA-COMPACT REMARKS BOX
+  // ==============================
+  if (remarksText) {
+    summaryHtml += `
+      <div style="
+        margin-top:8px;
+        padding:6px 8px;
+        background:#f9f9f9;
+        border-left:3px solid #9c2b27;
+        border-radius:4px;
+        font-size:0.75em;
+        color:#444;
+        line-height:1.15em;
+      ">
+        <b style="color:#9c2b27;">Remarks:</b>
+        <div style="margin-top:2px;">
+          ${remarksText.replace(/</g, "&lt;")}
         </div>
       </div>
     `;
-    const confirmRes = await Swal.fire({
-      title: "🧾 Confirm Add Order?",
-      html: summaryHtml,
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Yes, Proceed",
-      cancelButtonText: "Cancel",
-      confirmButtonColor: "#9c2b27",
-      cancelButtonColor: "#555",
-      background: "#fff",
-      allowOutsideClick: false
-    });
-    if (!confirmRes.isConfirmed) return;
-    Swal.fire({
-      title: "Saving Order...",
-      text: "Please wait a moment",
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
-    });
-    try {
-      await Promise.all(cart.map(item =>
+  }
+
+  summaryHtml += `
+      <div style="
+        border-top:2px dashed #ccc;
+        margin-top:10px;
+        text-align:center;
+        padding-top:6px;
+        font-size:0.8em;
+        color:#555;
+      ">
+        <p style="margin:0;">Thank you for ordering with ❤️</p>
+        <p style="margin:0;color:#9c2b27;font-weight:600;">Gitarra Apartelle</p>
+      </div>
+    </div>
+  `;
+
+  // ==============================
+  // CONFIRM POPUP
+  // ==============================
+  const confirmRes = await Swal.fire({
+    title: "🧾 Confirm Add Order?",
+    html: summaryHtml,
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Yes, Proceed",
+    cancelButtonText: "Cancel",
+    confirmButtonColor: "#9c2b27",
+    cancelButtonColor: "#555",
+    background: "#fff",
+    allowOutsideClick: false
+  });
+
+  if (!confirmRes.isConfirmed) return;
+
+  Swal.fire({
+    title: "Saving Order...",
+    text: "Please wait a moment",
+    allowOutsideClick: false,
+    didOpen: () => Swal.showLoading()
+  });
+
+  // ==============================
+  // SAVE ORDER
+  // ==============================
+  try {
+    await Promise.all(
+      cart.map(item =>
         fetch("guest_add_order.php", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2939,24 +3722,28 @@ document.addEventListener("DOMContentLoaded", async () => {
             total: item.price * item.qty
           })
         })
-      ));
-      Swal.fire({
-        toast: true,
-        position: "top-end",
-        icon: "success",
-        title: "Order saved successfully!",
-        showConfirmButton: false,
-        timer: 2000,
-        timerProgressBar: true
-      });
-      setTimeout(() => {
-        localStorage.removeItem("cartData");
-        window.location.reload();
-      }, 2000);
-    } catch (error) {
-      Swal.fire("Error", "Failed to save order. Please try again.", "error");
-    }
-  });
+      )
+    );
+
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon: "success",
+      title: "Order saved successfully!",
+      showConfirmButton: false,
+      timer: 2000,
+      timerProgressBar: true
+    });
+
+    setTimeout(() => {
+      localStorage.removeItem("cartData");
+      window.location.reload();
+    }, 2000);
+
+  } catch (error) {
+    Swal.fire("Error", "Failed to save order. Please try again.", "error");
+  }
+});
 
   function formatDateTime(date) {
     const options = { month: "long", day: "numeric", year: "numeric" };
@@ -3006,7 +3793,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    const grandTotal = mergedOrders.reduce((sum, o) => sum + o.price, 0);
+    // ✅ DELIVERY FEE LOGIC
+    const DELIVERY_FEE = 50;
+    const hasDeliveryItem = orders.some(o => parseInt(o.supply_quantity) === 999);
+
+    let grandTotal = mergedOrders.reduce((sum, o) => sum + o.price, 0);
+    if (hasDeliveryItem) grandTotal += DELIVERY_FEE;
 
     // ✅ Fetch existing remarks (if any)
     let remarksText = "";
@@ -3022,7 +3814,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ✅ Show order summary (with remarks displayed only if not blank)
     Swal.fire({
-      title: "🧾 Order Summary",
+    title: "🧾 Order Summary",
       html: `
         <div id="orderSummaryWrapper" style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-family:'Poppins',sans-serif;font-size:0.9em;">
@@ -3042,23 +3834,34 @@ document.addEventListener("DOMContentLoaded", () => {
                 </tr>
               `).join("")}
             </tbody>
-            <tfoot>
-              <tr style="border-top:2px solid #000;font-weight:bold;">
-                <td colspan="2" style="text-align:right;padding:6px;">Total:</td>
-                <td style="text-align:right;padding:6px;">₱${grandTotal.toFixed(2)}</td>
-              </tr>
-            </tfoot>
           </table>
-
+    
+          <!-- Delivery Fee outside the table -->
           ${
-            remarksText
+            hasDeliveryItem
               ? `
-                <div id="remarksSection" style="margin-top:10px;padding:8px;border-radius:6px;background:#f8f8f8;border:1px solid #ddd;">
-                  <strong>📝 Remarks:</strong>
-                  <p style="margin:4px 0 0 0;white-space:pre-wrap;">${escapeHtml(remarksText)}</p>
+                <div style="margin-top:10px;padding:8px;text-align:left;border-radius:6px;background:#f3f3f3;border:1px solid #ddd;">
+                  <strong>Delivery Fee:</strong>
+                  <span style="float:right;">₱${DELIVERY_FEE.toFixed(2)}</span>
                 </div>
               `
               : ""
+          }
+    
+          <!-- TOTAL -->
+          <div style="margin-top:10px;padding:10px;text-align:left;border-top:2px solid #000;font-weight:bold;font-size:1.1em;">
+            Total:
+            <span style="float:right;">₱${grandTotal.toFixed(2)}</span>
+          </div>
+    
+          ${remarksText
+            ? `
+              <div id="remarksSection" style="margin-top:10px;padding:8px;border-radius:6px;background:#f8f8f8;border:1px solid #ddd;">
+                <strong>📝 Remarks:</strong>
+                <p style="margin:4px 0 0 0;white-space:pre-wrap;">${escapeHtml(remarksText)}</p>
+              </div>
+            `
+            : ""
           }
         </div>
       `,
@@ -3081,7 +3884,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // Remarks modal logic
+    // ===============================
+    // REMARKS MODAL (unchanged)
+    // ===============================
     async function openRemarksModal() {
       try {
         const fetchRes = await fetch("guest_fetch_remarks.php");
@@ -3130,7 +3935,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // ✅ Generate POS receipt style PDF
+    // ===============================
+    // GENERATE PDF (unchanged)
+    // ===============================
     async function generatePOSPDF(summaryElement) {
       Swal.fire({
         title: "Generating Receipt...",
@@ -3199,7 +4006,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // ✅ Helper functions
+    // Helper functions
     function escapeHtml(str) {
       return String(str).replace(/[&<>"']/g, s =>
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[s])

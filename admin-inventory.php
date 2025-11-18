@@ -45,9 +45,9 @@ foreach ($supplies as $supply) {
     // Calculate total inventory value
     $total_value += $supply['price'] * $supply['quantity'];
 
-    // Count low stock items (less than 5)
-    if ($supply['quantity'] < 5) {
-      $low_stock_count++;
+    // Count low stock items (1 to 4)
+    if ($supply['quantity'] >= 1 && $supply['quantity'] < 5) {
+        $low_stock_count++;
     }
   }
 }
@@ -286,6 +286,9 @@ try {
 .bg-blue-100 { background-color: #ebf8ff; }
 .text-blue-800 { color: #2b6cb0; }
 .border-blue-200 { border-color: #bee3f8; }
+.bg-red-100 { background-color: #fff5f5; }
+.text-red-800 { color: #c53030; }
+.border-red-200 { border-color: #feb2b2; }
 .bg-info-100 { background-color: #e6f7ff; }
 .text-info-800 { color: #2b6cb0; }
 .border-info-200 { border-color: #bee3f8; }
@@ -301,6 +304,9 @@ try {
 .bg-yellow-100 { background-color: #fef9c3; }
 .text-yellow-800 { color: #854d0e; }
 .border-yellow-200 { border-color: #fef08a; }
+.bg-orange-100 { background-color: #fff7ed; }
+.text-orange-800 { color: #c05621; }
+.border-orange-200 { border-color: #fbd38d; }
 
 .table-hover tbody tr:hover {
     background-color: #f8f9fa;
@@ -692,8 +698,10 @@ try {
                   <span class="badge bg-gray-100 text-gray-800 border-gray-200">Unavailable</span>
                 <?php endif; ?>
               <?php else: ?>
-                <?php if ($s['quantity'] < 5): ?>
-                  <span class="badge bg-amber-100 text-amber-800 border-amber-200">Low Stock</span>
+                <?php if ($s['quantity'] == 0): ?>
+                  <span class="badge bg-red-100 text-red-800 border-red-200">Out of Stock</span>
+                <?php elseif ($s['quantity'] < 5): ?>
+                  <span class="badge bg-orange-100 text-orange-800 border-orange-200">Low Stock</span>
                 <?php elseif ($s['quantity'] < 10): ?>
                   <span class="badge bg-yellow-100 text-yellow-800 border-yellow-200">Medium Stock</span>
                 <?php else: ?>

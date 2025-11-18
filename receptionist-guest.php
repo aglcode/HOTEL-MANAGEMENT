@@ -63,9 +63,30 @@ if ($action === 'checkout' && $guest_id > 0) {
     $stmt->close();
 
     if ($guest) {
-        $total_cost = floatval($guest['total_price']);
+        // ✅ FIX: Calculate total including previous charges for rebooked guests
+        $current_total = floatval($guest['total_price']);
+        $previous_charges = floatval($guest['previous_charges'] ?? 0);
+        $is_rebooked = ($guest['is_rebooked'] == 1);
+        
+        // If rebooked, total = previous charges + current charges
+        // If not rebooked, total = current charges only
+        $total_cost = $is_rebooked && $previous_charges > 0 
+            ? $previous_charges + $current_total 
+            : $current_total;
+        
         $amount_paid = floatval($guest['amount_paid']);
         $balance = $total_cost - $amount_paid;
+        
+        // ✅ DEBUG: Log the calculation
+        error_log("=== CHECKOUT CALCULATION ===");
+        error_log("Guest ID: {$guest_id}");
+        error_log("Is Rebooked: " . ($is_rebooked ? 'YES' : 'NO'));
+        error_log("Current Total: {$current_total}");
+        error_log("Previous Charges: {$previous_charges}");
+        error_log("Overall Total: {$total_cost}");
+        error_log("Amount Paid: {$amount_paid}");
+        error_log("Balance Due: {$balance}");
+        error_log("==========================");
 
         if ($balance > 0) {
             echo json_encode([
@@ -124,6 +145,7 @@ if ($action === 'checkout' && $guest_id > 0) {
         }
         $bkSel->close();
 
+
         // ✅ 🧹 DELETE all orders (pending or served) for that room
         $room_number_str = (string)$guest['room_number']; // orders.room_number is VARCHAR(10)
         $del = $conn->prepare("
@@ -140,7 +162,8 @@ if ($action === 'checkout' && $guest_id > 0) {
         echo json_encode([
             'success' => true,
             'message' => 'Guest checked out successfully. ' . $deleted_orders . ' order(s) deleted.',
-            'deleted_orders' => $deleted_orders
+            'deleted_orders' => $deleted_orders,
+            'room_number' => $guest['room_number']
         ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Guest not found or already checked out']);
@@ -251,14 +274,29 @@ if ($action === 'extend' && $guest_id > 0) {
 
         $new_total = $guest['total_price'] + $extension_fee;
 
+        // ✅ FIX: Update total_price but DON'T update amount_paid
+        // This creates the balance that needs to be paid at checkout
         $stmt = $conn->prepare("
             UPDATE checkins 
-            SET check_out_date=?, total_price=?, stay_duration=stay_duration+1 
+            SET check_out_date=?, 
+                total_price=?, 
+                stay_duration=stay_duration+1,
+                last_modified=NOW()
             WHERE id=?
         ");
         $stmt->bind_param('sdi', $new_checkout_str, $new_total, $guest_id);
         $stmt->execute();
         $stmt->close();
+        
+        // ✅ DEBUG: Log the extension
+        error_log("=== EXTEND OPERATION ===");
+        error_log("Guest ID: {$guest_id}");
+        error_log("Previous Total: " . $guest['total_price']);
+        error_log("Extension Fee: {$extension_fee}");
+        error_log("New Total: {$new_total}");
+        error_log("Amount Paid: " . $guest['amount_paid']);
+        error_log("Balance After Extend: " . ($new_total - floatval($guest['amount_paid'])));
+        error_log("=======================");
 
         // Extend keycard
         $stmt_k = $conn->prepare("
@@ -1339,9 +1377,19 @@ error_log("=============================");
                             <i class="fab fa-google-pay"></i> G<span style="color:#0063F7;">Pay</span>
                           </div>
                           <p class="mb-1 text-dark">GCash Number:</p>
-                          <h5 class="fw-bold text-primary mb-2">09123456789</h5>
+                          <h5 class="fw-bold text-primary mb-2">09178118071</h5>
                           <p class="mb-1 text-dark">Account Name:</p>
                           <p class="fw-semibold text-primary mb-0">Gitarra Apartelle</p>
+                                <!-- ✅ Added QR Image Here -->
+                          <div class="mb-2">
+                            <a href="uploads/gcash.jpg" target="_blank">
+                              <img src="uploads/gcash.jpg" 
+                                   alt="GCash QR Code"
+                                   style="width: 130px; height: auto; border-radius: 8px; cursor: pointer; transition: transform 0.2s;"
+                                   onmouseover="this.style.transform='scale(1.05)'"
+                                   onmouseout="this.style.transform='scale(1)'">
+                            </a>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1681,6 +1729,29 @@ error_log("=============================");
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
+    
+    const CLEANING_STORAGE_KEY = 'rooms_in_cleaning';
+
+function setRoomToCleaning(roomNumber) {
+  try {
+    const cleaningRooms = JSON.parse(localStorage.getItem(CLEANING_STORAGE_KEY) || '{}');
+    const cleaningEndTime = Date.now() + (20 * 60 * 1000);
+    
+    cleaningRooms[roomNumber] = {
+      startTime: Date.now(),
+      endTime: cleaningEndTime
+    };
+    
+    localStorage.setItem(CLEANING_STORAGE_KEY, JSON.stringify(cleaningRooms));
+    console.log(`🧹 Room ${roomNumber} set to cleaning until ${new Date(cleaningEndTime).toLocaleTimeString()}`);
+    return true;
+  } catch (e) {
+    console.error('Failed to set cleaning status:', e);
+    return false;
+  }
+}
+
+window.setRoomToCleaning = setRoomToCleaning;
 
   // toast 
   document.addEventListener("DOMContentLoaded", () => {
@@ -2872,8 +2943,44 @@ function checkOutGuest(guestId) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Redirect with success parameter for toast
-                    window.location.href = '?success=checkedout';
+                    // ✅ CRITICAL: Trigger cleaning BEFORE redirect
+                    const roomNumber = data.room_number;
+                    
+                    if (roomNumber) {
+                        console.log(`🧹 Setting room ${roomNumber} to cleaning status...`);
+                        
+                        // Try to use the cleaning system if available
+                        if (typeof window.RoomCleaningSystem !== 'undefined') {
+                            window.RoomCleaningSystem.setRoomToCleaning(roomNumber);
+                        } else if (typeof setRoomToCleaning === 'function') {
+                            setRoomToCleaning(roomNumber);
+                        } else {
+                            // Fallback: Store in localStorage directly
+                            try {
+                                const cleaningRooms = JSON.parse(localStorage.getItem('rooms_in_cleaning') || '{}');
+                                const cleaningEndTime = Date.now() + (20 * 60 * 1000); // 20 minutes
+                                
+                                cleaningRooms[roomNumber] = {
+                                    startTime: Date.now(),
+                                    endTime: cleaningEndTime
+                                };
+                                
+                                localStorage.setItem('rooms_in_cleaning', JSON.stringify(cleaningRooms));
+                                console.log(`✅ Room ${roomNumber} set to cleaning (fallback method)`);
+                            } catch (e) {
+                                console.error('Failed to set cleaning status:', e);
+                            }
+                        }
+                        
+                        // Small delay to ensure localStorage is written
+                        setTimeout(() => {
+                            window.location.href = '?success=checkedout';
+                        }, 200);
+                    } else {
+                        // No room number returned, redirect immediately
+                        console.warn('⚠️ No room number returned from checkout');
+                        window.location.href = '?success=checkedout';
+                    }
                 } else if (data.payment_required) {
                     showPaymentForm({
                         guest_id: data.guest_id,
@@ -3028,27 +3135,34 @@ function showPaymentForm(paymentDetails, autoCheckout = false) {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          if (autoCheckout && data.can_checkout) {
-            fetch("receptionist-guest.php", {
-              method: "POST",
-              headers: { "Content-Type": "application/x-www-form-urlencoded" },
-              body: `action=checkout&guest_id=${paymentDetails.guest_id}`
-            })
-            .then(response => response.json())
-            .then(checkoutData => {
-              if (checkoutData.success) {
-                window.location.href = '?success=checkedout';
-              } else {
-                Swal.fire("Error", checkoutData.message || "Checkout failed", "error");
-              }
-            })
-            .catch(error => {
-              console.error("Checkout Error:", error);
-              Swal.fire("Error", "An error occurred during checkout.", "error");
-            });
-          } else {
+          //  Show success message with payment details
+          const remainingBalance = parseFloat(data.due_amount) || 0;
+          
+          let messageHtml = `
+            <div style="text-align: center;">
+              <p style="color: #28a745; font-weight: 600; margin-bottom: 15px; font-size: 1.1rem;">
+                 Payment of ₱${result.value.amount.toFixed(2)} processed successfully!
+              </p>`;
+          
+          if (remainingBalance > 0) {
+            messageHtml += `
+              <p style="color: #dc3545; font-weight: 600; font-size: 1rem; margin: 10px 0;">
+                Remaining balance: ₱${remainingBalance.toFixed(2)}
+              </p>`;
+          } 
+          
+          messageHtml += `</div>`;
+          
+          Swal.fire({
+            title: "Payment Successful",
+            html: messageHtml,
+            icon: "success",
+            confirmButtonColor: '#8b1d2d',
+            confirmButtonText: 'OK'
+          }).then(() => {
+            // Reload page to show updated payment information
             window.location.href = '?success=payment';
-          }
+          });
         } else {
           Swal.fire("Error", data.message || "Payment failed", "error");
         }
@@ -3233,17 +3347,23 @@ function printReceipt(guestId) {
             const currentDate = now.toLocaleDateString('en-US', dateOptions);
             const currentTime = now.toLocaleTimeString('en-US', timeOptions);
 
-            // Build orders table rows
+            // ✅ Corrected: use price as the actual total already from DB
             let ordersRows = '';
+            let computedOrdersTotal = 0;
+
             if (guest.orders && guest.orders.length > 0) {
                 guest.orders.forEach(order => {
-                    const unitPrice = parseFloat(order.price);
-                    const quantity = parseInt(order.quantity);
+                    const qty = parseInt(order.quantity);
+                    const price = parseFloat(order.price); // price per item
+                    const lineTotal = price; // assuming order.price is already total (120 each, not 120*3)
+
+                    computedOrdersTotal += lineTotal;
+
                     ordersRows += `
                         <tr>
                             <td>${order.item_name}</td>
-                            <td class="text-center">${quantity}</td>
-                            <td class="text-end">₱${unitPrice.toFixed(2)}</td>
+                            <td class="text-center">${qty}</td>
+                            <td class="text-end">₱${lineTotal.toFixed(2)}</td>
                         </tr>
                     `;
                 });
@@ -3541,7 +3661,7 @@ function printReceipt(guestId) {
                     <div class="summary-section">
                         <div class="summary-row">
                             <span>Orders Subtotal</span>
-                            <span>₱${ordersTotal.toFixed(2)}</span>
+                            <span>₱${computedOrdersTotal.toFixed(2)}</span>
                         </div>
                     </div>
                     <hr style="margin: 10px 0; border-top: 1px dashed #dee2e6;">
@@ -3553,7 +3673,7 @@ function printReceipt(guestId) {
                         ${ordersRows ? `
                         <div class="summary-row" style="padding-top: 8px; border-top: 1px dashed #dee2e6;">
                             <span>Orders Total</span>
-                            <span>₱${ordersTotal.toFixed(2)}</span>
+                            <span>₱${computedOrdersTotal.toFixed(2)}</span>
                         </div>
                         ` : ''}
 
@@ -3603,6 +3723,7 @@ function printReceipt(guestId) {
             alert('Failed to load receipt data');
         });
 }
+
 
 function closeReceipt() {
     document.getElementById('receiptModal').style.display = 'none';

@@ -11,7 +11,17 @@ if (!$room_number || !$status) {
 }
 
 $room_number = trim((string)$room_number);
-$status = strtolower(trim((string)$status));
+$valid_status = ['checked_in','checked_out','scheduled'];
+
+if (!in_array($status, $valid_status)) {
+    echo json_encode(['success' => false, 'message' => 'Invalid status']);
+    exit;
+}
+
+if (!in_array($status, $valid_status)) {
+    echo json_encode(['success' => false, 'message' => 'Invalid status']);
+    exit;
+}
 
 if ($status === 'checked_out') {
     // ✅ 1️⃣ Update check-in record
@@ -26,12 +36,7 @@ if ($status === 'checked_out') {
     $updateRoom->execute();
     $updateRoom->close();
 
-    // ✅ 3️⃣ Delete all orders (pending or served)
-    $del = $conn->prepare("DELETE FROM orders WHERE room_number = ? AND status IN ('pending','served')");
-    $del->bind_param("s", $room_number);
-    $del->execute();
-    $affected = $del->affected_rows;
-    $del->close();
+
 
     echo json_encode([
         'success' => true,

@@ -200,6 +200,21 @@ if (isset($_POST['login'])) {
       margin-bottom: 2rem;
       font-size: 1rem;
     }
+    
+
+  .toggle-password {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #6c757d;
+  }
+  .toggle-password:hover {
+    color: #871D2B;
+  }
+
+
 
   </style>
 
@@ -223,10 +238,13 @@ if (isset($_POST['login'])) {
         <span class="input-icon"><i class="fa fa-user"></i></span>
         <input type="text" name="username" class="form-control" placeholder="Enter your username" required>
       </div>
-      <div class="mb-3 position-relative">
-        <span class="input-icon"><i class="fa fa-lock"></i></span>
-        <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
-      </div>
+        <div class="mb-3 position-relative">
+          <span class="input-icon"><i class="fa fa-lock"></i></span>
+          <input type="password" name="password" id="loginPassword" class="form-control" placeholder="Enter your password" required>
+          <span class="toggle-password" onclick="togglePassword('loginPassword', this)">
+            <i class="fa fa-eye"></i>
+          </span>
+        </div>
       <div class="d-flex justify-content-end mb-3">
         <a href="forgot-password.php" class="forgot-link">Forgot Password?</a>
       </div>
@@ -267,18 +285,19 @@ if (isset($_POST['login'])) {
         }
     });
 
-    function togglePassword(fieldId) {
-        const field = document.getElementById(fieldId);
-        const icon = field.nextElementSibling.querySelector('i');
-        if (field.type === "password") {
-            field.type = "text";
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        } else {
-            field.type = "password";
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
-        }
+    function togglePassword(fieldId, toggleIcon) {
+      const field = document.getElementById(fieldId);
+      const icon = toggleIcon.querySelector('i');
+      
+      if (field.type === "password") {
+        field.type = "text";
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        field.type = "password";
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
     }
 </script>
 

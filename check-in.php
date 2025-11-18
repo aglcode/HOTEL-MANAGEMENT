@@ -6,19 +6,96 @@ date_default_timezone_set('Asia/Manila');
 // ============================
 // Initialize core variables
 // ============================
-$checkInDate = date("Y-m-d H:i:s");
-$checkInDisplay = date("F j, Y h:i A");
-
-// ✅ IMPROVED: Check both GET and POST for booking flag
 $from_booking = !empty($_GET['guest_name']) || (!empty($_POST['from_booking']) && $_POST['from_booking'] === 'yes');
+
+// Get initial values from URL
 $guest_name = $_GET['guest_name'] ?? '';
+$address = $_GET['address'] ?? '';
+$telephone = $_GET['telephone'] ?? '';
 $checkin = $_GET['checkin'] ?? '';
 $checkout = $_GET['checkout'] ?? '';
-$num_people = $_GET['num_people'] ?? '';
+
+// Get booking payment info for reference
+$booking_payment = $_GET['booking_payment'] ?? '';
+$booking_payment_method = $_GET['booking_payment_method'] ?? '';
+$booking_gcash_ref = $_GET['booking_gcash_ref'] ?? '';
 
 $room_number = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? (int)($_POST['room_number'] ?? 0)
     : (int)($_GET['room_number'] ?? 0);
+
+// If coming from booking and missing data, fetch from database
+if ($from_booking && !empty($guest_name) && (empty($address) || empty($telephone))) {
+    // Try to fetch from bookings table
+$fetchBookingQuery = "
+    SELECT 
+        address, 
+        telephone, 
+        start_date, 
+        end_date, 
+        total_price, 
+        payment_mode, 
+        amount_paid, 
+        reference_number
+    FROM bookings 
+    WHERE guest_name = ? 
+      AND room_number = ? 
+      AND status NOT IN ('cancelled', 'completed')
+    ORDER BY created_at DESC 
+    LIMIT 1
+";
+
+    $stmtFetch = $conn->prepare($fetchBookingQuery);
+    $stmtFetch->bind_param("si", $guest_name, $room_number);
+    $stmtFetch->execute();
+    $bookingData = $stmtFetch->get_result()->fetch_assoc();
+    $stmtFetch->close();
+    
+    if ($bookingData) {
+        // Fill in missing data from database
+        $address = $address ?: ($bookingData['address'] ?? '');
+        $telephone = $telephone ?: ($bookingData['telephone'] ?? '');
+        $checkin = $checkin ?: ($bookingData['start_date'] ?? '');
+        $checkout = $checkout ?: ($bookingData['end_date'] ?? '');
+        
+        // Also get booking payment info
+// Payment info from booking
+$booking_payment = $booking_payment ?: ($bookingData['amount_paid'] ?? '');
+$booking_payment_method = $booking_payment_method ?: ($bookingData['payment_mode'] ?? '');
+$booking_gcash_ref = $booking_gcash_ref ?: ($bookingData['reference_number'] ?? '');
+
+    }
+}
+
+// Calculate stay duration from check-in and check-out dates if available
+$stay_duration = '';
+if (!empty($checkin) && !empty($checkout)) {
+    $checkin_time = strtotime($checkin);
+    $checkout_time = strtotime($checkout);
+    $duration_hours = ($checkout_time - $checkin_time) / 3600;
+    
+    // Match to available durations (3, 6, 12, 24)
+    if ($duration_hours <= 3) {
+        $stay_duration = 3;
+    } elseif ($duration_hours <= 6) {
+        $stay_duration = 6;
+    } elseif ($duration_hours <= 12) {
+        $stay_duration = 12;
+    } else {
+        $stay_duration = 24;
+    }
+}
+
+// ============================
+// Initialize check-in display based on booking or current time
+// ============================
+$checkInDate = date("Y-m-d H:i:s");
+$checkInDisplay = date("F j, Y h:i A");
+
+// If coming from booking with scheduled times, use those instead
+if ($from_booking && !empty($checkin)) {
+    $checkInDisplay = date("F j, Y h:i A", strtotime($checkin));
+}
 
 if (!$room_number) {
     echo "Error: Room number is required.";
@@ -71,7 +148,7 @@ if (!$room && $_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // ============================
-// ✅ VALIDATION ONLY IF NOT FROM BOOKING SUMMARY
+// VALIDATION ONLY IF NOT FROM BOOKING SUMMARY
 // ============================
 if (!$from_booking) {
     // Active check-in conflict
@@ -91,15 +168,139 @@ if (!$from_booking) {
 
     if ($activeCount > 0) {
         echo "
-        <div style='max-width:600px;margin:60px auto;padding:40px 30px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;'>
-            <i class='fas fa-ban fa-3x text-danger mb-3'></i>
-            <h2 class='mb-2'>Room Currently Occupied</h2>
-            <p class='mb-3'>This room is currently being used by another guest.<br>
-            Please select another room or wait until it becomes available.</p>
-            <a href='receptionist-room.php' class='btn btn-primary mt-2'><i class='fas fa-arrow-left me-2'></i>Back to Rooms</a>
-        </div>
-        <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
-        <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css'>
+        <!DOCTYPE html>
+        <html lang='en'>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
+            <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css'>
+            <style>
+                body {
+                    background: #fff;
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                }
+                .status-card {
+                    width: 60%;
+                    max-width: 1100px;
+                    background: #fff;
+                    border-radius: 16px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    overflow: hidden;
+                }
+                .status-header {
+                    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+                    color: white;
+                    padding: 40px 30px;
+                    text-align: center;
+                }
+                .status-header h1 {
+                    font-size: 2rem;
+                    font-weight: 700;
+                    margin: 0 0 10px 0;
+                    letter-spacing: -0.5px;
+                }
+                .status-header p {
+                    margin: 0;
+                    opacity: 0.95;
+                    font-size: 1.05rem;
+                }
+                .status-body {
+                    padding: 40px 35px;
+                    background: #f8f9fa;
+                }
+                .info-box {
+                    background: white;
+                    border-radius: 12px;
+                    padding: 25px;
+                    margin-bottom: 25px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                }
+                .info-label {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    color: #6c757d;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 8px;
+                }
+                .status-dot {
+                    width: 10px;
+                    height: 10px;
+                    background: #dc3545;
+                    border-radius: 50%;
+                    display: inline-block;
+                    animation: pulse 2s infinite;
+                }
+                @keyframes pulse {
+                    0%, 100% {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                    50% {
+                        opacity: 0.5;
+                        transform: scale(1.1);
+                    }
+                }
+                .status-text {
+                    color: #dc3545;
+                    font-size: 0.95rem;
+                    font-weight: 600;
+                    margin: 0;
+                }
+                .btn-back {
+                    background: linear-gradient(135deg, #8b1f2e 0%, #a82d3e 100%);
+                    color: white;
+                    border: none;
+                    padding: 14px 30px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    font-size: 1rem;
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    transition: all 0.3s ease;
+                    text-decoration: none;
+                }
+                .btn-back:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(139, 31, 46, 0.4);
+                    color: white;
+                }
+            </style>
+        </head>
+        <body>
+            <div class='status-card'>
+                <div class='status-header'>
+                    <h1>Room Currently Occupied</h1>
+                    <p>This room is being used by another guest</p>
+                </div>
+                <div class='status-body'>
+                    <div class='info-box'>
+                        <div class='info-label'>
+                            <span class='status-dot'></span>
+                            ROOM STATUS
+                        </div>
+                        <p class='status-text'>This room is currently occupied and unavailable for check-in. Please select another room or wait until it becomes available.</p>
+                    </div>
+                    <a href='receptionist-room.php' class='btn-back'>
+                        <i class='fas fa-arrow-left'></i>
+                        Back to Rooms
+                    </a>
+                </div>
+            </div>
+        </body>
+        </html>
         ";
         exit();
     }
@@ -122,29 +323,182 @@ if (!$from_booking) {
     $stmtBooking->close();
 
     if ($conflictingBooking) {
-        $conflictStart = date('M d, Y h:i A', strtotime($conflictingBooking['start_date']));
-        $conflictEnd = date('M d, Y h:i A', strtotime($conflictingBooking['end_date']));
+        $conflictStart = date('M d, Y', strtotime($conflictingBooking['start_date']));
+        $conflictStartTime = date('h:i A', strtotime($conflictingBooking['start_date']));
+        $conflictEnd = date('M d, Y', strtotime($conflictingBooking['end_date']));
+        $conflictEndTime = date('h:i A', strtotime($conflictingBooking['end_date']));
         
         echo "
-        <div style='max-width:600px;margin:60px auto;padding:40px 30px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center;'>
-            <i class='fas fa-calendar-times fa-3x text-warning mb-3'></i>
-            <h2 class='mb-2'>Room Already Reserved</h2>
-            <p class='mb-3'>This room has an upcoming reservation by <strong>" . htmlspecialchars($conflictingBooking['guest_name']) . "</strong></p>
-            <div class='alert alert-warning' style='padding:15px;border-radius:8px;background:#fff3cd;border:1px solid #ffc107;'>
-                <p class='mb-1'><strong>Reserved Period:</strong></p>
-                <p class='mb-0'>From: {$conflictStart}</p>
-                <p class='mb-0'>To: {$conflictEnd}</p>
+        <!DOCTYPE html>
+        <html lang='en'>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
+            <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css'>
+            <style>
+                body {
+                    background: #fff;
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+                }
+                .status-card {
+                    width: 60%;
+                    max-width: 1100px;
+                    background: #fff;
+                    border-radius: 16px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                    overflow: hidden;
+                }
+                .status-header {
+                    background: linear-gradient(135deg, #8b1f2e 0%, #a82d3e 100%);
+                    color: white;
+                    padding: 40px 30px;
+                    text-align: center;
+                }
+                .status-header h1 {
+                    font-size: 2rem;
+                    font-weight: 700;
+                    margin: 0 0 10px 0;
+                    letter-spacing: -0.5px;
+                }
+                .status-header p {
+                    margin: 0;
+                    opacity: 0.95;
+                    font-size: 1.05rem;
+                }
+                .status-body {
+                    padding: 40px 35px;
+                    background: #f8f9fa;
+                }
+                .info-box {
+                    background: white;
+                    border-radius: 12px;
+                    padding: 25px;
+                    margin-bottom: 25px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                }
+                .info-label {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    color: #6c757d;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 20px;
+                }
+                .status-dot {
+                    width: 10px;
+                    height: 10px;
+                    background: #dc3545;
+                    border-radius: 50%;
+                    display: inline-block;
+                    animation: pulse 2s infinite;
+                }
+                @keyframes pulse {
+                    0%, 100% {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                    50% {
+                        opacity: 0.5;
+                        transform: scale(1.1);
+                    }
+                }
+                .period-section {
+                    text-align: center;
+                    margin-bottom: 15px;
+                }
+                .period-label {
+                    color: #6c757d;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    margin-bottom: 8px;
+                }
+                .period-date {
+                    color: #212529;
+                    font-size: 1.25rem;
+                    font-weight: 700;
+                    margin-bottom: 3px;
+                }
+                .period-time {
+                    color: #6c757d;
+                    font-size: 0.95rem;
+                }
+                .divider {
+                    width: 2px;
+                    height: 40px;
+                    background: linear-gradient(to bottom, transparent, #dc3545, transparent);
+                    margin: 10px auto;
+                }
+                .btn-back {
+                    background: linear-gradient(135deg, #8b1f2e 0%, #a82d3e 100%);
+                    color: white;
+                    border: none;
+                    padding: 14px 30px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    font-size: 1rem;
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    transition: all 0.3s ease;
+                    text-decoration: none;
+                }
+                .btn-back:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(139, 31, 46, 0.4);
+                    color: white;
+                }
+            </style>
+        </head>
+        <body>
+            <div class='status-card'>
+                <div class='status-header'>
+                    <h1>Room Already Reserved</h1>
+                    <p>This room has an upcoming reservation by <strong>" . htmlspecialchars($conflictingBooking['guest_name']) . "</strong></p>
+                </div>
+                <div class='status-body'>
+                    <div class='info-box'>
+                        <div class='info-label'>
+                            <span class='status-dot'></span>
+                            RESERVED PERIOD
+                        </div>
+                        <div class='period-section'>
+                            <div class='period-label'>FROM</div>
+                            <div class='period-date'>{$conflictStart}</div>
+                            <div class='period-time'>{$conflictStartTime}</div>
+                        </div>
+                        <div class='divider'></div>
+                        <div class='period-section'>
+                            <div class='period-label'>TO</div>
+                            <div class='period-date'>{$conflictEnd}</div>
+                            <div class='period-time'>{$conflictEndTime}</div>
+                        </div>
+                    </div>
+                    <a href='receptionist-room.php' class='btn-back'>
+                        <i class='fas fa-arrow-left'></i>
+                        Back to Rooms
+                    </a>
+                </div>
             </div>
-            <a href='receptionist-room.php' class='btn btn-primary mt-3'><i class='fas fa-arrow-left me-2'></i>Back to Rooms</a>
-        </div>
-        <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
-        <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css'>
+        </body>
+        </html>
         ";
         exit();
     }
 }
 
-// ✅ Make room available if no issues
+// Make room available if no issues
 $conn->query("UPDATE rooms SET status = 'available' WHERE room_number = $room_number AND status != 'maintenance'");
 
 // ============================
@@ -194,7 +548,7 @@ usort($upcomingSchedules, function($a, $b) {
 });
 
 // ============================
-// ✅ FORM SUBMISSION WITH SMART VALIDATION
+// FORM SUBMISSION WITH SMART VALIDATION
 // ============================
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $guest_name_submitted = htmlspecialchars(trim($_POST['guest_name']));
@@ -243,7 +597,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $check_out_mysql = $check_out_datetime->format('Y-m-d H:i:s');
 
     // ============================
-    // ✅ CONFLICT CHECKS (ONLY IF NOT FROM BOOKING)
+    // CONFLICT CHECKS (ONLY IF NOT FROM BOOKING)
     // ============================
     if (!$from_booking) {
         // Check for overlapping check-ins
@@ -316,7 +670,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // ============================
-    // ✅ Insert check-in record
+    // Insert check-in record
     // ============================
     $sql = "INSERT INTO checkins 
             (guest_name, address, telephone, room_number, room_type, stay_duration,
@@ -342,7 +696,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $updateStmt->execute();
         $updateStmt->close();
 
-        // ✅ Update booking status to completed if from booking
+        // Update booking status to completed if from booking
         if ($from_booking) {
             $updateBookingQuery = "
                 UPDATE bookings 
@@ -451,8 +805,47 @@ $conn->close();
                 <div class="p-6">
                     <form method="post" id="checkInForm" onsubmit="return validateForm();">
                         <input type="hidden" name="room_number" value="<?php echo htmlspecialchars($room_number); ?>">
-                        <!-- ✅ Hidden field to track if from booking -->
+                        <!-- Hidden field to track if from booking -->
                         <input type="hidden" name="from_booking" value="<?php echo $from_booking ? 'yes' : 'no'; ?>">
+
+<?php if ($from_booking && !empty($booking_payment)): ?>
+<div class="mb-6">
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
+        <h5 class="font-medium text-blue-700 flex items-center mb-3">
+            <i class="fas fa-receipt mr-2"></i>Booking Payment Information (For Reference Only)
+        </h5>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div>
+                <span class="text-blue-600 font-medium">Booking Payment:</span>
+                <span class="text-blue-800 ml-2">₱<?php echo number_format($booking_payment, 2); ?></span>
+            </div>
+            <div>
+                <span class="text-blue-600 font-medium">Payment Method:</span>
+                <span class="text-blue-800 ml-2">
+                    <?php 
+                    // Display payment method with proper capitalization
+                    if (strtolower($booking_payment_method) === 'gcash') {
+                        echo 'GCash';
+                    } else {
+                        echo ucfirst(htmlspecialchars($booking_payment_method));
+                    }
+                    ?>
+                </span>
+            </div>
+            <?php if (!empty($booking_gcash_ref) && strtolower($booking_payment_method) === 'gcash'): ?>
+            <div>
+                <span class="text-blue-600 font-medium">GCash Ref:</span>
+                <span class="text-blue-800 ml-2"><?php echo htmlspecialchars($booking_gcash_ref); ?></span>
+            </div>
+            <?php endif; ?>
+        </div>
+        <div class="mt-3 p-2 bg-blue-100 rounded text-xs text-blue-700">
+            <i class="fas fa-info-circle mr-1"></i>
+            <strong>Note:</strong> This payment was for the booking reservation. You still need to collect the check-in payment below.
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
                         <div class="mb-8">
                             <div class="border-l-4 p-4 rounded-lg mb-6"
@@ -486,10 +879,10 @@ $conn->close();
                     $checkOutTime = strtotime($schedule['check_out_date']);
                     $currentTime = time();
                     
-                    // ✅ Currently occupied = check-in has started AND hasn't ended yet
+                    // Currently occupied = check-in has started AND hasn't ended yet
                     $isCurrentlyOccupied = ($checkInTime <= $currentTime) && ($checkOutTime > $currentTime);
                     
-                    // ✅ Upcoming = hasn't started yet
+                    // Upcoming = hasn't started yet
                     $isUpcoming = $checkInTime > $currentTime;
                     
                     $borderColor = $schedule['type'] === 'checkin' ? 'border-blue-500' : 'border-purple-500';
@@ -539,20 +932,36 @@ $conn->close();
                                     <span class="ml-2"><?php echo date('M d, Y h:i A', $checkOutTime); ?></span>
                                 </div>
                             </div>
-                            <?php 
-                            $duration = ($checkOutTime - $checkInTime) / 3600;
-                            $remainingHours = max(0, ($checkOutTime - $currentTime) / 3600);
-                            $hoursUntilStart = max(0, ($checkInTime - $currentTime) / 3600);
-                            ?>
-                            <div class="mt-2 text-xs text-gray-600">
-                                <i class="fas fa-clock mr-1"></i>
-                                Duration: <?php echo number_format($duration, 1); ?> hours
-                                <?php if ($isCurrentlyOccupied && $remainingHours > 0): ?>
-                                    • <span class="text-orange-600 font-medium"><?php echo number_format($remainingHours, 1); ?> hours remaining</span>
-                                <?php elseif ($isUpcoming && $hoursUntilStart > 0): ?>
-                                    • <span class="text-blue-600 font-medium">Starts in <?php echo number_format($hoursUntilStart, 1); ?> hours</span>
-                                <?php endif; ?>
-                            </div>
+                                <?php 
+                                $duration = ($checkOutTime - $checkInTime) / 3600;
+                                $remainingHours = max(0, ($checkOutTime - $currentTime) / 3600);
+                                $hoursUntilStart = max(0, ($checkInTime - $currentTime) / 3600);
+
+                                //  Format time display function
+                                function formatTimeDisplay($hours) {
+                                    if ($hours >= 1) {
+                                        $wholeHours = floor($hours);
+                                        $minutes = round(($hours - $wholeHours) * 60);
+                                        if ($minutes > 0) {
+                                            return $wholeHours . ' hour' . ($wholeHours > 1 ? 's' : '') . ' ' . $minutes . ' min';
+                                        } else {
+                                            return $wholeHours . ' hour' . ($wholeHours > 1 ? 's' : '');
+                                        }
+                                    } else {
+                                        $minutes = round($hours * 60);
+                                        return $minutes . ' minute' . ($minutes > 1 ? 's' : '');
+                                    }
+                                }
+                                ?>
+                                <div class="mt-2 text-xs text-gray-600">
+                                    <i class="fas fa-clock mr-1"></i>
+                                    Duration: <?php echo formatTimeDisplay($duration); ?>
+                                    <?php if ($isCurrentlyOccupied && $remainingHours > 0): ?>
+                                        • <span class="text-orange-600 font-medium"><?php echo formatTimeDisplay($remainingHours); ?> remaining</span>
+                                    <?php elseif ($isUpcoming && $hoursUntilStart > 0): ?>
+                                        • <span class="text-blue-600 font-medium">Starts in <?php echo formatTimeDisplay($hoursUntilStart); ?></span>
+                                    <?php endif; ?>
+                                </div>
                         </div>
                     </div>
                 </div>
@@ -585,6 +994,30 @@ $conn->close();
                                     <h5 class="font-medium flex items-center" style="color: #8b1d2d;">
                                     <i class="fas fa-user mr-2" style="color: #8b1d2d;"></i>Guest Information
                                     </h5>
+                                    <?php if ($from_booking && !empty($booking_payment) && $booking_payment > 0): ?>
+                                    <div class="mt-3 p-4 bg-green-50 border border-green-300 rounded-lg shadow-sm">
+                                        <h6 class="font-semibold text-green-700 mb-2 flex items-center">
+                                            <i class="fas fa-wallet mr-2"></i>Booking Downpayment
+                                        </h6>
+                                    
+                                        <p class="text-gray-700 text-sm mb-1">
+                                            <strong>Amount Paid:</strong>
+                                            ₱<?= number_format($booking_payment, 2) ?>
+                                        </p>
+                                    
+                                        <p class="text-gray-700 text-sm mb-1">
+                                            <strong>Payment Method:</strong>
+                                            <?= ucfirst($booking_payment_method) ?>
+                                        </p>
+                                    
+                                        <?php if (!empty($booking_gcash_ref)): ?>
+                                        <p class="text-gray-700 text-sm mb-1">
+                                            <strong>GCash Reference:</strong> <?= $booking_gcash_ref ?>
+                                        </p>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php endif; ?>
+
                                     </div>
                                     <div class="p-5">
                                         <div class="mb-4">
@@ -599,15 +1032,16 @@ $conn->close();
                                             <i class="fas fa-mobile"></i>
                                             </span>
                                             <input
-                                            type="text"
-                                            id="telephone"
-                                            name="telephone"
-                                            class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
-                                            placeholder="+63 9xx-xxx-xxxx"
-                                            required
-                                            oninput="formatPhilippineNumber(this)"
-                                            onblur="checkPhoneValidity(this)"
-                                            >
+                                                type="text"
+                                                id="telephone"
+                                                name="telephone"
+                                                class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                                                placeholder="+63 9xx-xxx-xxxx"
+                                                value="<?= htmlspecialchars($telephone) ?>"
+                                                required
+                                                oninput="formatPhilippineNumber(this)"
+                                                onblur="checkPhoneValidity(this)"
+                                                >
                                         </div>
 
                                             <div id="phone-error" class="text-red-500 text-sm mb-1 hidden">
@@ -622,7 +1056,7 @@ $conn->close();
                                                 <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">
                                                     <i class="fas fa-map-marker-alt"></i>
                                                 </span>
-                                                <input type="text" name="address" class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors" required>
+                                                    <input type="text" name="address" class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors" value="<?= htmlspecialchars($address) ?>" required>
                                             </div>
                                         </div>
                                     </div>
@@ -646,10 +1080,10 @@ $conn->close();
                                             <label class="block text-gray-700 text-sm font-medium mb-2">Stay Duration</label>
                                             <select name="stay_duration" id="stay_duration" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors" required onchange="updateSummary();">
                                                 <option value="">Select Duration</option>
-                                                <option value="3">3 Hours - ₱<?php echo number_format($room['price_3hrs'], 2); ?></option>
-                                                <option value="6">6 Hours - ₱<?php echo number_format($room['price_6hrs'], 2); ?></option>
-                                                <option value="12">12 Hours - ₱<?php echo number_format($room['price_12hrs'], 2); ?></option>
-                                                <option value="24">24 Hours - ₱<?php echo number_format($room['price_24hrs'], 2); ?></option>
+                                                <option value="3" <?= $stay_duration == 3 ? 'selected' : '' ?>>3 Hours - ₱<?php echo number_format($room['price_3hrs'], 2); ?></option>
+                                                <option value="6" <?= $stay_duration == 6 ? 'selected' : '' ?>>6 Hours - ₱<?php echo number_format($room['price_6hrs'], 2); ?></option>
+                                                <option value="12" <?= $stay_duration == 12 ? 'selected' : '' ?>>12 Hours - ₱<?php echo number_format($room['price_12hrs'], 2); ?></option>
+                                                <option value="24" <?= $stay_duration == 24 ? 'selected' : '' ?>>24 Hours - ₱<?php echo number_format($room['price_24hrs'], 2); ?></option>
                                             </select>
                                         </div>
                                         <div class="mb-4">
@@ -699,6 +1133,15 @@ $conn->close();
                                             </div>
                                         </div>
                                     </div>
+                                <div id="cash_notice" 
+                                     style="display:block; margin-top:10px; background:#3b2d00; padding:12px; 
+                                            border-radius:6px; border-left:4px solid #ffcc00; box-shadow:0 0 5px rgba(0,0,0,0.3);">
+                                    <p style="color:#ffdd66; font-size:13px; margin:0; display:flex; align-items:center;">
+                                        <i class="fas fa-exclamation-triangle" style="color:#ffcc00; margin-right:8px;"></i>
+                                        Enter the total amount, but the guest will only pay the Remaining Balance
+                                    </p>
+                                </div>
+
                                     
 <!-- CASH PAYMENT SECTION -->
 <div id="cash_section" class="hidden mt-6">
@@ -728,29 +1171,60 @@ $conn->close();
 <!-- GCASH PAYMENT SECTION -->
 <div id="gcash_section" class="hidden mt-6">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- LEFT SIDE (Instructions with QR between steps) -->
         <div>
             <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
                 <h5 class="font-medium text-blue-700 flex items-center mb-3">
                     <i class="fas fa-info-circle mr-2"></i>GCash Payment Instructions
                 </h5>
+
                 <ol class="list-decimal pl-5 text-blue-700 text-sm space-y-2">
+
+                    <!-- Step 1 -->
                     <li>Open your GCash app</li>
-                    <li>Send payment to: <span class="font-semibold">09123456789</span></li>
-                    <li>Enter the exact amount: <span class="font-semibold" id="gcash_amount_display">₱0.00</span></li>
+
+                    <!-- QR CODE (CLICKABLE) -->
+                    <div class="flex justify-center my-3">
+                        <div class="text-center">
+                            <img src="uploads/gcash.jpg"
+                                 alt="GCash QR Code"
+                                 class="w-40 h-40 object-cover rounded-lg shadow-md border cursor-pointer hover:opacity-80 transition"
+                                 onclick="openQRModal('uploads/gcash.jpg')">
+                            <p class="mt-1 text-blue-700 text-xs font-semibold">Tap to Enlarge QR</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <li>Send payment to: <span class="font-semibold">09178118071</span></li>
+
+                    <!-- Step 3 -->
+                    <li>Enter the exact amount: 
+                        <span class="font-semibold" id="gcash_amount_display">₱0.00</span>
+                    </li>
+
+                    <!-- Step 4 -->
                     <li>Complete the payment and note your reference number</li>
                 </ol>
             </div>
         </div>
 
+        <!-- RIGHT SIDE (UNCHANGED) -->
         <div>
+
+            <!-- DO NOT REMOVE -->
             <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-medium mb-2">Amount Paid via GCash</label>
+                <label class="block text-gray-700 text-sm font-medium mb-2">
+                    Amount Paid via GCash
+                </label>
                 <div class="flex">
                     <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">₱</span>
                     <input type="number" id="gcash_amount_paid"
-                        class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg bg-gray-50" readonly>
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg bg-gray-50"
+                        readonly>
                 </div>
             </div>
+            <!-- END DO NOT REMOVE -->
 
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-medium mb-2">GCash Reference Number</label>
@@ -761,19 +1235,51 @@ $conn->close();
                     <input type="text" 
                         name="gcash_ref_id" 
                         id="gcash_ref_id"
-                        class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg 
+                               focus:ring-2 focus:ring-primary-500 focus:border-primary-500 
+                               outline-none transition-colors"
                         placeholder="Enter your GCash reference number"
                         maxlength="13"
                         oninput="limitGCashRef(this); validateGCashRef();">
                 </div>
-                <p id="gcash_error" class="text-red-500 text-sm mt-1 hidden">Please enter the GCash reference number.</p>
-                <p id="gcash_digit_error" class="text-red-500 text-sm mt-1 hidden">Reference number must contain digits only.</p>
-                <p class="text-xs text-gray-500 mt-1">Enter the reference number from your GCash transaction</p>
+
+                <p id="gcash_error" class="text-red-500 text-sm mt-1 hidden">
+                    Please enter the GCash reference number.
+                </p>
+                <p id="gcash_digit_error" class="text-red-500 text-sm mt-1 hidden">
+                    Reference number must contain digits only.
+                </p>
+
+                <p class="text-xs text-gray-500 mt-1">
+                    Enter the reference number from your GCash transaction
+                </p>
             </div>
 
         </div>
     </div>
 </div>
+
+<!-- QR Preview Modal -->
+<div id="qrModal" 
+     class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50"
+     onclick="closeQRModal()">
+
+    <div class="bg-white rounded-lg shadow-lg p-4 max-w-[90%] md:max-w-md"
+         onclick="event.stopPropagation()">
+
+        <img id="qrModalImg" src="" class="w-full h-auto rounded-lg shadow">
+
+        <div class="text-center mt-3">
+            <button type="button"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    onclick="closeQRModal()">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+
                                 </div>
                             </div>
                         </div>
@@ -813,6 +1319,24 @@ $conn->close();
                                             <span class="text-gray-800 font-medium">Total Amount:</span>
                                             <span class="font-bold" style="color: #8b1d2d;" id="summary_total">₱0.00</span>
                                         </div>
+                                        <!-- Downpayment -->
+                                        <div class="flex justify-between py-2">
+                                            <span class="text-gray-600">Downpayment (20%):</span>
+                                            <span class="font-medium" id="summary_downpayment">₱0.00</span>
+                                        </div>
+                                        
+                                        <!-- Remaining Balance -->
+                                        <div class="flex justify-between py-2">
+                                            <span class="text-gray-600">Remaining Balance:</span>
+                                            <span class="font-medium" id="summary_balance">₱0.00</span>
+                                        </div>
+                                        
+                                        <!-- Actual Payable (Downpayment Only) -->
+                                        <div class="flex justify-between pt-4 mt-2 border-t border-gray-300">
+                                            <span class="text-gray-800 font-semibold">Amount to Pay (Booked):</span>
+                                            <span class="font-bold text-green-700" id="summary_pay_now">₱0.00</span>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
@@ -845,43 +1369,99 @@ $conn->close();
             24: <?php echo (float)$room['price_24hrs']; ?>,
         };
 
+function updateSummary() {
+    const duration = parseInt(document.getElementById("stay_duration").value);
 
-        function updateSummary() {
-            const duration = parseInt(document.getElementById("stay_duration").value);
-            if (!duration || !priceMap[duration]) {
-                document.getElementById("checkout_datetime").value = '';
-                document.getElementById("summary_duration").textContent = '-';
-                document.getElementById("summary_checkout").textContent = '-';
-                document.getElementById("summary_total").textContent = '₱0.00';
-                document.getElementById("gcash_amount_display").textContent = '₱0.00';
-                if (document.getElementById("gcash_amount_paid")) {
-                    document.getElementById("gcash_amount_paid").value = '';
-                }
-                return;
-            }
-            
-            const now = new Date();
-            const checkoutTime = new Date(now.getTime() + duration * 60 * 60 * 1000);
-            const formattedCheckout = checkoutTime.toLocaleString();
-            
-            document.getElementById("checkout_datetime").value = formattedCheckout;
-            document.getElementById("summary_duration").textContent = `${duration} hours`;
-            document.getElementById("summary_checkout").textContent = formattedCheckout;
-            
-            const totalPrice = priceMap[duration];
-            document.getElementById("summary_total").textContent = `₱${totalPrice.toFixed(2)}`;
-            document.getElementById("gcash_amount_display").textContent = `₱${totalPrice.toFixed(2)}`;
-            
-            if (document.getElementById("gcash_amount_paid")) {
-                document.getElementById("gcash_amount_paid").value = totalPrice.toFixed(2);
-            }
+    if (!duration || !priceMap[duration]) {
+        // Reset summary
+        document.getElementById("checkout_datetime").value = '';
+        document.getElementById("summary_duration").textContent = '-';
+        document.getElementById("summary_checkout").textContent = '-';
+        document.getElementById("summary_total").textContent = '₱0.00';
+        document.getElementById("summary_downpayment").textContent = '₱0.00';
+        document.getElementById("summary_balance").textContent = '₱0.00';
+        document.getElementById("summary_pay_now").textContent = '₱0.00';
+
+        if (document.getElementById("gcash_amount_display")) {
+            document.getElementById("gcash_amount_display").textContent = '₱0.00';
         }
+        if (document.getElementById("gcash_amount_paid")) {
+            document.getElementById("gcash_amount_paid").value = '';
+        }
+        return;
+    }
+
+    // STEP 1: Determine base check-in time
+    let baseTime;
+    if (fromBooking && '<?php echo $checkin; ?>') {
+        baseTime = new Date('<?php echo $checkin; ?>');
+    } else {
+        baseTime = new Date();
+    }
+
+    // STEP 2: Compute checkout time
+    const checkoutTime = new Date(baseTime.getTime() + duration * 60 * 60 * 1000);
+
+    const formattedCheckout = checkoutTime.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    });
+
+    // STEP 3: Apply summary details
+    document.getElementById("checkout_datetime").value = formattedCheckout;
+    document.getElementById("summary_duration").textContent = `${duration} hours`;
+    document.getElementById("summary_checkout").textContent = formattedCheckout;
+
+    // STEP 4: Price Computation
+    const totalPrice = priceMap[duration];
+    const downpayment = totalPrice * 0.20;      // 20% DP
+    const balance = totalPrice - downpayment;   // Remaining
+
+    // STEP 5: Update Summary UI
+    document.getElementById("summary_total").textContent = `₱${totalPrice.toFixed(2)}`;
+    document.getElementById("summary_downpayment").textContent = `₱${downpayment.toFixed(2)}`;
+    document.getElementById("summary_balance").textContent = `₱${balance.toFixed(2)}`;
+
+    // ⭐ IMPORTANT FIX:
+    // Amount to Pay Now = Remaining Balance (not DP)
+    document.getElementById("summary_pay_now").textContent = `₱${balance.toFixed(2)}`;
+
+    // Update GCash fields to show remaining balance
+    if (document.getElementById("gcash_amount_display")) {
+        document.getElementById("gcash_amount_display").textContent = `₱${balance.toFixed(2)}`;
+    }
+
+    if (document.getElementById("gcash_amount_paid")) {
+        document.getElementById("gcash_amount_paid").value = balance.toFixed(2);
+    }
+}
+
+
+
+function openQRModal(imageSrc) {
+    const modal = document.getElementById('qrModal');
+    const modalImg = document.getElementById('qrModalImg');
+    
+    modalImg.src = imageSrc;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeQRModal() {
+    const modal = document.getElementById('qrModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
 
 function selectPayment(mode) {
     // Update hidden input
     document.getElementById("payment_mode").value = mode;
 
-    // ✅ Ensure only one active input with name="amount_paid"
+    // Ensure only one active input with name="amount_paid"
     document.getElementById("cash_amount_paid").removeAttribute("name");
     document.getElementById("gcash_amount_paid").removeAttribute("name");
     if (mode === "cash") {
@@ -926,10 +1506,10 @@ function selectPayment(mode) {
             const changeInput = document.getElementById("change");
 
             if (paid > total) {
-                // ✅ Show change only when overpaid
+                // Show change only when overpaid
                 changeInput.value = (paid - total).toFixed(2);
             } else {
-                // ✅ Hide change if exact or underpaid
+                // Hide change if exact or underpaid
                 changeInput.value = '';
             }
         }
@@ -982,7 +1562,7 @@ function selectPayment(mode) {
                 const error = document.getElementById("cash_error");
 
                 if (paid >= totalPrice) {
-                    // ✅ Valid if exact or more
+                    // Valid if exact or more
                     error.classList.add("hidden");
                 } else {
                     // ❌ Not enough payment
@@ -1057,12 +1637,12 @@ const occupiedSlots = <?php echo json_encode(array_map(function($schedule) {
     ];
 }, $upcomingSchedules)); ?>;
 
-// ✅ Check if this is from a booking
+// Check if this is from a booking
 const fromBooking = <?php echo $from_booking ? 'true' : 'false'; ?>;
 
 // Function to check if selected time conflicts with existing schedules
 function checkTimeConflict() {
-    // ✅ Skip conflict check if checking in from booking
+    // Skip conflict check if checking in from booking
     if (fromBooking) {
         hideConflictWarning();
         return;
@@ -1177,6 +1757,20 @@ document.getElementById('stay_duration').addEventListener('change', checkTimeCon
         document.querySelector("form")?.addEventListener("submit", function () {
         const input = document.getElementById("telephone");
         input.value = input.value.replace(/[\s-]/g, ""); // e.g. +639123456789
+        });
+
+        // Auto-update summary if duration is pre-selected
+        window.addEventListener('DOMContentLoaded', function() {
+            const duration = document.getElementById('stay_duration').value;
+            if (duration) {
+                updateSummary();
+            }
+            
+            // Format phone number if pre-filled
+            const phoneInput = document.getElementById('telephone');
+            if (phoneInput && phoneInput.value) {
+                formatPhilippineNumber(phoneInput);
+            }
         });
     </script>
 </body>

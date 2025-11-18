@@ -75,7 +75,7 @@ if ($res && $res->num_rows > 0) {
 $stmt3->close();
 
 // Redirect guest to dashboard
-header("Location: /gitarra_apartelle/guest-dashboard.php");
+header("Location: /guest-dashboard.php");
 exit;
 
 // ===============================
@@ -139,7 +139,7 @@ function showError($message) {
             </p>
 
             <!-- Button -->
-            <a href='/gitarra_apartelle/index.php' style='
+            <a href='/index.php' style='
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;

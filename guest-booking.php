@@ -74,22 +74,26 @@ function sendBookingEmail($email, $guestName, $token, $bookingDetails) {
                 <hr style="border: none; border-top: 1px solid #ddd; margin: 15px 0;">
 
                 <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-                  <tr>
-                    <td style="color: #777;">TOTAL PRICE</td>
-                    <td style="text-align: right; font-weight: 600;">₱'.$bookingDetails['total_price'].'</td>
-                  </tr>
-                  <tr>
-                    <td style="color: #777;">AMOUNT PAID</td>
-                    <td style="text-align: right; font-weight: 600; color: #a10f20;">₱'.$bookingDetails['amount_paid'].'</td>
-                  </tr>
-                  <tr>
-                    <td style="color: #777;">CHANGE</td>
-                    <td style="text-align: right; font-weight: 600;">₱'.$bookingDetails['change_amount'].'</td>
-                  </tr>
-                  <tr>
-                    <td style="color: #777;">PAYMENT MODE</td>
-                    <td style="text-align: right; font-weight: 600;">'.$bookingDetails['payment_mode'].'</td>
-                  </tr>
+                    <tr>
+                        <td style="color: #777;">TOTAL PRICE</td>
+                        <td style="text-align: right; font-weight: 600;">₱'.$bookingDetails['total_price'].'</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #777;">DOWNPAYMENT (20%)</td>
+                        <td style="text-align: right; font-weight: 600; color: #7a0a20;">₱'.$bookingDetails['downpayment'].'</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #777;">REMAINING BALANCE</td>
+                        <td style="text-align: right; font-weight: 600;">₱'.$bookingDetails['balance'].'</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #777;">PAYMENT MODE</td>
+                        <td style="text-align: right; font-weight: 600;">'.$bookingDetails['payment_mode'].'</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #777;">GCASH REFERENCE</td>
+                        <td style="text-align: right; font-weight: 600;">'.$bookingDetails['reference'].'</td>
+                    </tr>
                 </table>
               </div>
 
@@ -130,6 +134,7 @@ function sendBookingEmail($email, $guestName, $token, $bookingDetails) {
 
 // === FORM PROCESSING ===
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
     $guest_name = $_POST['guest_name'];
     $email = $_POST['email'];
     $telephone = $_POST['telephone'];
@@ -139,15 +144,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $room_number = $_POST['room_number'];
     $duration = (int)$_POST['duration'];
     $start_date = $_POST['start_date'];
-    
-    // Payment will be collected at check-in
-    $payment_mode = 'pending';
-    $amount_paid = 0.00;
-    $reference_number = '';
+
+    // NEW — GET DOWNPAYMENT + GCASH REFERENCE FROM FORM
+    $downpayment = isset($_POST['downpayment_amount']) ? floatval($_POST['downpayment_amount']) : 0;
+    $reference_number = isset($_POST['reference_number']) ? trim($_POST['reference_number']) : '';
+
+    // Payment mode is now GCash Downpayment
+    $payment_mode = "GCash";
+    $amount_paid = $downpayment;
 
     if ($age < 18) {
         $error = "Guest must be at least 18 years old.";
     } else {
+
         // Get room details
         $room_query = $conn->prepare("SELECT * FROM rooms WHERE room_number = ?");
         $room_query->bind_param("s", $room_number);
@@ -158,6 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$room) {
             $error = "Selected room is not available.";
         } else {
+
             // Compute total price
             switch ($duration) {
                 case 3: $total_price = $room['price_3hrs']; break;
@@ -168,76 +178,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 default: $total_price = $room['price_ot']; break;
             }
 
+            // NEW — Calculate Remaining Balance
+            $remaining_balance = $total_price - $downpayment;
+
             // Compute dates
             $start_datetime = new DateTime($start_date);
             $end_datetime = clone $start_datetime;
             $end_datetime->add(new DateInterval('PT' . $duration . 'H'));
             $end_date = $end_datetime->format('Y-m-d H:i:s');
 
-            // Check room conflicts
-            $conflict_query = $conn->prepare("
-                SELECT COUNT(*) as conflicts FROM bookings 
-                WHERE room_number = ? 
-                AND status IN ('upcoming', 'active', 'pending')
-                AND NOT (end_date <= ? OR start_date >= ?)
+            // Insert booking
+            $booking_token = generateBookingToken();
+            $change_amount = 0.00;
+
+            $insert_query = $conn->prepare("
+                INSERT INTO bookings (
+                    guest_name, email, telephone, address, age, num_people,
+                    room_number, duration, start_date, end_date, total_price,
+                    payment_mode, amount_paid, change_amount, reference_number,
+                    booking_token, status, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
             ");
-            $conflict_query->bind_param("sss", $room_number, $start_date, $end_date);
-            $conflict_query->execute();
-            $conflicts = $conflict_query->get_result()->fetch_assoc()['conflicts'];
 
-            if ($conflicts > 0) {
-                $error = "Room is not available for the selected time period.";
-            } else {
-                $booking_token = generateBookingToken();
-                $change_amount = 0.00;
+            $insert_query->bind_param(
+                "ssssiisisssddsss",
+                $guest_name, $email, $telephone, $address, $age, $num_people,
+                $room_number, $duration, $start_date, $end_date, $total_price,
+                $payment_mode, $amount_paid, $change_amount, $reference_number, $booking_token
+            );
 
-                // Insert booking with pending payment
-                $insert_query = $conn->prepare("
-                    INSERT INTO bookings (
-                        guest_name, email, telephone, address, age, num_people,
-                        room_number, duration, start_date, end_date, total_price,
-                        payment_mode, amount_paid, change_amount, reference_number,
-                        booking_token, status, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
-                ");
+            if ($insert_query->execute()) {
 
-                $insert_query->bind_param(
-                    "ssssiisisssddsss",
-                    $guest_name, $email, $telephone, $address, $age, $num_people,
-                    $room_number, $duration, $start_date, $end_date, $total_price,
-                    $payment_mode, $amount_paid, $change_amount, $reference_number, $booking_token
-                );
+                // === DETAILS SENT TO EMAIL ===
+                $bookingDetails = [
+                    'room' => "Room $room_number - {$room['room_type']}",
+                    'duration' => $duration,
+                    'start_date' => $start_date,
+                    'total_price' => number_format($total_price, 2),
+                    'downpayment' => number_format($downpayment, 2),
+                    'balance' => number_format($remaining_balance, 2),
+                    'reference' => $reference_number !== "" ? $reference_number : "N/A",
+                    'payment_mode' => "GCash",
+                    'amount_paid' => number_format($downpayment, 2),
+                    'change_amount' => '0.00'
+                ];
 
-                if ($insert_query->execute()) {
-                    $bookingDetails = [
-                        'room' => "Room $room_number - {$room['room_type']}",
-                        'duration' => $duration,
-                        'start_date' => $start_date,
-                        'total_price' => number_format($total_price, 2),
-                        'telephone' => $telephone,
-                        'address' => $address,
-                        'age' => $age,
-                        'num_people' => $num_people,
-                        'payment_mode' => 'Pay at Check-in',
-                        'amount_paid' => '0.00',
-                        'change_amount' => '0.00'
-                    ];
+                $emailSent = sendBookingEmail($email, $guest_name, $booking_token, $bookingDetails);
 
-                    $emailSent = sendBookingEmail($email, $guest_name, $booking_token, $bookingDetails);
-                    $success = "Booking confirmed! Your booking token is <strong>$booking_token</strong>.";
-
-                    if ($emailSent) {
-                        $success .= "<br>A confirmation email has been sent to <strong>$email</strong>.";
-                    } else {
-                        $success .= "<br>⚠️ Email sending failed. Please save your booking token.";
-                    }
+                $success = "Booking confirmed! Your booking token is <strong>$booking_token</strong>.";
+                if ($emailSent) {
+                    $success .= "<br>A confirmation email has been sent to <strong>$email</strong>.";
                 } else {
-                    $error = "Failed to create booking. Please try again.";
+                    $success .= "<br>⚠ Email not sent, but booking is saved.";
                 }
+
+            } else {
+                $error = "Failed to create booking. Please try again.";
             }
         }
     }
 }
+
 
 // Get available rooms
 $rooms = [];
@@ -1182,6 +1183,93 @@ perfect for relaxation.</p>
 <input type="hidden" name="payment_mode" value="pending">
 <input type="hidden" name="amount_paid" value="0">
 <input type="hidden" name="reference_number" value="">
+<input type="hidden" name="downpayment_amount" id="downpayment_hidden">
+
+<div class="card shadow-sm mt-3">
+    <div class="card-header text-white" style="background-color:#871D2B;">
+        <h5 class="mb-0">Payment Information</h5>
+    </div>
+
+    <div class="card-body">
+
+        <!-- Payment Method + Amount -->
+        <div class="row g-3 mb-3">
+
+            <div class="col-md-6">
+                <label class="form-label">Payment Method *</label>
+            <input type="hidden" id="payment_mode" name="payment_mode" value="GCash">
+            <p class="form-control bg-light">GCash</p>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Downpayment Amount (Auto Calculated)</label>
+                <div class="input-group">
+                    <span class="input-group-text">₱</span>
+                    <input type="text" id="amount_paid" name="amount_paid" class="form-control" readonly>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- GCash Fields -->
+        <div id="gcash_section" style="display:none;">
+
+            <div class="row">
+
+<!-- LEFT SIDE: Instructions -->
+<div class="col-md-7">
+    <div class="p-3 rounded" style="background:#f4f7ff; border-left:4px solid #4e73df;">
+        <h6 class="fw-bold mb-2"><i class="bi bi-info-circle"></i> GCash Payment Instructions:</h6>
+        <ol class="mb-3">
+            <li>Send your <strong>downpayment</strong> to the GCash number provided.</li>
+            <li>Take a screenshot of the transaction.</li>
+            <li>Enter the <strong>13-digit reference number</strong> below.</li>
+        </ol>
+
+        <label class="form-label fw-bold" style="font-size: 16px; color:#b30000;">
+            GCash Reference Number <span style="color:red;">*</span>
+        </label>
+        <input type="text" name="reference_number" id="reference_number"
+            maxlength="13" class="form-control form-control-lg"
+            placeholder="Enter 13-digit GCash reference number"
+            oninput="validateGcashNumber(this)"
+            onpaste="return false">
+        <small id="gcashWarning" class="mt-1 fw-bold"
+            style="color:#cc0000; display:none; font-size: 14px;">
+            ⚠️ Reference number must be 13 digits 
+        </small>
+    </div>
+</div>
+
+<!-- RIGHT SIDE: GCash Number + QR -->
+<div class="col-md-5">
+    <div class="p-3 text-center rounded" style="background:linear-gradient(135deg, #ffd6e3, #e6d5ff);">
+        
+        <h5 class="fw-bold" style="color:#3a3ad6;">GPay <span style="color:#000;">GCash</span></h5>
+
+        <p class="mb-1 fw-bold">GCash Number:</p>
+        <p class="fs-4 fw-bold text-primary">09178118071</p>
+        <!-- QR Code Added -->
+        <div class="mt-3">
+            <img src="uploads/gcash.jpg"
+                 alt="GCash QR Code"
+                 class="img-fluid shadow"
+                 style="max-width: 200px; border-radius: 12px;">
+            <div class="mt-2 fw-bold" style="color:#3a3ad6;">Scan to Pay</div>
+        </div>
+
+    </div>
+</div>
+
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+
                     
                     <div class="d-grid gap-2 mt-4" data-aos="fade-up" data-aos-delay="400">
                         <button type="submit" class="btn btn-primary btn-lg">
@@ -1356,60 +1444,122 @@ Purok 6 Bunggo road barangay Bunggo, Calamba, Philippines, 4027</p>
             }
         });
 
-        // Form validation
-        function validateForm() {
-            const form = document.getElementById('bookingForm');
-            form.classList.add('loading');
-            
-            const ageInput = document.querySelector('input[name="age"]');
-            const age = parseInt(ageInput.value);
+// Form validation
+function validateForm() {
+    const form = document.getElementById('bookingForm');
+    form.classList.add('loading');
 
-            if (age < 18) {
-                ageInput.classList.add('is-invalid');
-                
-                // Show toast notification
-                showToast("Guest must be at least 18 years old.", 'danger', 4000);
-                
-                // Scroll to the age input
-                ageInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
-                // Focus on the input
-                ageInput.focus();
-                
-                form.classList.remove('loading');
-                return false;
-            }
+    // --- AGE VALIDATION ---
+    const ageInput = document.querySelector('input[name="age"]');
+    const age = parseInt(ageInput.value);
 
-            // Remove invalid class if age is valid
-            ageInput.classList.remove('is-invalid');
+    if (age < 18) {
+        ageInput.classList.add('is-invalid');
+        showToast("Guest must be at least 18 years old.", 'danger', 4000);
 
-            const paymentMode = document.querySelector('select[name="payment_mode"]').value;
-            const amountPaid = parseFloat(document.querySelector('input[name="amount_paid"]').value) || 0;
-            const totalPrice = parseFloat(document.getElementById('total_price').value) || 0;
+        ageInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        ageInput.focus();
+        form.classList.remove('loading');
+        return false;
+    }
+    ageInput.classList.remove('is-invalid');
 
-            if (amountPaid <= 0) {
-                alert("Please enter a valid payment amount.");
-                form.classList.remove('loading');
-                return false;
-            }
+    // --- TOTAL PRICE VALIDATION ---
+    const total = parseFloat(document.getElementById('total_price_hidden')?.value || 0);
+    const downpayment = parseFloat(document.getElementById('downpayment_hidden')?.value || 0);
 
-            if (paymentMode === "Cash" && amountPaid < totalPrice) {
-                alert("For cash payments, amount paid must be greater than or equal to the total price.");
-                form.classList.remove('loading');
-                return false;
-            }
+    if (total <= 0 || downpayment <= 0) {
+        showToast("Please select a valid room and duration.", "danger", 4000);
+        form.classList.remove('loading');
+        return false;
+    }
 
-            if (paymentMode === "GCash") {
-                const referenceNumber = document.querySelector('input[name="reference_number"]').value.trim();
-                if (referenceNumber === "" || referenceNumber.length !== 13) {
-                    alert("Please enter a valid 13-digit GCash reference number.");
-                    form.classList.remove('loading');
-                    return false;
-                }
-            }
+    // --- GCash REFERENCE NUMBER VALIDATION ---
+    const paymentMode = document.getElementById('payment_mode').value;
+    const refInput = document.getElementById('reference_number');
+    const refWarning = document.getElementById('gcashWarning');
 
-            return true;
+    if (paymentMode === "GCash") {
+        const ref = refInput.value.trim();
+
+        if (ref === "" || ref.length !== 13 || !/^\d+$/.test(ref)) {
+            refWarning.style.display = "block";
+            refInput.classList.add("is-invalid");
+
+            showToast("Please enter a valid 13-digit GCash reference number.", "danger", 4000);
+
+            refInput.scrollIntoView({ behavior: "smooth", block: "center" });
+            form.classList.remove('loading');
+            return false;
         }
+
+        // Valid reference number
+        refWarning.style.display = "none";
+        refInput.classList.remove("is-invalid");
+    }
+
+    // --- ROOM AVAILABILITY VALIDATION ---
+    if (!checkRoomAvailability()) {
+        showToast("The selected room is not available at this time.", "danger", 4000);
+        form.classList.remove('loading');
+        return false;
+    }
+
+    // --- EVERYTHING VALID ---
+    return true;
+}
+
+function validateGcashNumber(input) {
+    // Remove all non-numeric characters instantly
+    input.value = input.value.replace(/[^0-9]/g, '');
+
+    const warning = document.getElementById('gcashWarning');
+
+    // If length is not exactly 13
+    if (input.value.length > 0 && input.value.length !== 13) {
+        warning.style.display = 'block';
+    } else {
+        warning.style.display = 'none';
+    }
+}
+
+// === Calculate 20% Downpayment and Update Summary ===
+function updateDownpayment() {
+    const total = parseFloat(document.getElementById('total_price_hidden')?.value) || 0;
+
+    const down = total * 0.20;
+    const remaining = total - down;
+
+    // Update downpayment field (Amount to Pay)
+    if (document.getElementById('amount_paid')) {
+        document.getElementById('amount_paid').value = down.toFixed(2);
+    }
+
+    // Update visible downpayment
+    if (document.getElementById('downpayment_display')) {
+        document.getElementById('downpayment_display').value = down.toFixed(2);
+    }
+
+    // Hidden downpayment (sent to PHP)
+    if (document.getElementById('downpayment_hidden')) {
+        document.getElementById('downpayment_hidden').value = down.toFixed(2);
+    }
+
+    // Update Booking Summary
+    if (document.getElementById('summary_down')) {
+        document.getElementById('summary_down').innerHTML =
+            "<strong>₱" + down.toFixed(2) + "</strong>";
+    }
+
+    if (document.getElementById('summary_balance')) {
+        document.getElementById('summary_balance').innerHTML =
+            "<strong>₱" + remaining.toFixed(2) + "</strong>";
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    togglePaymentFields("GCash"); // Auto-open GCash section
+});
 
         // Payment method toggle
         function togglePaymentFields(mode) {
@@ -1732,40 +1882,45 @@ function updateCheckout() {
 
 // Update booking summary display
 function updateBookingSummary() {
+
     const guestName = document.querySelector('input[name="guest_name"]')?.value || '-';
     const telephone = document.querySelector('input[name="telephone"]')?.value || '-';
+
+    // Correct elements based on your form
     const roomSelect = document.getElementById('room_select');
     const checkinInput = document.getElementById('checkin_input');
-    const checkoutDisplay = document.getElementById('checkout_datetime');
-    const totalPrice = document.getElementById('total_price_display')?.value || '0.00';
-    
-    // Update summary fields
+    const checkoutInput = document.getElementById('checkout_datetime');
+
+    // --- Summary Guest + Contact ---
     document.getElementById('summary_guest').textContent = guestName;
     document.getElementById('summary_contact').textContent = telephone;
-    
+
+    // --- Summary Room ---
     if (roomSelect && roomSelect.value) {
         const roomText = roomSelect.options[roomSelect.selectedIndex].text;
         document.getElementById('summary_room').textContent = roomText;
     } else {
         document.getElementById('summary_room').textContent = '-';
     }
-    
-    // Check-in with formatted date
+
+    // --- Summary Check-in ---
     if (checkinInput && checkinInput.value) {
-        const checkin = new Date(checkinInput.value);
-        document.getElementById('summary_checkin').textContent = formatDateTime(checkin);
+        document.getElementById('summary_checkin').textContent = checkinInput.value.replace("T"," ");
     } else {
         document.getElementById('summary_checkin').textContent = '-';
     }
-    
-    // Check-out - just use the already formatted value
-    if (checkoutDisplay && checkoutDisplay.value && checkoutDisplay.value.trim() !== '') {
-        document.getElementById('summary_checkout').textContent = checkoutDisplay.value;
+
+    // --- Summary Check-out ---
+    if (checkoutInput && checkoutInput.value.trim() !== '') {
+        document.getElementById('summary_checkout').textContent = checkoutInput.value;
     } else {
         document.getElementById('summary_checkout').textContent = '-';
     }
-    
-    document.getElementById('summary_total').innerHTML = '<strong>₱' + totalPrice + '</strong>';
+
+    // --- Summary Total Price ---
+    const total = parseFloat(document.getElementById('total_price_hidden')?.value || 0);
+    document.getElementById('summary_total').innerHTML = "<strong>₱" + total.toFixed(2) + "</strong>";
+
 }
 
 // Add event listeners to update summary when fields change
@@ -1896,55 +2051,65 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Update the existing updatePrice function to also update summary
+// === Updated updatePrice() — now auto-calculates downpayment ===
 function updatePrice() {
     const roomSelect = document.getElementById('room_select');
     const durationSelect = document.getElementById('duration_select');
-    
+
     if (!roomSelect || !durationSelect) return;
-    
+
     const roomNumber = roomSelect.value;
     const duration = durationSelect.value;
-    
+
     if (roomNumber && duration) {
         const roomsData = JSON.parse(document.getElementById('room_data').value);
         const room = Object.values(roomsData).find(r => r.room_number == roomNumber);
-        
+
         if (room) {
             let price = 0;
-            let durationText = '';
-            
-            switch(duration) {
+            let durationText = "";
+
+            switch (duration) {
                 case '3':
                     price = parseFloat(room.price_3hrs);
-                    durationText = '3 Hours';
+                    durationText = "3 Hours";
                     break;
+
                 case '6':
                     price = parseFloat(room.price_6hrs);
-                    durationText = '6 Hours';
+                    durationText = "6 Hours";
                     break;
+
                 case '12':
                     price = parseFloat(room.price_12hrs);
-                    durationText = '12 Hours';
+                    durationText = "12 Hours (Half Day)";
                     break;
+
                 case '24':
                     price = parseFloat(room.price_24hrs);
-                    durationText = '24 Hours';
+                    durationText = "24 Hours (Full Day)";
                     break;
+
                 case '48':
                     price = parseFloat(room.price_24hrs) * 2;
-                    durationText = '48 Hours (2 Days)';
+                    durationText = "48 Hours (2 Days)";
                     break;
             }
-            
+
+            // Update UI
             document.getElementById('total_price_display').value = price.toFixed(2);
             document.getElementById('total_price_hidden').value = price.toFixed(2);
             document.getElementById('duration_display').value = durationText;
-            
-            // Update summary
+
+            // 🔥 Auto-calc 20% downpayment
+            updateDownpayment();
+
+            // Update booking summary
             updateBookingSummary();
         }
     }
 }
+
 
 // Add event listeners to update summary when fields change
 document.addEventListener('DOMContentLoaded', function() {

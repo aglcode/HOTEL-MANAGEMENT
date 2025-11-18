@@ -17,7 +17,7 @@ try {
     $stmt = $conn->prepare("
         SELECT 
             c.*,
-            COALESCE(SUM(o.price * o.quantity), 0) as orders_total,
+            COALESCE(SUM(o.price), 0) as orders_total,
             c.previous_charges,
             c.is_rebooked
         FROM checkins c
@@ -188,7 +188,7 @@ try {
     $guest['orders_total'] = $orders_total;
     $guest['grand_total'] = $grand_total;
     $guest['rebook_info'] = $rebook_info;
-    $guest['extension_info'] = $extension_info; // ✅ NEW
+    $guest['extension_info'] = $extension_info; 
     $guest['previous_charges'] = $previous_charges;
     $guest['new_charges'] = $new_charges;
     $guest['total_room_charges'] = $total_room_charges;

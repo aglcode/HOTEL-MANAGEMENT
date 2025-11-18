@@ -1,135 +1,153 @@
 <?php
 header('Content-Type: application/json');
 session_start();
+require_once 'database.php';
 
-$host = "localhost";
-$user = "root";
-$pass = "";
-$db   = "hotel_db";
+// ✅ Set timezone
+date_default_timezone_set('Asia/Manila');
+$conn->query("SET time_zone = '+08:00'");
 
-$conn = new mysqli($host, $user, $pass, $db);
-if ($conn->connect_error) {
-  echo json_encode(["success" => false, "message" => "Database connection failed."]);
-  exit;
-}
-
+// ✅ Decode JSON
 $data = json_decode(file_get_contents("php://input"), true);
 if (!$data) {
-  echo json_encode(["success" => false, "message" => "Invalid or missing input data."]);
-  exit;
+    echo json_encode(["success" => false, "message" => "Invalid or missing input data."]);
+    exit;
 }
 
 $room_number = $_SESSION['room_number'] ?? null;
-$token = $_SESSION['qr_token'] ?? null;
-
-$guest_id = null;
-if ($room_number) {
-  $stmt = $conn->prepare("SELECT id FROM checkins WHERE room_number = ? AND status = 'checked_in' LIMIT 1");
-  $stmt->bind_param("s", $room_number);
-  $stmt->execute();
-  $stmt->bind_result($guest_id);
-  $stmt->fetch();
-  $stmt->close();
+if (!$room_number) {
+    echo json_encode(["success" => false, "message" => "No active session found."]);
+    exit;
 }
 
-if (!$guest_id) {
-  echo json_encode(["success" => false, "message" => "No active check-in found for this room."]);
-  exit;
+// ✅ Get active check-in
+$stmt = $conn->prepare("SELECT id FROM checkins WHERE room_number = ? AND status = 'checked_in' LIMIT 1");
+$stmt->bind_param("s", $room_number);
+$stmt->execute();
+$stmt->bind_result($checkin_id);
+$stmt->fetch();
+$stmt->close();
+
+if (!$checkin_id) {
+    echo json_encode(["success" => false, "message" => "No active check-in found for this room."]);
+    exit;
 }
 
-$item_name = trim($conn->real_escape_string($data["item_name"] ?? ""));
-$size      = isset($data["size"]) ? $conn->real_escape_string($data["size"]) : null;
+$item_name = trim($data["item_name"] ?? "");
 $quantity  = intval($data["quantity"] ?? 1);
-
 if (empty($item_name)) {
-  echo json_encode(["success" => false, "message" => "Missing item name."]);
-  exit;
+    echo json_encode(["success" => false, "message" => "Missing item name."]);
+    exit;
 }
 
+// ✅ Get supply info
 $stmt = $conn->prepare("SELECT id, price, category, quantity FROM supplies WHERE name = ? AND is_archived = 0 LIMIT 1");
 $stmt->bind_param("s", $item_name);
 $stmt->execute();
-$result = $stmt->get_result();
-
-if (!$row = $result->fetch_assoc()) {
-  echo json_encode(["success" => false, "message" => "Item not found in supplies table."]);
-  exit;
-}
-
-$supply_id = intval($row['id']);
-$unit_price = floatval($row['price']);
-$category = $row['category'];
-$current_stock = intval($row['quantity']);
+$supply = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-if ($current_stock <= 0) {
-  echo json_encode(["success" => false, "message" => "Item is out of stock."]);
-  exit;
+if (!$supply) {
+    echo json_encode(["success" => false, "message" => "Item not found."]);
+    exit;
 }
 
-if ($quantity > $current_stock) {
-  echo json_encode(["success" => false, "message" => "Only {$current_stock} left in stock."]);
-  exit;
+$supply_id     = $supply["id"];
+$unit_price    = (float)$supply["price"];
+$category      = $supply["category"];
+$current_stock = (int)$supply["quantity"];
+
+if ($current_stock != 999 && $quantity > $current_stock) {
+    echo json_encode(["success" => false, "message" => "Only $current_stock left in stock."]);
+    exit;
 }
 
-if ($size) {
-  $check = $conn->prepare("SELECT id, quantity FROM orders WHERE checkin_id = ? AND room_number = ? AND supply_id = ? AND size = ?");
-  $check->bind_param("isis", $guest_id, $room_number, $supply_id, $size);
-} else {
-  $check = $conn->prepare("SELECT id, quantity FROM orders WHERE checkin_id = ? AND room_number = ? AND supply_id = ? AND size IS NULL");
-  $check->bind_param("isi", $guest_id, $room_number, $supply_id);
-}
+$status = 'pending';
+$size = null;
+$created_at = date('Y-m-d H:i:s');
 
+// ✅ Check if same item already exists (merge logic)
+$check = $conn->prepare("
+    SELECT id, quantity 
+    FROM orders 
+    WHERE checkin_id = ? 
+      AND room_number = ? 
+      AND LOWER(item_name) = LOWER(?) 
+      AND status = 'pending'
+    LIMIT 1
+");
+$check->bind_param("iss", $checkin_id, $room_number, $item_name);
 $check->execute();
-$result = $check->get_result();
-
-if ($row = $result->fetch_assoc()) {
-  $existingQty = intval($row["quantity"]);
-  $newQty = $existingQty + $quantity;
-  $newTotal = $unit_price * $newQty;
-  $update = $conn->prepare("UPDATE orders SET quantity = ?, price = ?, created_at = NOW() WHERE id = ?");
-  $update->bind_param("idi", $newQty, $newTotal, $row["id"]);
-  $success = $update->execute();
-  $update->close();
-} else {
-  $totalPrice = $unit_price * $quantity;
-  $insert = $conn->prepare("
-    INSERT INTO orders (checkin_id, room_number, supply_id, category, item_name, size, price, quantity, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
-  ");
-  $insert->bind_param("isissdii", $guest_id, $room_number, $supply_id, $category, $item_name, $size, $totalPrice, $quantity);
-  $success = $insert->execute();
-  $insert->close();
-}
-
+$existing = $check->get_result()->fetch_assoc();
 $check->close();
 
-if ($success) {
-  // ✅ Do NOT update stock if quantity is 999 (infinite stock)
-  if ($current_stock != 999) {
+// If existing item is already prepared/served → DO NOT MERGE it
+if ($existing && ($existing['status'] === 'prepared' || $existing['status'] === 'served')) {
+    $existing = false;  // force insert new row
+}
+
+if ($existing) {
+    // ✅ Merge quantity and update total price
+    $new_quantity = $existing['quantity'] + $quantity;
+    $total_price = $unit_price * $new_quantity; // total = unit * quantity
+
+    $update = $conn->prepare("
+        UPDATE orders 
+        SET quantity = ?, price = ?, status = 'pending'
+        WHERE id = ?
+    ");
+    $update->bind_param("idi", $new_quantity, $total_price, $existing['id']);
+    $success = $update->execute();
+    $update->close();
+
+} else {
+    // Insert new row with total price
+    $total_price = $unit_price * $quantity;
+
+    $insert = $conn->prepare("
+        INSERT INTO orders 
+        (checkin_id, supply_id, room_number, category, item_name, size, price, quantity, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+    ");
+    $insert->bind_param(
+        "iissssdis",
+        $checkin_id,
+        $supply_id,
+        $room_number,
+        $category,
+        $item_name,
+        $size,
+        $total_price,
+        $quantity,
+        $created_at
+    );
+    $success = $insert->execute();
+    $insert->close();
+}
+
+// ✅ Deduct from stock if limited
+if ($success && $current_stock != 999) {
     $new_stock = max(0, $current_stock - $quantity);
 
-    // Update the stock quantity
+    // Update stock
     $update_stock = $conn->prepare("UPDATE supplies SET quantity = ? WHERE id = ?");
     $update_stock->bind_param("ii", $new_stock, $supply_id);
     $update_stock->execute();
     $update_stock->close();
 
-    // Update the status automatically only if not infinite stock
-    $status = $new_stock <= 0 ? 'unavailable' : 'available';
-    $update_status = $conn->prepare("UPDATE supplies SET status = ? WHERE id = ?");
-    $update_status->bind_param("si", $status, $supply_id);
-    $update_status->execute();
-    $update_status->close();
-  }
-  // else -> if 999, skip any stock or status change (admin controls status manually)
+    // ✅ Auto-update status when stock reaches 0
+    if ($new_stock == 0) {
+        $update_status = $conn->prepare("UPDATE supplies SET status = 'unavailable' WHERE id = ?");
+        $update_status->bind_param("i", $supply_id);
+        $update_status->execute();
+        $update_status->close();
+    }
 }
 
 echo json_encode([
-  "success" => $success,
-  "message" => $success
-    ? "Order saved successfully and stock updated!"
-    : "Failed to save order."
+    "success" => $success,
+    "message" => $success ? "Order added/merged successfully!" : "Failed to save order."
 ]);
 
 $conn->close();
+?>

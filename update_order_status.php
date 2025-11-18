@@ -2,11 +2,24 @@
 require_once 'database.php';
 header('Content-Type: application/json');
 
-// --- Update a single order by ID ---
+// Ensure timezone
+date_default_timezone_set('Asia/Manila');
+$conn->query("SET time_zone = '+08:00'");
+
+// ==========================================================
+// 1. SERVE A SINGLE ORDER
+// ==========================================================
 if (isset($_POST['order_id'])) {
+
     $orderId = intval($_POST['order_id']);
 
-    $stmt = $conn->prepare("UPDATE orders SET status = 'served' WHERE id = ?");
+    // Mark as served + clear any running prep timer
+    $stmt = $conn->prepare("
+        UPDATE orders 
+        SET status = 'served', prepare_start_at = NULL 
+        WHERE id = ?
+    ");
+    
     $stmt->bind_param("i", $orderId);
     $stmt->execute();
 
@@ -17,11 +30,22 @@ if (isset($_POST['order_id'])) {
     exit;
 }
 
-// --- Update all pending orders in one room ---
+
+// ==========================================================
+// 2. SERVE ALL ORDERS IN A ROOM (pending or prepared)
+// ==========================================================
 if (isset($_POST['room_number'])) {
+
     $roomNumber = trim($_POST['room_number']);
 
-    $stmt = $conn->prepare("UPDATE orders SET status = 'served' WHERE room_number = ? AND status = 'pending'");
+    // Serve all orders that are NOT already served
+    $stmt = $conn->prepare("
+        UPDATE orders 
+        SET status = 'served', prepare_start_at = NULL
+        WHERE room_number = ?
+        AND status IN ('pending', 'prepared')
+    ");
+    
     $stmt->bind_param("s", $roomNumber);
     $stmt->execute();
 
@@ -32,6 +56,13 @@ if (isset($_POST['room_number'])) {
     exit;
 }
 
-// --- Fallback ---
-echo json_encode(['success' => false, 'message' => 'Missing parameters']);
+
+// ==========================================================
+// 3. FALLBACK: Missing parameters
+// ==========================================================
+echo json_encode([
+    'success' => false,
+    'message' => 'Missing order_id or room_number'
+]);
+exit;
 ?>

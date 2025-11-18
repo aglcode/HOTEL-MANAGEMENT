@@ -28,41 +28,58 @@ $stmt->close();
 // ===============================
 // 3️⃣ Generate a permanent token only once
 // ===============================
+// ===============================
+// 3️⃣ Generate or reuse permanent token correctly
+// ===============================
 if ($keycard && !empty($keycard['qr_code'])) {
-    // Reuse existing token
+    // Reuse existing token from DB
     $token = $keycard['qr_code'];
 } else {
-    // Generate a new permanent token (once)
+    // Generate a new permanent token (once per room)
     $token = strtoupper(bin2hex(random_bytes(4)));
 
-    // Insert or update into keycards table
+    // Save it to DB (insert or update)
     $stmt2 = $conn->prepare("
         INSERT INTO keycards (room_number, qr_code, valid_from, valid_to, status)
         VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 10 YEAR), 'active')
-        ON DUPLICATE KEY UPDATE qr_code = VALUES(qr_code)
+        ON DUPLICATE KEY UPDATE qr_code = VALUES(qr_code), status = 'active'
     ");
     $stmt2->bind_param("is", $room, $token);
     $stmt2->execute();
     $stmt2->close();
+
+    // ✅ Re-fetch to confirm token stored in DB matches variable
+    $stmt3 = $conn->prepare("SELECT qr_code FROM keycards WHERE room_number = ? LIMIT 1");
+    $stmt3->bind_param("i", $room);
+    $stmt3->execute();
+    $res3 = $stmt3->get_result();
+    $dbRow = $res3->fetch_assoc();
+    $stmt3->close();
+
+    if ($dbRow && $dbRow['qr_code'] !== $token) {
+        $token = $dbRow['qr_code']; // sync with DB
+    }
 }
 
+
 // ===============================
-// 4️⃣ Generate the QR code (only one per room)
+// 4️⃣ Generate the QR code (always matches displayed URL)
 // ===============================
-$baseUrl = "http://localhost/gitarra_apartelle";
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
+$host = $_SERVER['HTTP_HOST'];
+$baseUrl = "{$protocol}://{$host}";
 $url = "{$baseUrl}/api/unlock.php?room={$room}&token={$token}";
 
+// Make sure folder exists
 if (!is_dir("qrcodes")) {
     mkdir("qrcodes", 0777, true);
 }
 
-$filePath = "qrcodes/room{$room}.png";
+// Unique filename per room + token (so every new token gets new image)
+$filePath = "qrcodes/room{$room}_{$token}.png";
 
-// Create the QR image only if it doesn't exist yet
-if (!file_exists($filePath)) {
-    QRcode::png($url, $filePath, QR_ECLEVEL_L, 6);
-}
-
+// Always recreate QR image for this token
+QRcode::png($url, $filePath, QR_ECLEVEL_L, 6);
 
 $logoPath = "Image/logo.jpg"; 
 ?>
@@ -196,14 +213,14 @@ $logoPath = "Image/logo.jpg";
     <h2>QR Code generated for Room <?php echo $room; ?></h2>
     <p>Scan this code to open the guest dashboard.</p>
 
-    <div class="qr-container">
-        <img src="<?php echo $filePath; ?>" alt="QR Code">
-    </div>
-
-    <div class="url-box">
-        <div class="url-label">URL inside QR:</div>
-        <a class="url-value" href="<?php echo $url; ?>"><?php echo $url; ?></a>
-    </div>
+        <div class="qr-container">
+            <img src="<?php echo $filePath . '?v=' . time(); ?>" alt="QR Code">
+        </div>
+        
+        <div class="url-box">
+            <div class="url-label">URL inside QR:</div>
+            <a class="url-value" href="<?php echo $url; ?>"><?php echo $url; ?></a>
+        </div>
 
     <div class="footer">
         <span>Room Number</span>

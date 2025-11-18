@@ -35,21 +35,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 if ($action === 'edit' && $id) {
-    // If new image uploaded, use it; otherwise keep existing
+    $status = $_POST['status'] ?? 'available'; // get status from form
+
     if ($image) {
-        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, type = ?, image = ? WHERE id = ?");
-        $stmt->bind_param("sdisssi", $name, $price, $quantity, $category, $type, $image, $id);
+        $stmt = $conn->prepare("
+            UPDATE supplies 
+            SET name = ?, price = ?, quantity = ?, category = ?, type = ?, image = ?, status = ?
+            WHERE id = ?
+        ");
+        $stmt->bind_param("sdissssi", $name, $price, $quantity, $category, $type, $image, $status, $id);
     } else {
-        $stmt = $conn->prepare("UPDATE supplies SET name = ?, price = ?, quantity = ?, category = ?, type = ? WHERE id = ?");
-        $stmt->bind_param("sdissi", $name, $price, $quantity, $category, $type, $id);
+        $stmt = $conn->prepare("
+            UPDATE supplies 
+            SET name = ?, price = ?, quantity = ?, category = ?, type = ?, status = ?
+            WHERE id = ?
+        ");
+        $stmt->bind_param("sdisssi", $name, $price, $quantity, $category, $type, $status, $id);
     }
+
     if ($stmt->execute()) {
         header("Location: admin-supplies.php?success=edited");
     } else {
         header("Location: admin-supplies.php?error=unknown");
     }
     exit();
-} 
+}
 elseif ($action === 'add') {
     $stmt = $conn->prepare("SELECT id, quantity FROM supplies WHERE LOWER(name) = LOWER(?) AND category = ? AND type = ?");
     $stmt->bind_param("sss", $name, $category, $type);
@@ -250,6 +260,9 @@ $totalCost = array_reduce($supplies, function ($sum, $s) {
 .bg-blue-100 { background-color: #ebf8ff; }
 .text-blue-800 { color: #2b6cb0; }
 .border-blue-200 { border-color: #bee3f8; }
+.bg-red-100 { background-color: #fff5f5; }
+.text-red-800 { color: #c53030; }
+.border-red-200 { border-color: #feb2b2; }
 .bg-info-100 { background-color: #e6f7ff; }
 .text-info-800 { color: #2b6cb0; }
 .border-info-200 { border-color: #bee3f8; }
@@ -265,6 +278,9 @@ $totalCost = array_reduce($supplies, function ($sum, $s) {
 .bg-yellow-100 { background-color: #fef9c3; }
 .text-yellow-800 { color: #854d0e; }
 .border-yellow-200 { border-color: #fef08a; }
+.bg-orange-100 { background-color: #fff7ed; }
+.text-orange-800 { color: #c05621; }
+.border-orange-200 { border-color: #fbd38d; }
 
 .table-hover tbody tr:hover {
     background-color: #f8f9fa;
@@ -663,95 +679,105 @@ document.addEventListener("DOMContentLoaded", () => {
             <th>Total</th>
             <th>Category</th>
             <th>Type</th>
+            <th>Status</th> <!-- NEW COLUMN -->
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <?php if (count($supplies) > 0): ?>
             <?php foreach ($supplies as $s): ?>
-            <tr>
-            <td class="ps-3">
-              <div class="d-flex align-items-center">
-                <?php if (!empty($s['image']) && file_exists($s['image'])): ?>
-                  <img src="<?= htmlspecialchars($s['image']) ?>" 
-                      alt="<?= htmlspecialchars($s['name']) ?>" 
-                      class="rounded me-2" 
-                      style="width: 40px; height: 40px; object-fit: cover;">
-                <?php else: ?>
-                  <div class="avatar-sm 
-                      <?php if ($s['category'] == 'Food'): ?>
-                        bg-green-100 text-green-800 border-green-200
-                      <?php else: ?>
-                        bg-info-100 text-info-800 border-info-200
-                      <?php endif; ?>
-                      rounded-circle d-flex align-items-center justify-content-center me-2" 
-                      style="width: 40px; height: 40px; border:1px solid;">
-                    <span><?= strtoupper(substr($s['name'], 0, 1)) ?></span>
+              <tr>
+                <td class="ps-3">
+                  <div class="d-flex align-items-center">
+                    <?php if (!empty($s['image']) && file_exists($s['image'])): ?>
+                      <img src="<?= htmlspecialchars($s['image']) ?>" 
+                           alt="<?= htmlspecialchars($s['name']) ?>" 
+                           class="rounded me-2" 
+                           style="width: 40px; height: 40px; object-fit: cover;">
+                    <?php else: ?>
+                      <div class="avatar-sm 
+                          <?= $s['category'] == 'Food' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-info-100 text-info-800 border-info-200' ?>
+                          rounded-circle d-flex align-items-center justify-content-center me-2" 
+                          style="width: 40px; height: 40px; border:1px solid;">
+                        <span><?= strtoupper(substr($s['name'], 0, 1)) ?></span>
+                      </div>
+                    <?php endif; ?>
+                    <div><?= htmlspecialchars($s['name']) ?></div>
                   </div>
-                <?php endif; ?>
-                <div><?= htmlspecialchars($s['name']) ?></div>
-              </div>
-            </td>
-            <td>₱<?= number_format($s['price'], 2) ?></td>
-            <td>
-              <span class="badge 
-                <?php if ($s['category'] == 'Food'): ?>
-                  bg-green-100 text-green-800 border-green-200
-                <?php else: ?>
-                  bg-blue-100 text-blue-800 border-blue-200
-                <?php endif; ?>
-              ">
-                <?= $s['quantity'] == 999 ? 'N/A' : (int)$s['quantity'] ?>
-              </span>
-            </td>
-
-            <td>
-              <?php if ($s['quantity'] == 999): ?>
-                N/A
-              <?php else: ?>
-                ₱<?= number_format($s['price'] * $s['quantity'], 2) ?>
-              <?php endif; ?>
-            </td>
-              <td>
-                <!-- Category badge with same custom color sets -->
-                <span class="badge 
-                  <?php if ($s['category'] == 'Food'): ?>
-                    bg-green-100 text-green-800 border-green-200
+                </td>
+        
+                <td>₱<?= number_format($s['price'], 2) ?></td>
+                <td>
+                  <span class="badge 
+                    <?= $s['category'] == 'Food' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-blue-100 text-blue-800 border-blue-200' ?>
+                  ">
+                    <?= $s['quantity'] == 999 ? 'N/A' : (int)$s['quantity'] ?>
+                  </span>
+                </td>
+        
+                <td>
+                  <?= $s['quantity'] == 999 ? 'N/A' : '₱' . number_format($s['price'] * $s['quantity'], 2) ?>
+                </td>
+        
+                <td>
+                  <span class="badge 
+                    <?= $s['category'] == 'Food' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-blue-100 text-blue-800 border-blue-200' ?>
+                  ">
+                    <?= htmlspecialchars($s['category']) ?>
+                  </span>
+                </td>
+        
+                <td>
+                  <span class="badge bg-yellow-100 text-yellow-800 border-yellow-200">
+                    <?= htmlspecialchars($s['type']) ?>
+                  </span>
+                </td>
+        
+                <!-- NEW STATUS COLUMN -->
+                <td>
+                  <?php if ($s['quantity'] == 999): ?>
+                    <?php if (strtolower($s['status']) == 'available'): ?>
+                      <span class="badge bg-green-100 text-green-800 border-green-200">Available</span>
+                    <?php else: ?>
+                      <span class="badge bg-gray-100 text-gray-800 border-gray-200">Unavailable</span>
+                    <?php endif; ?>
                   <?php else: ?>
-                    bg-blue-100 text-blue-800 border-blue-200
+                    <?php if ($s['quantity'] == 0): ?>
+                      <span class="badge bg-red-100 text-red-800 border-red-200">Out of Stock</span>
+                    <?php elseif ($s['quantity'] < 5): ?>
+                      <span class="badge bg-orange-100 text-orange-800 border-orange-200">Low Stock</span>
+                    <?php elseif ($s['quantity'] < 10): ?>
+                      <span class="badge bg-yellow-100 text-yellow-800 border-yellow-200">Medium Stock</span>
+                    <?php else: ?>
+                      <span class="badge bg-green-100 text-green-800 border-green-200">Good Stock</span>
+                    <?php endif; ?>
                   <?php endif; ?>
-                ">
-                  <?= htmlspecialchars($s['category']) ?>
-                </span>
-              </td>
-              <td>
-                <span class="badge bg-yellow-100 text-yellow-800 border-yellow-200">
-                  <?= htmlspecialchars($s['type']) ?>
-                </span>
-              </td>
-              <td class="text-center user-actions">
-              <span class="action-btn edit me-2" 
-                  onclick="populateEditForm(
-                    <?= $s['id'] ?>, 
-                    '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>', 
-                    <?= $s['price'] ?>, 
-                    <?= $s['quantity'] ?>, 
-                    '<?= htmlspecialchars($s['category'], ENT_QUOTES) ?>', 
-                    '<?= htmlspecialchars($s['type'], ENT_QUOTES) ?>', 
-                    '<?= htmlspecialchars($s['image'] ?? '', ENT_QUOTES) ?>'
-                  )">
-                  <i class="fas fa-edit"></i>
-                </span>
-                <span class="action-btn archive" 
-                      onclick="confirmArchive(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>')">
-                  <i class="fas fa-archive"></i>
-                </span>
-              </td>
-            </tr>
+                </td>
+        
+                <td class="text-center user-actions">
+                  <span class="action-btn edit me-2" 
+                      onclick="populateEditForm(
+                        <?= $s['id'] ?>, 
+                        '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>', 
+                        <?= $s['price'] ?>, 
+                        <?= $s['quantity'] ?>, 
+                        '<?= htmlspecialchars($s['category'], ENT_QUOTES) ?>', 
+                        '<?= htmlspecialchars($s['type'], ENT_QUOTES) ?>', 
+                        '<?= htmlspecialchars($s['image'] ?? '', ENT_QUOTES) ?>',
+                        '<?= htmlspecialchars($s['status'] ?? 'available', ENT_QUOTES) ?>'
+                      )">
+                    <i class="fas fa-edit"></i>
+                  </span>
+                  <span class="action-btn archive" 
+                        onclick="confirmArchive(<?= $s['id'] ?>, '<?= htmlspecialchars($s['name'], ENT_QUOTES) ?>')">
+                    <i class="fas fa-archive"></i>
+                  </span>
+                </td>
+              </tr>
             <?php endforeach; ?>
           <?php else: ?>
             <tr>
-              <td colspan="6" class="text-center py-4">
+              <td colspan="8" class="text-center py-4">
                 <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
                 <p class="mb-0">No supplies found</p>
               </td>
@@ -817,14 +843,59 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
 
-          <!-- Quantity -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Quantity</label>
-            <div class="input-group">
-              <span class="input-group-text bg-white"><i class="fas fa-hashtag"></i></span>
-              <input type="number" class="form-control border-start-0" id="supplyQuantity" name="quantity" min="1" placeholder="Enter quantity" required>
-            </div>
-          </div>
+    <!-- Quantity -->
+    <div class="mb-3">
+      <label class="form-label fw-semibold">Quantity</label>
+      <div class="input-group">
+        <span class="input-group-text bg-white"><i class="fas fa-hashtag"></i></span>
+        <input type="number" 
+               class="form-control border-start-0" 
+               id="supplyQuantity" 
+               name="quantity" 
+               min="1" 
+               max="999"
+               placeholder="Enter quantity (1-999)" 
+               required>
+      </div>
+      <div id="quantityFeedback" class="invalid-feedback"></div>
+    </div>
+    
+    <script>
+    // Quantity validation
+    const qtyInput = document.getElementById('supplyQuantity');
+    const qtyFeedback = document.getElementById('quantityFeedback');
+    
+    qtyInput.addEventListener('input', () => {
+        const val = qtyInput.value.trim();
+    
+        if (!/^\d+$/.test(val)) {
+            // Not a number
+            qtyInput.classList.add('is-invalid');
+            qtyFeedback.textContent = 'Quantity must be a number.';
+        } else if (parseInt(val) > 999) {
+            // Greater than 999
+            qtyInput.classList.add('is-invalid');
+            qtyFeedback.textContent = 'Quantity cannot exceed 999.';
+        } else if (parseInt(val) < 1) {
+            // Less than 1
+            qtyInput.classList.add('is-invalid');
+            qtyFeedback.textContent = 'Quantity must be at least 1.';
+        } else {
+            qtyInput.classList.remove('is-invalid');
+            qtyFeedback.textContent = '';
+        }
+    });
+    
+    // Optional: prevent form submission if invalid
+    document.getElementById('supplyForm').addEventListener('submit', (e) => {
+        const val = qtyInput.value.trim();
+        if (!/^\d+$/.test(val) || parseInt(val) < 1 || parseInt(val) > 999) {
+            e.preventDefault();
+            qtyInput.classList.add('is-invalid');
+            qtyFeedback.textContent = 'Please enter a valid quantity (1-999).';
+        }
+    });
+    </script>
 
           <!-- Category -->
           <div class="mb-3">
@@ -865,6 +936,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 <option value="Conditioner">Conditioner</option>
                 <option value="Personal Protection">Personal Protection</option>
                 <option value="Disposable Utensils">Disposable Utensils</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- Status (Hidden by Default) -->
+          <div class="mb-3 d-none" id="statusWrapper">
+            <label class="form-label fw-semibold">Status</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="fas fa-check-circle"></i></span>
+              <select class="form-select border-start-0" id="supplyStatus" name="status">
+                <option value="available">Available</option>
+                <option value="unavailable">Unavailable</option>
               </select>
             </div>
           </div>
@@ -933,9 +1016,10 @@ document.addEventListener("DOMContentLoaded", () => {
     <!-- DataTables JS -->
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+    
 <script>
 // Triggered when clicking the "Edit" button
-function populateEditForm(id, name, price, quantity, category, type, image) {
+function populateEditForm(id, name, price, quantity, category, type, image, status = "available") {
   document.getElementById('supplyId').value = id;
   document.getElementById('supplyName').value = name;
   document.getElementById('supplyPrice').value = price;
@@ -945,24 +1029,45 @@ function populateEditForm(id, name, price, quantity, category, type, image) {
   document.getElementById('supplyAction').value = 'edit';
   document.getElementById('addSupplyModalLabel').innerText = 'Edit Supply';
 
-  // Clear file input
-  document.getElementById('supplyImage').value = '';
-  
-  // Show current image if exists
-  const preview = document.getElementById('imagePreview');
-  if (image) {
-    preview.innerHTML = `<div class="alert alert-info p-2">Current image: <img src="${image}" style="max-width:100px; max-height:100px;" class="ms-2"></div>`;
+  // Status logic
+  const statusWrapper = document.getElementById("statusWrapper");
+  const supplyStatus = document.getElementById("supplyStatus");
+
+  if (quantity == 999) {
+    statusWrapper.classList.remove("d-none");
+    supplyStatus.value = status;
   } else {
-    preview.innerHTML = '';
+    statusWrapper.classList.add("d-none");
+    supplyStatus.value = "available"; // auto set
   }
 
-  // Change button text
+  // Clear image input
+  document.getElementById('supplyImage').value = '';
+
+  // Show preview
+  const preview = document.getElementById('imagePreview');
+  preview.innerHTML = image
+    ? `<div class="alert alert-info p-2">Current image: <img src="${image}" style="max-width:100px; max-height:100px;" class="ms-2"></div>`
+    : '';
+
   document.getElementById('supplySubmitBtn').innerText = 'Save Changes';
 
-  // Show the modal
   const modal = new bootstrap.Modal(document.getElementById('addSupplyModal'));
   modal.show();
 }
+
+document.getElementById("supplyQuantity").addEventListener("input", function () {
+  const qty = parseInt(this.value);
+  const statusWrapper = document.getElementById("statusWrapper");
+  const supplyStatus = document.getElementById("supplyStatus");
+
+  if (qty === 999) {
+    statusWrapper.classList.remove("d-none");
+  } else if (qty > 0 && qty < 999) {
+    statusWrapper.classList.add("d-none");
+    supplyStatus.value = "available";
+  }
+});
 
 // Triggered when clicking the "Add" button
 function resetAddForm() {

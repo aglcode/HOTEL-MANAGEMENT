@@ -33,7 +33,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         // Reset link
-        $resetLink = "http://localhost/gitarra_apartelle/reset-password.php?token=" . urlencode($token);
+        $resetLink = "https://gitarraapartelle.site/reset-password.php?token=" . urlencode($token);
 
         // Send email
         $mail = new PHPMailer(true);

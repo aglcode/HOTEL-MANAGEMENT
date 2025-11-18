@@ -16,6 +16,9 @@ if (isset($_GET['booking_id'])) {
     
     if ($result->num_rows > 0) {
         $booking = $result->fetch_assoc();
+
+        // ➤ Compute Remaining Balance
+        $remaining_balance = floatval($booking['total_price']) - floatval($booking['amount_paid']);
         
         echo '<div class="row">';
         echo '<div class="col-md-6">';
@@ -26,7 +29,6 @@ if (isset($_GET['booking_id'])) {
         echo '<tr><td><strong>Email:</strong></td><td>' . (empty($booking['email']) ? 'Not provided' : htmlspecialchars($booking['email'])) . '</td></tr>';
         echo '<tr><td><strong>Phone:</strong></td><td>' . htmlspecialchars($booking['telephone']) . '</td></tr>';
         echo '<tr><td><strong>Address:</strong></td><td>' . htmlspecialchars($booking['address']) . '</td></tr>';
-        // echo '<tr><td><strong>Number of Guests:</strong></td><td>' . $booking['num_people'] . ' person(s)</td></tr>';
         echo '</table>';
         echo '</div>';
         
@@ -38,12 +40,13 @@ if (isset($_GET['booking_id'])) {
         echo '<tr><td><strong>Duration:</strong></td><td>' . $booking['duration'] . ' hours</td></tr>';
         echo '<tr><td><strong>Check-in:</strong></td><td>' . date('M j, Y g:i A', strtotime($booking['start_date'])) . '</td></tr>';
         echo '<tr><td><strong>Check-out:</strong></td><td>' . date('M j, Y g:i A', strtotime($booking['end_date'])) . '</td></tr>';
-        echo '<tr><td><strong>Status:</strong></td><td>';
         
+        // STATUS
+        echo '<tr><td><strong>Status:</strong></td><td>';
         $now = new DateTime();
         $start = new DateTime($booking['start_date']);
         $end = new DateTime($booking['end_date']);
-        
+
         if ($booking['status'] === 'cancelled') {
             echo '<span class="badge bg-danger">Cancelled</span>';
             if (!empty($booking['cancellation_reason'])) {
@@ -62,28 +65,45 @@ if (isset($_GET['booking_id'])) {
         echo '</div>';
         echo '</div>';
         
+        // PAYMENT SECTION
         echo '<hr>';
         echo '<h6 class="text-warning mb-3"><i class="fas fa-credit-card me-2"></i>Payment Information</h6>';
         echo '<div class="row">';
+
         echo '<div class="col-md-6">';
         echo '<table class="table table-borderless">';
         echo '<tr><td><strong>Total Price:</strong></td><td>₱' . number_format($booking['total_price'], 2) . '</td></tr>';
         echo '<tr><td><strong>Amount Paid:</strong></td><td>₱' . number_format($booking['amount_paid'], 2) . '</td></tr>';
+
+        // ➤ Remaining Balance Display
+        echo '<tr><td><strong>Remaining Balance:</strong></td><td><span class="text-danger fw-bold">₱' . number_format($remaining_balance, 2) . '</span></td></tr>';
+
         echo '<tr><td><strong>Change:</strong></td><td>₱' . number_format($booking['change_amount'], 2) . '</td></tr>';
         echo '</table>';
         echo '</div>';
+
         echo '<div class="col-md-6">';
         echo '<table class="table table-borderless">';
-        // echo '<tr><td><strong>Payment Mode:</strong></td><td>' . htmlspecialchars($booking['payment_mode']) . '</td></tr>';
-        if ($booking['payment_mode'] === 'GCash' && !empty($booking['reference_number'])) {
-            echo '<tr><td><strong>GCash Reference:</strong></td><td>' . htmlspecialchars($booking['reference_number']) . '</td></tr>';
-        }
+
+        // ➤ Always show Payment Mode
+        echo '<tr><td><strong>Payment Mode:</strong></td><td>' . htmlspecialchars($booking['payment_mode']) . '</td></tr>';
+
+        // ➤ GCash Reference
+        echo '<tr><td><strong>GCash Reference:</strong></td><td>';
+        echo !empty($booking['reference_number']) 
+                ? htmlspecialchars($booking['reference_number']) 
+                : '<span class="text-muted">N/A</span>';
+        echo '</td></tr>';
+
+        // Booking Token
         if (!empty($booking['booking_token'])) {
             echo '<tr><td><strong>Booking Token:</strong></td><td><span class="badge bg-success">' . htmlspecialchars($booking['booking_token']) . '</span></td></tr>';
         }
+
         echo '<tr><td><strong>Booking Date:</strong></td><td>' . date('M j, Y g:i A', strtotime($booking['created_at'])) . '</td></tr>';
         echo '</table>';
         echo '</div>';
+
         echo '</div>';
         
     } else {

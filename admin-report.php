@@ -44,6 +44,7 @@ while ($row = $report_result->fetch_assoc()) {
     // Store daily data
     $dailyData[] = [
         'date' => $date,
+        'year' => $dateObj->format('Y'),
         'month_name' => $dateObj->format('F'),
         'week_num' => $dateObj->format('W'),
         'month_num' => $dateObj->format('n'),
@@ -70,6 +71,16 @@ foreach ($dailyData as $day) {
     }
     $monthlyData[$monthKey]['checkins'] += $day['checkins'];
     $monthlyData[$monthKey]['income'] += $day['income'];
+}
+
+// Aggregate yearly data
+foreach ($dailyData as $day) {
+    $yearKey = $day['year'];
+    if (!isset($yearlyData[$yearKey])) {
+        $yearlyData[$yearKey] = ['checkins' => 0, 'income' => 0];
+    }
+    $yearlyData[$yearKey]['checkins'] += $day['checkins'];
+    $yearlyData[$yearKey]['income'] += $day['income'];
 }
 
 $conn->close();
@@ -393,7 +404,10 @@ $conn->close();
         <option value="daily">Daily</option>
         <option value="weekly">Weekly</option>
         <option value="monthly" selected>Monthly</option>
+        <option value="yearly">Yearly</option>
+        <option value="date">Specific Date</option>
       </select>
+      <input type="date" id="checkinsDatePicker" class="form-control form-control-sm" style="width: 160px; display: none;" onchange="updateCheckinsChart()">
       <button class="btn btn-sm btn-outline-danger" onclick="exportCheckinsPDF()">
         <i class="fas fa-file-pdf"></i> Export PDF
       </button>
@@ -411,8 +425,8 @@ $conn->close();
   </div>
 </div>
 
-  <!-- Monthly Income -->
-  <div class="card">
+<!-- Income Card -->
+<div class="card">
   <div class="d-flex justify-content-between align-items-center mb-2">
     <h5><i class="fas fa-dollar-sign text-success"></i> Income Report</h5>
     <div class="d-flex gap-2">
@@ -420,7 +434,10 @@ $conn->close();
         <option value="daily">Daily</option>
         <option value="weekly">Weekly</option>
         <option value="monthly" selected>Monthly</option>
+        <option value="yearly">Yearly</option>
+        <option value="date">Specific Date</option>
       </select>
+      <input type="date" id="incomeDatePicker" class="form-control form-control-sm" style="width: 160px; display: none;" onchange="updateIncomeChart()">
       <button class="btn btn-sm btn-outline-danger" onclick="exportIncomePDF()">
         <i class="fas fa-file-pdf"></i> Export PDF
       </button>
@@ -453,6 +470,7 @@ $conn->close();
 const dailyData = <?php echo json_encode(array_values($dailyData)); ?>;
 const weeklyData = <?php echo json_encode($weeklyData); ?>;
 const monthlyData = <?php echo json_encode($monthlyData); ?>;
+const yearlyData = <?php echo json_encode($yearlyData); ?>;
 
 // Prepare data structures
 const reportData = {
@@ -470,6 +488,16 @@ const reportData = {
     labels: Object.keys(monthlyData),
     checkins: Object.values(monthlyData).map(d => d.checkins),
     income: Object.values(monthlyData).map(d => d.income)
+  },
+  yearly: {
+    labels: Object.keys(yearlyData),
+    checkins: Object.values(yearlyData).map(d => d.checkins),
+    income: Object.values(yearlyData).map(d => d.income)
+  },
+  date: {
+    labels: [],
+    checkins: [],
+    income: []
   }
 };
 
@@ -564,12 +592,64 @@ function initIncomeChart(period = 'monthly') {
 
 function updateCheckinsChart() {
   const period = document.getElementById('checkinsPeriod').value;
-  initCheckinsChart(period);
+  const datePicker = document.getElementById('checkinsDatePicker');
+  
+  if (period === 'date') {
+    datePicker.style.display = 'block';
+    if (datePicker.value) {
+      const selectedDate = datePicker.value;
+      const dayData = dailyData.find(d => d.date === selectedDate);
+      
+      if (dayData) {
+        reportData.date = {
+          labels: [selectedDate],
+          checkins: [dayData.checkins],
+          income: [dayData.income]
+        };
+      } else {
+        reportData.date = {
+          labels: [selectedDate],
+          checkins: [0],
+          income: [0]
+        };
+      }
+      initCheckinsChart('date');
+    }
+  } else {
+    datePicker.style.display = 'none';
+    initCheckinsChart(period);
+  }
 }
 
 function updateIncomeChart() {
   const period = document.getElementById('incomePeriod').value;
-  initIncomeChart(period);
+  const datePicker = document.getElementById('incomeDatePicker');
+  
+  if (period === 'date') {
+    datePicker.style.display = 'block';
+    if (datePicker.value) {
+      const selectedDate = datePicker.value;
+      const dayData = dailyData.find(d => d.date === selectedDate);
+      
+      if (dayData) {
+        reportData.date = {
+          labels: [selectedDate],
+          checkins: [dayData.checkins],
+          income: [dayData.income]
+        };
+      } else {
+        reportData.date = {
+          labels: [selectedDate],
+          checkins: [0],
+          income: [0]
+        };
+      }
+      initIncomeChart('date');
+    }
+  } else {
+    datePicker.style.display = 'none';
+    initIncomeChart(period);
+  }
 }
 
 function updateDescription(type, period) {
@@ -582,7 +662,13 @@ function updateDescription(type, period) {
       : 'This graph displays the total income generated per week for the current year.',
     monthly: type === 'checkins'
       ? 'This graph shows the total check-ins for each month of the current year.'
-      : 'This graph displays the total income generated per month for the current year.'
+      : 'This graph displays the total income generated per month for the current year.',
+    yearly: type === 'checkins'
+      ? 'This graph shows the total check-ins for each year.'
+      : 'This graph displays the total income generated per year.',
+    date: type === 'checkins'
+      ? 'This graph shows the total check-ins for the selected date.'
+      : 'This graph displays the total income generated on the selected date.'
   };
   
   document.getElementById(`${type}Description`).textContent = descriptions[period];
@@ -601,6 +687,9 @@ function updateSummary(type, data, isCurrency) {
   const color = type === 'checkins' ? 'blue' : 'green';
   const period = document.getElementById(`${type}Period`).value;
   
+  // Handle singular form for 'date' period
+  const periodLabel = period === 'date' ? 'date' : period.slice(0, -2);
+  
   document.getElementById(`${type}Summary`).innerHTML = `
     <div class="summary-box">
       <div class="summary-icon ${color}"><i class="fas fa-chart-line"></i></div>
@@ -611,19 +700,19 @@ function updateSummary(type, data, isCurrency) {
     <div class="summary-box">
       <div class="summary-icon ${color}"><i class="fas fa-chart-bar"></i></div>
       <div class="summary-text">
-        <span>Average per ${period.slice(0, -2)}</span><strong>${format(avg.toFixed(2))}</strong>
+        <span>Average per ${periodLabel}</span><strong>${format(avg.toFixed(2))}</strong>
       </div>
     </div>
     <div class="summary-box">
       <div class="summary-icon ${color}"><i class="fas fa-arrow-up"></i></div>
       <div class="summary-text">
-        <span>Highest ${period.slice(0, -2)}</span><strong>${format(max)}</strong>
+        <span>Highest ${periodLabel}</span><strong>${format(max)}</strong>
       </div>
     </div>
     <div class="summary-box">
       <div class="summary-icon ${color}"><i class="fas fa-arrow-down"></i></div>
       <div class="summary-text">
-        <span>Lowest ${period.slice(0, -2)}</span><strong>${format(min)}</strong>
+        <span>Lowest ${periodLabel}</span><strong>${format(min)}</strong>
       </div>
     </div>
   `;
