@@ -63,9 +63,30 @@ if ($action === 'checkout' && $guest_id > 0) {
     $stmt->close();
 
     if ($guest) {
-        $total_cost = floatval($guest['total_price']);
+        // ✅ FIX: Calculate total including previous charges for rebooked guests
+        $current_total = floatval($guest['total_price']);
+        $previous_charges = floatval($guest['previous_charges'] ?? 0);
+        $is_rebooked = ($guest['is_rebooked'] == 1);
+        
+        // If rebooked, total = previous charges + current charges
+        // If not rebooked, total = current charges only
+        $total_cost = $is_rebooked && $previous_charges > 0 
+            ? $previous_charges + $current_total 
+            : $current_total;
+        
         $amount_paid = floatval($guest['amount_paid']);
         $balance = $total_cost - $amount_paid;
+        
+        // ✅ DEBUG: Log the calculation
+        error_log("=== CHECKOUT CALCULATION ===");
+        error_log("Guest ID: {$guest_id}");
+        error_log("Is Rebooked: " . ($is_rebooked ? 'YES' : 'NO'));
+        error_log("Current Total: {$current_total}");
+        error_log("Previous Charges: {$previous_charges}");
+        error_log("Overall Total: {$total_cost}");
+        error_log("Amount Paid: {$amount_paid}");
+        error_log("Balance Due: {$balance}");
+        error_log("==========================");
 
         if ($balance > 0) {
             echo json_encode([
@@ -251,14 +272,29 @@ if ($action === 'extend' && $guest_id > 0) {
 
         $new_total = $guest['total_price'] + $extension_fee;
 
+        // ✅ FIX: Update total_price but DON'T update amount_paid
+        // This creates the balance that needs to be paid at checkout
         $stmt = $conn->prepare("
             UPDATE checkins 
-            SET check_out_date=?, total_price=?, stay_duration=stay_duration+1 
+            SET check_out_date=?, 
+                total_price=?, 
+                stay_duration=stay_duration+1,
+                last_modified=NOW()
             WHERE id=?
         ");
         $stmt->bind_param('sdi', $new_checkout_str, $new_total, $guest_id);
         $stmt->execute();
         $stmt->close();
+        
+        // ✅ DEBUG: Log the extension
+        error_log("=== EXTEND OPERATION ===");
+        error_log("Guest ID: {$guest_id}");
+        error_log("Previous Total: " . $guest['total_price']);
+        error_log("Extension Fee: {$extension_fee}");
+        error_log("New Total: {$new_total}");
+        error_log("Amount Paid: " . $guest['amount_paid']);
+        error_log("Balance After Extend: " . ($new_total - floatval($guest['amount_paid'])));
+        error_log("=======================");
 
         // Extend keycard
         $stmt_k = $conn->prepare("
