@@ -161,7 +161,8 @@ if ($action === 'checkout' && $guest_id > 0) {
         echo json_encode([
             'success' => true,
             'message' => 'Guest checked out successfully. ' . $deleted_orders . ' order(s) deleted.',
-            'deleted_orders' => $deleted_orders
+            'deleted_orders' => $deleted_orders,
+            'room_number' => $guest['room_number']
         ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Guest not found or already checked out']);
@@ -1718,6 +1719,29 @@ error_log("=============================");
 
 <script>
 
+  const CLEANING_STORAGE_KEY = 'rooms_in_cleaning';
+
+function setRoomToCleaning(roomNumber) {
+  try {
+    const cleaningRooms = JSON.parse(localStorage.getItem(CLEANING_STORAGE_KEY) || '{}');
+    const cleaningEndTime = Date.now() + (20 * 60 * 1000);
+    
+    cleaningRooms[roomNumber] = {
+      startTime: Date.now(),
+      endTime: cleaningEndTime
+    };
+    
+    localStorage.setItem(CLEANING_STORAGE_KEY, JSON.stringify(cleaningRooms));
+    console.log(`🧹 Room ${roomNumber} set to cleaning until ${new Date(cleaningEndTime).toLocaleTimeString()}`);
+    return true;
+  } catch (e) {
+    console.error('Failed to set cleaning status:', e);
+    return false;
+  }
+}
+
+window.setRoomToCleaning = setRoomToCleaning;
+
   // toast 
   document.addEventListener("DOMContentLoaded", () => {
   const successToast = document.getElementById("checkinSuccessToast");
@@ -2908,8 +2932,44 @@ function checkOutGuest(guestId) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Redirect with success parameter for toast
-                    window.location.href = '?success=checkedout';
+                    // ✅ CRITICAL: Trigger cleaning BEFORE redirect
+                    const roomNumber = data.room_number;
+                    
+                    if (roomNumber) {
+                        console.log(`🧹 Setting room ${roomNumber} to cleaning status...`);
+                        
+                        // Try to use the cleaning system if available
+                        if (typeof window.RoomCleaningSystem !== 'undefined') {
+                            window.RoomCleaningSystem.setRoomToCleaning(roomNumber);
+                        } else if (typeof setRoomToCleaning === 'function') {
+                            setRoomToCleaning(roomNumber);
+                        } else {
+                            // Fallback: Store in localStorage directly
+                            try {
+                                const cleaningRooms = JSON.parse(localStorage.getItem('rooms_in_cleaning') || '{}');
+                                const cleaningEndTime = Date.now() + (20 * 60 * 1000); // 20 minutes
+                                
+                                cleaningRooms[roomNumber] = {
+                                    startTime: Date.now(),
+                                    endTime: cleaningEndTime
+                                };
+                                
+                                localStorage.setItem('rooms_in_cleaning', JSON.stringify(cleaningRooms));
+                                console.log(`✅ Room ${roomNumber} set to cleaning (fallback method)`);
+                            } catch (e) {
+                                console.error('Failed to set cleaning status:', e);
+                            }
+                        }
+                        
+                        // Small delay to ensure localStorage is written
+                        setTimeout(() => {
+                            window.location.href = '?success=checkedout';
+                        }, 200);
+                    } else {
+                        // No room number returned, redirect immediately
+                        console.warn('⚠️ No room number returned from checkout');
+                        window.location.href = '?success=checkedout';
+                    }
                 } else if (data.payment_required) {
                     showPaymentForm({
                         guest_id: data.guest_id,
@@ -3064,27 +3124,34 @@ function showPaymentForm(paymentDetails, autoCheckout = false) {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          if (autoCheckout && data.can_checkout) {
-            fetch("receptionist-guest.php", {
-              method: "POST",
-              headers: { "Content-Type": "application/x-www-form-urlencoded" },
-              body: `action=checkout&guest_id=${paymentDetails.guest_id}`
-            })
-            .then(response => response.json())
-            .then(checkoutData => {
-              if (checkoutData.success) {
-                window.location.href = '?success=checkedout';
-              } else {
-                Swal.fire("Error", checkoutData.message || "Checkout failed", "error");
-              }
-            })
-            .catch(error => {
-              console.error("Checkout Error:", error);
-              Swal.fire("Error", "An error occurred during checkout.", "error");
-            });
-          } else {
+          //  Show success message with payment details
+          const remainingBalance = parseFloat(data.due_amount) || 0;
+          
+          let messageHtml = `
+            <div style="text-align: center;">
+              <p style="color: #28a745; font-weight: 600; margin-bottom: 15px; font-size: 1.1rem;">
+                 Payment of ₱${result.value.amount.toFixed(2)} processed successfully!
+              </p>`;
+          
+          if (remainingBalance > 0) {
+            messageHtml += `
+              <p style="color: #dc3545; font-weight: 600; font-size: 1rem; margin: 10px 0;">
+                Remaining balance: ₱${remainingBalance.toFixed(2)}
+              </p>`;
+          } 
+          
+          messageHtml += `</div>`;
+          
+          Swal.fire({
+            title: "Payment Successful",
+            html: messageHtml,
+            icon: "success",
+            confirmButtonColor: '#8b1d2d',
+            confirmButtonText: 'OK'
+          }).then(() => {
+            // Reload page to show updated payment information
             window.location.href = '?success=payment';
-          }
+          });
         } else {
           Swal.fire("Error", data.message || "Payment failed", "error");
         }

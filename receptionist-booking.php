@@ -293,16 +293,14 @@ if ($filter_status === 'upcoming') {
     $where[] = "b.status = 'cancelled'";
 }
 
-// Build query
+
+// Build query - REMOVE LIMIT for DataTables
 $query = "SELECT b.*, r.room_type FROM bookings b 
           LEFT JOIN rooms r ON b.room_number = r.room_number";
 if ($where) {
     $query .= " WHERE " . implode(" AND ", $where);
 }
-$query .= " ORDER BY b.start_date DESC LIMIT ?, ?";
-$types .= "ii";
-$params[] = $offset;
-$params[] = $limit;
+$query .= " ORDER BY b.start_date DESC";
 
 // Execute query
 $stmt = $conn->prepare($query);
