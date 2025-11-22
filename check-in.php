@@ -6,19 +6,83 @@ date_default_timezone_set('Asia/Manila');
 // ============================
 // Initialize core variables
 // ============================
-$checkInDate = date("Y-m-d H:i:s");
-$checkInDisplay = date("F j, Y h:i A");
-
-// ✅ IMPROVED: Check both GET and POST for booking flag
 $from_booking = !empty($_GET['guest_name']) || (!empty($_POST['from_booking']) && $_POST['from_booking'] === 'yes');
+
+// Get initial values from URL
 $guest_name = $_GET['guest_name'] ?? '';
+$address = $_GET['address'] ?? '';
+$telephone = $_GET['telephone'] ?? '';
 $checkin = $_GET['checkin'] ?? '';
 $checkout = $_GET['checkout'] ?? '';
-$num_people = $_GET['num_people'] ?? '';
+
+// Get booking payment info for reference
+$booking_payment = $_GET['booking_payment'] ?? '';
+$booking_payment_method = $_GET['booking_payment_method'] ?? '';
+$booking_gcash_ref = $_GET['booking_gcash_ref'] ?? '';
 
 $room_number = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? (int)($_POST['room_number'] ?? 0)
     : (int)($_GET['room_number'] ?? 0);
+
+// If coming from booking and missing data, fetch from database
+if ($from_booking && !empty($guest_name) && (empty($address) || empty($telephone))) {
+    // Try to fetch from bookings table
+    $fetchBookingQuery = "SELECT address, telephone, start_date, end_date, total_price, payment_mode, reference_number 
+                          FROM bookings 
+                          WHERE guest_name = ? 
+                          AND room_number = ? 
+                          AND status = 'upcoming'
+                          ORDER BY created_at DESC 
+                          LIMIT 1";
+    $stmtFetch = $conn->prepare($fetchBookingQuery);
+    $stmtFetch->bind_param("si", $guest_name, $room_number);
+    $stmtFetch->execute();
+    $bookingData = $stmtFetch->get_result()->fetch_assoc();
+    $stmtFetch->close();
+    
+    if ($bookingData) {
+        // Fill in missing data from database
+        $address = $address ?: ($bookingData['address'] ?? '');
+        $telephone = $telephone ?: ($bookingData['telephone'] ?? '');
+        $checkin = $checkin ?: ($bookingData['start_date'] ?? '');
+        $checkout = $checkout ?: ($bookingData['end_date'] ?? '');
+        
+        // Also get booking payment info
+        $booking_payment = $booking_payment ?: ($bookingData['total_price'] ?? '');
+        $booking_payment_method = $booking_payment_method ?: ($bookingData['payment_mode'] ?? '');
+        $booking_gcash_ref = $booking_gcash_ref ?: ($bookingData['reference_number'] ?? '');
+    }
+}
+
+// Calculate stay duration from check-in and check-out dates if available
+$stay_duration = '';
+if (!empty($checkin) && !empty($checkout)) {
+    $checkin_time = strtotime($checkin);
+    $checkout_time = strtotime($checkout);
+    $duration_hours = ($checkout_time - $checkin_time) / 3600;
+    
+    // Match to available durations (3, 6, 12, 24)
+    if ($duration_hours <= 3) {
+        $stay_duration = 3;
+    } elseif ($duration_hours <= 6) {
+        $stay_duration = 6;
+    } elseif ($duration_hours <= 12) {
+        $stay_duration = 12;
+    } else {
+        $stay_duration = 24;
+    }
+}
+
+// ============================
+// Initialize check-in display based on booking or current time
+// ============================
+$checkInDate = date("Y-m-d H:i:s");
+$checkInDisplay = date("F j, Y h:i A");
+
+// If coming from booking with scheduled times, use those instead
+if ($from_booking && !empty($checkin)) {
+    $checkInDisplay = date("F j, Y h:i A", strtotime($checkin));
+}
 
 if (!$room_number) {
     echo "Error: Room number is required.";
@@ -71,7 +135,7 @@ if (!$room && $_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // ============================
-// ✅ VALIDATION ONLY IF NOT FROM BOOKING SUMMARY
+// VALIDATION ONLY IF NOT FROM BOOKING SUMMARY
 // ============================
 if (!$from_booking) {
     // Active check-in conflict
@@ -421,7 +485,7 @@ if (!$from_booking) {
     }
 }
 
-// ✅ Make room available if no issues
+// Make room available if no issues
 $conn->query("UPDATE rooms SET status = 'available' WHERE room_number = $room_number AND status != 'maintenance'");
 
 // ============================
@@ -471,7 +535,7 @@ usort($upcomingSchedules, function($a, $b) {
 });
 
 // ============================
-// ✅ FORM SUBMISSION WITH SMART VALIDATION
+// FORM SUBMISSION WITH SMART VALIDATION
 // ============================
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $guest_name_submitted = htmlspecialchars(trim($_POST['guest_name']));
@@ -520,7 +584,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $check_out_mysql = $check_out_datetime->format('Y-m-d H:i:s');
 
     // ============================
-    // ✅ CONFLICT CHECKS (ONLY IF NOT FROM BOOKING)
+    // CONFLICT CHECKS (ONLY IF NOT FROM BOOKING)
     // ============================
     if (!$from_booking) {
         // Check for overlapping check-ins
@@ -593,7 +657,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // ============================
-    // ✅ Insert check-in record
+    // Insert check-in record
     // ============================
     $sql = "INSERT INTO checkins 
             (guest_name, address, telephone, room_number, room_type, stay_duration,
@@ -619,7 +683,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $updateStmt->execute();
         $updateStmt->close();
 
-        // ✅ Update booking status to completed if from booking
+        // Update booking status to completed if from booking
         if ($from_booking) {
             $updateBookingQuery = "
                 UPDATE bookings 
@@ -728,8 +792,47 @@ $conn->close();
                 <div class="p-6">
                     <form method="post" id="checkInForm" onsubmit="return validateForm();">
                         <input type="hidden" name="room_number" value="<?php echo htmlspecialchars($room_number); ?>">
-                        <!-- ✅ Hidden field to track if from booking -->
+                        <!-- Hidden field to track if from booking -->
                         <input type="hidden" name="from_booking" value="<?php echo $from_booking ? 'yes' : 'no'; ?>">
+
+<?php if ($from_booking && !empty($booking_payment)): ?>
+<div class="mb-6">
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
+        <h5 class="font-medium text-blue-700 flex items-center mb-3">
+            <i class="fas fa-receipt mr-2"></i>Booking Payment Information (For Reference Only)
+        </h5>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div>
+                <span class="text-blue-600 font-medium">Booking Payment:</span>
+                <span class="text-blue-800 ml-2">₱<?php echo number_format($booking_payment, 2); ?></span>
+            </div>
+            <div>
+                <span class="text-blue-600 font-medium">Payment Method:</span>
+                <span class="text-blue-800 ml-2">
+                    <?php 
+                    // Display payment method with proper capitalization
+                    if (strtolower($booking_payment_method) === 'gcash') {
+                        echo 'GCash';
+                    } else {
+                        echo ucfirst(htmlspecialchars($booking_payment_method));
+                    }
+                    ?>
+                </span>
+            </div>
+            <?php if (!empty($booking_gcash_ref) && strtolower($booking_payment_method) === 'gcash'): ?>
+            <div>
+                <span class="text-blue-600 font-medium">GCash Ref:</span>
+                <span class="text-blue-800 ml-2"><?php echo htmlspecialchars($booking_gcash_ref); ?></span>
+            </div>
+            <?php endif; ?>
+        </div>
+        <div class="mt-3 p-2 bg-blue-100 rounded text-xs text-blue-700">
+            <i class="fas fa-info-circle mr-1"></i>
+            <strong>Note:</strong> This payment was for the booking reservation. You still need to collect the check-in payment below.
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
                         <div class="mb-8">
                             <div class="border-l-4 p-4 rounded-lg mb-6"
@@ -763,10 +866,10 @@ $conn->close();
                     $checkOutTime = strtotime($schedule['check_out_date']);
                     $currentTime = time();
                     
-                    // ✅ Currently occupied = check-in has started AND hasn't ended yet
+                    // Currently occupied = check-in has started AND hasn't ended yet
                     $isCurrentlyOccupied = ($checkInTime <= $currentTime) && ($checkOutTime > $currentTime);
                     
-                    // ✅ Upcoming = hasn't started yet
+                    // Upcoming = hasn't started yet
                     $isUpcoming = $checkInTime > $currentTime;
                     
                     $borderColor = $schedule['type'] === 'checkin' ? 'border-blue-500' : 'border-purple-500';
@@ -816,20 +919,36 @@ $conn->close();
                                     <span class="ml-2"><?php echo date('M d, Y h:i A', $checkOutTime); ?></span>
                                 </div>
                             </div>
-                            <?php 
-                            $duration = ($checkOutTime - $checkInTime) / 3600;
-                            $remainingHours = max(0, ($checkOutTime - $currentTime) / 3600);
-                            $hoursUntilStart = max(0, ($checkInTime - $currentTime) / 3600);
-                            ?>
-                            <div class="mt-2 text-xs text-gray-600">
-                                <i class="fas fa-clock mr-1"></i>
-                                Duration: <?php echo number_format($duration, 1); ?> hours
-                                <?php if ($isCurrentlyOccupied && $remainingHours > 0): ?>
-                                    • <span class="text-orange-600 font-medium"><?php echo number_format($remainingHours, 1); ?> hours remaining</span>
-                                <?php elseif ($isUpcoming && $hoursUntilStart > 0): ?>
-                                    • <span class="text-blue-600 font-medium">Starts in <?php echo number_format($hoursUntilStart, 1); ?> hours</span>
-                                <?php endif; ?>
-                            </div>
+                                <?php 
+                                $duration = ($checkOutTime - $checkInTime) / 3600;
+                                $remainingHours = max(0, ($checkOutTime - $currentTime) / 3600);
+                                $hoursUntilStart = max(0, ($checkInTime - $currentTime) / 3600);
+
+                                //  Format time display function
+                                function formatTimeDisplay($hours) {
+                                    if ($hours >= 1) {
+                                        $wholeHours = floor($hours);
+                                        $minutes = round(($hours - $wholeHours) * 60);
+                                        if ($minutes > 0) {
+                                            return $wholeHours . ' hour' . ($wholeHours > 1 ? 's' : '') . ' ' . $minutes . ' min';
+                                        } else {
+                                            return $wholeHours . ' hour' . ($wholeHours > 1 ? 's' : '');
+                                        }
+                                    } else {
+                                        $minutes = round($hours * 60);
+                                        return $minutes . ' minute' . ($minutes > 1 ? 's' : '');
+                                    }
+                                }
+                                ?>
+                                <div class="mt-2 text-xs text-gray-600">
+                                    <i class="fas fa-clock mr-1"></i>
+                                    Duration: <?php echo formatTimeDisplay($duration); ?>
+                                    <?php if ($isCurrentlyOccupied && $remainingHours > 0): ?>
+                                        • <span class="text-orange-600 font-medium"><?php echo formatTimeDisplay($remainingHours); ?> remaining</span>
+                                    <?php elseif ($isUpcoming && $hoursUntilStart > 0): ?>
+                                        • <span class="text-blue-600 font-medium">Starts in <?php echo formatTimeDisplay($hoursUntilStart); ?></span>
+                                    <?php endif; ?>
+                                </div>
                         </div>
                     </div>
                 </div>
@@ -876,15 +995,16 @@ $conn->close();
                                             <i class="fas fa-mobile"></i>
                                             </span>
                                             <input
-                                            type="text"
-                                            id="telephone"
-                                            name="telephone"
-                                            class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
-                                            placeholder="+63 9xx-xxx-xxxx"
-                                            required
-                                            oninput="formatPhilippineNumber(this)"
-                                            onblur="checkPhoneValidity(this)"
-                                            >
+                                                type="text"
+                                                id="telephone"
+                                                name="telephone"
+                                                class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                                                placeholder="+63 9xx-xxx-xxxx"
+                                                value="<?= htmlspecialchars($telephone) ?>"
+                                                required
+                                                oninput="formatPhilippineNumber(this)"
+                                                onblur="checkPhoneValidity(this)"
+                                                >
                                         </div>
 
                                             <div id="phone-error" class="text-red-500 text-sm mb-1 hidden">
@@ -899,7 +1019,7 @@ $conn->close();
                                                 <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-lg">
                                                     <i class="fas fa-map-marker-alt"></i>
                                                 </span>
-                                                <input type="text" name="address" class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors" required>
+                                                    <input type="text" name="address" class="flex-1 px-4 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors" value="<?= htmlspecialchars($address) ?>" required>
                                             </div>
                                         </div>
                                     </div>
@@ -923,10 +1043,10 @@ $conn->close();
                                             <label class="block text-gray-700 text-sm font-medium mb-2">Stay Duration</label>
                                             <select name="stay_duration" id="stay_duration" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors" required onchange="updateSummary();">
                                                 <option value="">Select Duration</option>
-                                                <option value="3">3 Hours - ₱<?php echo number_format($room['price_3hrs'], 2); ?></option>
-                                                <option value="6">6 Hours - ₱<?php echo number_format($room['price_6hrs'], 2); ?></option>
-                                                <option value="12">12 Hours - ₱<?php echo number_format($room['price_12hrs'], 2); ?></option>
-                                                <option value="24">24 Hours - ₱<?php echo number_format($room['price_24hrs'], 2); ?></option>
+                                                <option value="3" <?= $stay_duration == 3 ? 'selected' : '' ?>>3 Hours - ₱<?php echo number_format($room['price_3hrs'], 2); ?></option>
+                                                <option value="6" <?= $stay_duration == 6 ? 'selected' : '' ?>>6 Hours - ₱<?php echo number_format($room['price_6hrs'], 2); ?></option>
+                                                <option value="12" <?= $stay_duration == 12 ? 'selected' : '' ?>>12 Hours - ₱<?php echo number_format($room['price_12hrs'], 2); ?></option>
+                                                <option value="24" <?= $stay_duration == 24 ? 'selected' : '' ?>>24 Hours - ₱<?php echo number_format($room['price_24hrs'], 2); ?></option>
                                             </select>
                                         </div>
                                         <div class="mb-4">
@@ -1123,42 +1243,62 @@ $conn->close();
         };
 
 
-        function updateSummary() {
-            const duration = parseInt(document.getElementById("stay_duration").value);
-            if (!duration || !priceMap[duration]) {
-                document.getElementById("checkout_datetime").value = '';
-                document.getElementById("summary_duration").textContent = '-';
-                document.getElementById("summary_checkout").textContent = '-';
-                document.getElementById("summary_total").textContent = '₱0.00';
-                document.getElementById("gcash_amount_display").textContent = '₱0.00';
-                if (document.getElementById("gcash_amount_paid")) {
-                    document.getElementById("gcash_amount_paid").value = '';
-                }
-                return;
-            }
-            
-            const now = new Date();
-            const checkoutTime = new Date(now.getTime() + duration * 60 * 60 * 1000);
-            const formattedCheckout = checkoutTime.toLocaleString();
-            
-            document.getElementById("checkout_datetime").value = formattedCheckout;
-            document.getElementById("summary_duration").textContent = `${duration} hours`;
-            document.getElementById("summary_checkout").textContent = formattedCheckout;
-            
-            const totalPrice = priceMap[duration];
-            document.getElementById("summary_total").textContent = `₱${totalPrice.toFixed(2)}`;
-            document.getElementById("gcash_amount_display").textContent = `₱${totalPrice.toFixed(2)}`;
-            
-            if (document.getElementById("gcash_amount_paid")) {
-                document.getElementById("gcash_amount_paid").value = totalPrice.toFixed(2);
-            }
+function updateSummary() {
+    const duration = parseInt(document.getElementById("stay_duration").value);
+    if (!duration || !priceMap[duration]) {
+        document.getElementById("checkout_datetime").value = '';
+        document.getElementById("summary_duration").textContent = '-';
+        document.getElementById("summary_checkout").textContent = '-';
+        document.getElementById("summary_total").textContent = '₱0.00';
+        document.getElementById("gcash_amount_display").textContent = '₱0.00';
+        if (document.getElementById("gcash_amount_paid")) {
+            document.getElementById("gcash_amount_paid").value = '';
         }
+        return;
+    }
+    
+    // Get the check-in time from the input field (which may be pre-filled from booking)
+    const checkInInput = document.querySelector('input[value="<?php echo $checkInDisplay; ?>"]');
+    let baseTime;
+    
+    if (fromBooking && '<?php echo $checkin; ?>') {
+        // Use the booking's check-in time
+        baseTime = new Date('<?php echo $checkin; ?>');
+    } else {
+        // Use current time
+        baseTime = new Date();
+    }
+    
+    const checkoutTime = new Date(baseTime.getTime() + duration * 60 * 60 * 1000);
+    
+    // Format checkout time to match check-in format: "November 17, 2025 02:30 PM"
+    const formattedCheckout = checkoutTime.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    });
+    
+    document.getElementById("checkout_datetime").value = formattedCheckout;
+    document.getElementById("summary_duration").textContent = `${duration} hours`;
+    document.getElementById("summary_checkout").textContent = formattedCheckout;
+    
+    const totalPrice = priceMap[duration];
+    document.getElementById("summary_total").textContent = `₱${totalPrice.toFixed(2)}`;
+    document.getElementById("gcash_amount_display").textContent = `₱${totalPrice.toFixed(2)}`;
+    
+    if (document.getElementById("gcash_amount_paid")) {
+        document.getElementById("gcash_amount_paid").value = totalPrice.toFixed(2);
+    }
+}
 
 function selectPayment(mode) {
     // Update hidden input
     document.getElementById("payment_mode").value = mode;
 
-    // ✅ Ensure only one active input with name="amount_paid"
+    // Ensure only one active input with name="amount_paid"
     document.getElementById("cash_amount_paid").removeAttribute("name");
     document.getElementById("gcash_amount_paid").removeAttribute("name");
     if (mode === "cash") {
@@ -1203,10 +1343,10 @@ function selectPayment(mode) {
             const changeInput = document.getElementById("change");
 
             if (paid > total) {
-                // ✅ Show change only when overpaid
+                // Show change only when overpaid
                 changeInput.value = (paid - total).toFixed(2);
             } else {
-                // ✅ Hide change if exact or underpaid
+                // Hide change if exact or underpaid
                 changeInput.value = '';
             }
         }
@@ -1259,7 +1399,7 @@ function selectPayment(mode) {
                 const error = document.getElementById("cash_error");
 
                 if (paid >= totalPrice) {
-                    // ✅ Valid if exact or more
+                    // Valid if exact or more
                     error.classList.add("hidden");
                 } else {
                     // ❌ Not enough payment
@@ -1334,12 +1474,12 @@ const occupiedSlots = <?php echo json_encode(array_map(function($schedule) {
     ];
 }, $upcomingSchedules)); ?>;
 
-// ✅ Check if this is from a booking
+// Check if this is from a booking
 const fromBooking = <?php echo $from_booking ? 'true' : 'false'; ?>;
 
 // Function to check if selected time conflicts with existing schedules
 function checkTimeConflict() {
-    // ✅ Skip conflict check if checking in from booking
+    // Skip conflict check if checking in from booking
     if (fromBooking) {
         hideConflictWarning();
         return;
@@ -1454,6 +1594,20 @@ document.getElementById('stay_duration').addEventListener('change', checkTimeCon
         document.querySelector("form")?.addEventListener("submit", function () {
         const input = document.getElementById("telephone");
         input.value = input.value.replace(/[\s-]/g, ""); // e.g. +639123456789
+        });
+
+        // Auto-update summary if duration is pre-selected
+        window.addEventListener('DOMContentLoaded', function() {
+            const duration = document.getElementById('stay_duration').value;
+            if (duration) {
+                updateSummary();
+            }
+            
+            // Format phone number if pre-filled
+            const phoneInput = document.getElementById('telephone');
+            if (phoneInput && phoneInput.value) {
+                formatPhilippineNumber(phoneInput);
+            }
         });
     </script>
 </body>

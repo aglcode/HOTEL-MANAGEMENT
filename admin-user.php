@@ -676,7 +676,7 @@ style="background-color: #871D2B;">
       <div class="card-body">
         <form method="POST" action="admin-user.php" class="row g-3" id="addUserForm">
           <div class="col-md-6">
-            <label for="name" class="form-label">Full Name</label>
+            <label for="name" class="form-label">Full Name<span class="text-danger">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-user"></i></span>
               <input type="text" name="name" id="name" class="form-control" placeholder="Enter full name" required>
@@ -684,7 +684,7 @@ style="background-color: #871D2B;">
           </div>
 
           <div class="col-md-6">
-            <label for="username" class="form-label">Username</label>
+            <label for="username" class="form-label">Username<span class="text-danger">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-user"></i></span>
               <input type="text" name="username" id="username" class="form-control" placeholder="Enter username" required>
@@ -692,7 +692,7 @@ style="background-color: #871D2B;">
           </div>
 
             <div class="col-md-6">
-            <label for="email" class="form-label">Email</label>
+            <label for="email" class="form-label">Email<span class="text-danger">*</span></label>
             <div class="input-group">
                 <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                 <input type="email" name="email" id="email" class="form-control" placeholder="Enter email address" required>
@@ -704,7 +704,7 @@ style="background-color: #871D2B;">
             </div>
 
           <div class="col-md-6">
-            <label for="verification_code" class="form-label">Enter Verification Code</label>
+            <label for="verification_code" class="form-label">Enter Verification Code<span class="text-danger">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-key"></i></span>
               <input type="text" name="verification_code" id="verification_code" class="form-control" placeholder="Enter code sent to email" required>
@@ -715,7 +715,7 @@ style="background-color: #871D2B;">
           </div>
 
           <div class="col-md-6">
-            <label for="password" class="form-label">Password</label>
+            <label for="password" class="form-label">Password<span class="text-danger">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-lock"></i></span>
               <input type="password" name="password" id="password" class="form-control" placeholder="Enter password" required>
@@ -724,7 +724,7 @@ style="background-color: #871D2B;">
           </div>
 
           <div class="col-md-12">
-            <label for="role" class="form-label">Role</label>
+            <label for="role" class="form-label">Role<span class="text-danger">*</span></label>
             <div class="input-group">
               <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
               <select name="role" id="role" class="form-select" required>

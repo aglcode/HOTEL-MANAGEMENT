@@ -1053,7 +1053,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 <table id="cardTable" class="table table-hover align-middle mb-0" style="width:100%;">
                     <thead class="bg-gray-50 border-bottom border-gray-200">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">ID</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">Room Number</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">Room Type</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sorting">Card Code</th>
@@ -1065,7 +1064,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     <tbody>
                         <?php while ($card = $cardsResult->fetch_assoc()): ?>
                         <tr>
-                            <td class="px-4 py-3 text-sm text-gray-900"><?= $card['id'] ?></td>
                             <td class="px-4 py-3 text-sm"><strong>#<?= htmlspecialchars($card['room_number']) ?></strong></td>
                             <td class="px-4 py-3 text-sm text-gray-900"><?= ucwords(str_replace('_', ' ', $card['room_type'])) ?></td>
                             <td class="px-4 py-3 text-sm"><span style="font-family: 'Courier New', monospace; font-weight: 600; background: #f8f9fa; padding: 4px 8px; border-radius: 4px;"><?= htmlspecialchars($card['code']) ?></span></td>
