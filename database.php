@@ -1,9 +1,15 @@
 <?php
 // Database connection
-$host = 'localhost';
-$db_name = 'hotel_db';
-$username = 'root';
-$password = '';
+// $host = 'localhost';
+// $db_name = 'hotel_db';
+// $username = 'root';
+// $password = '';
+
+// Railway
+$host = getenv('MYSQLHOST');
+$db_name = getenv('MYSQLDATABASE');
+$username = getenv('MYSQLUSER');
+$password = getenv('MYSQLPASSWORD');
 
 $conn = new mysqli($host, $username, $password, $db_name);
 
