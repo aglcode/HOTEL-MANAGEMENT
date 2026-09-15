@@ -1,6 +1,7 @@
 {
     "require": {
         "endroid/qr-code": "^5.1",
-        "phpmailer/phpmailer": "^7.0"
+        "phpmailer/phpmailer": "^7.0",
+        "ext-mysqli": "*"
     }
 }
